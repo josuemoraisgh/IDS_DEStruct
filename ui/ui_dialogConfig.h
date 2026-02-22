@@ -1,8 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'dialogConfig.ui'
 **
-** Created: Sun 30. Dec 14:09:11 2012
-**      by: Qt User Interface Compiler version 4.8.0
+** Created by: Qt User Interface Compiler version 5.15.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -11,19 +10,16 @@
 #define UI_DIALOGCONFIG_H
 
 #include <QtCore/QVariant>
-#include <QAction>
-#include <QApplication>
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QDialog>
-#include <QGroupBox>
-#include <QHBoxLayout>
-#include <QHeaderView>
-#include <QLabel>
-#include <QPushButton>
-#include <QSpacerItem>
-#include <QSpinBox>
-#include <QVBoxLayout>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QGroupBox>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QSpacerItem>
+#include <QtWidgets/QSpinBox>
+#include <QtWidgets/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
 
@@ -250,33 +246,33 @@ public:
 
     void retranslateUi(QDialog *DialogConfig)
     {
-        DialogConfig->setWindowTitle(QApplication::translate("DialogConfig", "Dialog", 0 ));
-        groupBox->setTitle(QApplication::translate("DialogConfig", "Quatidade de Cromossomos Salvos", 0 ));
-#ifndef QT_NO_WHATSTHIS
-        sb_DC_Cromo->setWhatsThis(QApplication::translate("DialogConfig", "Informe a ", 0 ));
-#endif // QT_NO_WHATSTHIS
-        label->setText(QApplication::translate("DialogConfig", "Cromossomos", 0 ));
-        cb_DC_TComo->setText(QApplication::translate("DialogConfig", "Todos os cromossomos", 0 ));
-        groupBox_2->setTitle(QApplication::translate("DialogConfig", "Salvar os dados carregados", 0 ));
-        cb_DC_config->setText(QApplication::translate("DialogConfig", "No arquivo de configura\303\247\303\243o", 0 ));
-        pb_SArquivo->setText(QApplication::translate("DialogConfig", "Salvar em arquivo *.txt", 0 ));
-        groupBox_3->setTitle(QApplication::translate("DialogConfig", "Quatidade de Cromossomos Salvos", 0 ));
-#ifndef QT_NO_WHATSTHIS
-        sb_DC_Cromo_2->setWhatsThis(QApplication::translate("DialogConfig", "Informe a ", 0 ));
-#endif // QT_NO_WHATSTHIS
-        label_2->setText(QApplication::translate("DialogConfig", "Cromossomos", 0 ));
-        cb_DC_TComo_2->setText(QApplication::translate("DialogConfig", "Todos os cromossomos", 0 ));
-        groupBox_4->setTitle(QApplication::translate("DialogConfig", "Quatidade de Cromossomos Salvos", 0 ));
-#ifndef QT_NO_WHATSTHIS
-        sb_DC_Cromo_3->setWhatsThis(QApplication::translate("DialogConfig", "Informe a ", 0 ));
-#endif // QT_NO_WHATSTHIS
-        label_3->setText(QApplication::translate("DialogConfig", "Cromossomos", 0 ));
-        cb_DC_TComo_3->setText(QApplication::translate("DialogConfig", "Todos os cromossomos", 0 ));
-        cb_DC_Auto->setText(QApplication::translate("DialogConfig", "Salvar automaticamente.", 0 ));
-        pb_DC_Concatenar->setText(QApplication::translate("DialogConfig", "Concatenar", 0 ));
-        pb_DC_Carregar->setText(QApplication::translate("DialogConfig", "Carregar ", 0 ));
-        pb_DC_Salvar->setText(QApplication::translate("DialogConfig", "Salvar Agora", 0 ));
-        pb_Fechar->setText(QApplication::translate("DialogConfig", "Fechar", 0 ));
+        DialogConfig->setWindowTitle(QCoreApplication::translate("DialogConfig", "Dialog", nullptr));
+        groupBox->setTitle(QCoreApplication::translate("DialogConfig", "Quatidade de Cromossomos Salvos", nullptr));
+#if QT_CONFIG(whatsthis)
+        sb_DC_Cromo->setWhatsThis(QCoreApplication::translate("DialogConfig", "Informe a ", nullptr));
+#endif // QT_CONFIG(whatsthis)
+        label->setText(QCoreApplication::translate("DialogConfig", "Cromossomos", nullptr));
+        cb_DC_TComo->setText(QCoreApplication::translate("DialogConfig", "Todos os cromossomos", nullptr));
+        groupBox_2->setTitle(QCoreApplication::translate("DialogConfig", "Salvar os dados carregados", nullptr));
+        cb_DC_config->setText(QCoreApplication::translate("DialogConfig", "No arquivo de configura\303\247\303\243o", nullptr));
+        pb_SArquivo->setText(QCoreApplication::translate("DialogConfig", "Salvar em arquivo *.txt", nullptr));
+        groupBox_3->setTitle(QCoreApplication::translate("DialogConfig", "Quatidade de Cromossomos Salvos", nullptr));
+#if QT_CONFIG(whatsthis)
+        sb_DC_Cromo_2->setWhatsThis(QCoreApplication::translate("DialogConfig", "Informe a ", nullptr));
+#endif // QT_CONFIG(whatsthis)
+        label_2->setText(QCoreApplication::translate("DialogConfig", "Cromossomos", nullptr));
+        cb_DC_TComo_2->setText(QCoreApplication::translate("DialogConfig", "Todos os cromossomos", nullptr));
+        groupBox_4->setTitle(QCoreApplication::translate("DialogConfig", "Quatidade de Cromossomos Salvos", nullptr));
+#if QT_CONFIG(whatsthis)
+        sb_DC_Cromo_3->setWhatsThis(QCoreApplication::translate("DialogConfig", "Informe a ", nullptr));
+#endif // QT_CONFIG(whatsthis)
+        label_3->setText(QCoreApplication::translate("DialogConfig", "Cromossomos", nullptr));
+        cb_DC_TComo_3->setText(QCoreApplication::translate("DialogConfig", "Todos os cromossomos", nullptr));
+        cb_DC_Auto->setText(QCoreApplication::translate("DialogConfig", "Salvar automaticamente.", nullptr));
+        pb_DC_Concatenar->setText(QCoreApplication::translate("DialogConfig", "Concatenar", nullptr));
+        pb_DC_Carregar->setText(QCoreApplication::translate("DialogConfig", "Carregar ", nullptr));
+        pb_DC_Salvar->setText(QCoreApplication::translate("DialogConfig", "Salvar Agora", nullptr));
+        pb_Fechar->setText(QCoreApplication::translate("DialogConfig", "Fechar", nullptr));
     } // retranslateUi
 
 };

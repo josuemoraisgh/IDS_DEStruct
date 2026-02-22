@@ -1,8 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'dialogDecimacao.ui'
 **
-** Created: Sun 30. Dec 14:09:11 2012
-**      by: Qt User Interface Compiler version 4.8.0
+** Created by: Qt User Interface Compiler version 5.15.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -11,19 +10,16 @@
 #define UI_DIALOGDECIMACAO_H
 
 #include <QtCore/QVariant>
-#include <QAction>
-#include <QApplication>
-#include <QButtonGroup>
-#include <QComboBox>
-#include <QDialog>
-#include <QGroupBox>
-#include <QHBoxLayout>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QSpacerItem>
-#include <QVBoxLayout>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QGroupBox>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QSpacerItem>
+#include <QtWidgets/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
 
@@ -129,27 +125,27 @@ public:
 
     void retranslateUi(QDialog *DialogDecimacao)
     {
-        DialogDecimacao->setWindowTitle(QApplication::translate("DialogDecimacao", "Dialog", 0 ));
-        label->setText(QApplication::translate("DialogDecimacao", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+        DialogDecimacao->setWindowTitle(QCoreApplication::translate("DialogDecimacao", "Dialog", nullptr));
+        label->setText(QCoreApplication::translate("DialogDecimacao", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\">Variavel:</span></p></body></html>", 0 ));
-        groupBox->setTitle(QApplication::translate("DialogDecimacao", "Decima\303\247\303\243o", 0 ));
-        labelTal20->setText(QApplication::translate("DialogDecimacao", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\">Variavel:</span></p></body></html>", nullptr));
+        groupBox->setTitle(QCoreApplication::translate("DialogDecimacao", "Decima\303\247\303\243o", nullptr));
+        labelTal20->setText(QCoreApplication::translate("DialogDecimacao", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\">tal/20 &lt; </span></p></body></html>", 0 ));
-#ifndef QT_NO_WHATSTHIS
-        lineEditDelta->setWhatsThis(QApplication::translate("DialogDecimacao", "Valor de Decima\303\247\303\243o de cada Saida", 0 ));
-#endif // QT_NO_WHATSTHIS
-        labelTal10->setText(QApplication::translate("DialogDecimacao", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\">tal/20 &lt; </span></p></body></html>", nullptr));
+#if QT_CONFIG(whatsthis)
+        lineEditDelta->setWhatsThis(QCoreApplication::translate("DialogDecimacao", "Valor de Decima\303\247\303\243o de cada Saida", nullptr));
+#endif // QT_CONFIG(whatsthis)
+        labelTal10->setText(QCoreApplication::translate("DialogDecimacao", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\"> &lt; tal/10</span></p></body></html>", 0 ));
-        pushButton->setText(QApplication::translate("DialogDecimacao", "Fechar", 0 ));
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt;\"> &lt; tal/10</span></p></body></html>", nullptr));
+        pushButton->setText(QCoreApplication::translate("DialogDecimacao", "Fechar", nullptr));
     } // retranslateUi
 
 };

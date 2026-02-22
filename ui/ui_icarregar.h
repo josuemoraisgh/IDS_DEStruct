@@ -1,8 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'icarregar.ui'
 **
-** Created: Sun 30. Dec 14:09:11 2012
-**      by: Qt User Interface Compiler version 4.8.0
+** Created by: Qt User Interface Compiler version 5.15.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -11,23 +10,20 @@
 #define UI_ICARREGAR_H
 
 #include <QtCore/QVariant>
-#include <QAction>
-#include <QApplication>
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QDialog>
-#include <QGroupBox>
-#include <QHBoxLayout>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListView>
-#include <QProgressBar>
-#include <QPushButton>
-#include <QSpacerItem>
-#include <QSplitter>
-#include <QVBoxLayout>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QGroupBox>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QProgressBar>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QSpacerItem>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
 
@@ -162,6 +158,9 @@ public:
         horizontalLayout->addWidget(LETIni);
 
         CBTIni = new QComboBox(DialogCar);
+        CBTIni->addItem(QString());
+        CBTIni->addItem(QString());
+        CBTIni->addItem(QString());
         CBTIni->setObjectName(QString::fromUtf8("CBTIni"));
         sizePolicy.setHeightForWidth(CBTIni->sizePolicy().hasHeightForWidth());
         CBTIni->setSizePolicy(sizePolicy);
@@ -188,6 +187,9 @@ public:
         horizontalLayout->addWidget(LETFim);
 
         CBTFim = new QComboBox(DialogCar);
+        CBTFim->addItem(QString());
+        CBTFim->addItem(QString());
+        CBTFim->addItem(QString());
         CBTFim->setObjectName(QString::fromUtf8("CBTFim"));
         sizePolicy.setHeightForWidth(CBTFim->sizePolicy().hasHeightForWidth());
         CBTFim->setSizePolicy(sizePolicy);
@@ -277,65 +279,61 @@ public:
 
     void retranslateUi(QDialog *DialogCar)
     {
-        DialogCar->setWindowTitle(QApplication::translate("DialogCar", "Dialog", 0 ));
-        label_3->setText(QApplication::translate("DialogCar", "Nome do Arquivo:", 0 ));
-        BSeleciona->setText(QApplication::translate("DialogCar", "...", 0 ));
-        CBSalvar->setText(QApplication::translate("DialogCar", "Salvar", 0 ));
-        groupBox->setTitle(QApplication::translate("DialogCar", "Entrada(s)", 0 ));
-        groupBox_2->setTitle(QApplication::translate("DialogCar", "Saida(s)", 0 ));
-#ifndef QT_NO_TOOLTIP
-        label_4->setToolTip(QApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+        DialogCar->setWindowTitle(QCoreApplication::translate("DialogCar", "Dialog", nullptr));
+        label_3->setText(QCoreApplication::translate("DialogCar", "Nome do Arquivo:", nullptr));
+        BSeleciona->setText(QCoreApplication::translate("DialogCar", "...", nullptr));
+        CBSalvar->setText(QCoreApplication::translate("DialogCar", "Salvar", nullptr));
+        groupBox->setTitle(QCoreApplication::translate("DialogCar", "Entrada(s)", nullptr));
+        groupBox_2->setTitle(QCoreApplication::translate("DialogCar", "Saida(s)", nullptr));
+#if QT_CONFIG(tooltip)
+        label_4->setToolTip(QCoreApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Instante para iniciar a coleta dos dados</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta do inicio do arquivo </span></p></body></html>", 0 ));
-#endif // QT_NO_TOOLTIP
-        label_4->setText(QApplication::translate("DialogCar", "T. Inicial", 0 ));
-#ifndef QT_NO_TOOLTIP
-        LETIni->setToolTip(QApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta do inicio do arquivo </span></p></body></html>", nullptr));
+#endif // QT_CONFIG(tooltip)
+        label_4->setText(QCoreApplication::translate("DialogCar", "T. Inicial", nullptr));
+#if QT_CONFIG(tooltip)
+        LETIni->setToolTip(QCoreApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Instante para iniciar a coleta dos dados</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta do inicio do arquivo </span></p></body></html>", 0 ));
-#endif // QT_NO_TOOLTIP
-        LETIni->setText(QApplication::translate("DialogCar", "0", 0 ));
-        CBTIni->clear();
-        CBTIni->insertItems(0, QStringList()
-         << QApplication::translate("DialogCar", "seg", 0 )
-         << QApplication::translate("DialogCar", "ms", 0 )
-         << QApplication::translate("DialogCar", "us", 0 )
-        );
-#ifndef QT_NO_TOOLTIP
-        label_5->setToolTip(QApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta do inicio do arquivo </span></p></body></html>", nullptr));
+#endif // QT_CONFIG(tooltip)
+        LETIni->setText(QCoreApplication::translate("DialogCar", "0", nullptr));
+        CBTIni->setItemText(0, QCoreApplication::translate("DialogCar", "seg", nullptr));
+        CBTIni->setItemText(1, QCoreApplication::translate("DialogCar", "ms", nullptr));
+        CBTIni->setItemText(2, QCoreApplication::translate("DialogCar", "us", nullptr));
+
+#if QT_CONFIG(tooltip)
+        label_5->setToolTip(QCoreApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Instante para finalizar a coleta dos dados</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta at\303\251 o fim do arquivo </span></p></body></html>", 0 ));
-#endif // QT_NO_TOOLTIP
-        label_5->setText(QApplication::translate("DialogCar", "T.  Final", 0 ));
-#ifndef QT_NO_TOOLTIP
-        LETFim->setToolTip(QApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta at\303\251 o fim do arquivo </span></p></body></html>", nullptr));
+#endif // QT_CONFIG(tooltip)
+        label_5->setText(QCoreApplication::translate("DialogCar", "T.  Final", nullptr));
+#if QT_CONFIG(tooltip)
+        LETFim->setToolTip(QCoreApplication::translate("DialogCar", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Instante para finalizar a coleta dos dados</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta at\303\251 o fim do arquivo </span></p></body></html>", 0 ));
-#endif // QT_NO_TOOLTIP
-        LETFim->setText(QApplication::translate("DialogCar", "0", 0 ));
-        CBTFim->clear();
-        CBTFim->insertItems(0, QStringList()
-         << QApplication::translate("DialogCar", "seg", 0 )
-         << QApplication::translate("DialogCar", "ms", 0 )
-         << QApplication::translate("DialogCar", "us", 0 )
-        );
-        BConcatenar->setText(QApplication::translate("DialogCar", "Concatenar", 0 ));
-        BCarregar->setText(QApplication::translate("DialogCar", "Carregar", 0 ));
-        BCancel->setText(QApplication::translate("DialogCar", "Cancel", 0 ));
-        LVStBar->setText(QApplication::translate("DialogCar", "Aguardando Usu\303\241rio...", 0 ));
-        LVStBar2->setText(QApplication::translate("DialogCar", "Linhas: 0, Colunas: 0", 0 ));
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">OBS.: &quot;0&quot; =  coleta at\303\251 o fim do arquivo </span></p></body></html>", nullptr));
+#endif // QT_CONFIG(tooltip)
+        LETFim->setText(QCoreApplication::translate("DialogCar", "0", nullptr));
+        CBTFim->setItemText(0, QCoreApplication::translate("DialogCar", "seg", nullptr));
+        CBTFim->setItemText(1, QCoreApplication::translate("DialogCar", "ms", nullptr));
+        CBTFim->setItemText(2, QCoreApplication::translate("DialogCar", "us", nullptr));
+
+        BConcatenar->setText(QCoreApplication::translate("DialogCar", "Concatenar", nullptr));
+        BCarregar->setText(QCoreApplication::translate("DialogCar", "Carregar", nullptr));
+        BCancel->setText(QCoreApplication::translate("DialogCar", "Cancel", nullptr));
+        LVStBar->setText(QCoreApplication::translate("DialogCar", "Aguardando Usu\303\241rio...", nullptr));
+        LVStBar2->setText(QCoreApplication::translate("DialogCar", "Linhas: 0, Colunas: 0", nullptr));
     } // retranslateUi
 
 };

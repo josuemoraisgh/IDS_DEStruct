@@ -1,10 +1,10 @@
-name: Build & Release (Windows MinGW, portable) - IDS_DEStruct
+name: Build & Release (Windows MSVC 2019, portable) - IDS_DEStruct
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Versão/Tag (ex.: V1.0.0)"
+        description: "Versão/Tag (ex.: v1.0.0)"
         required: true
         type: string
       prerelease:
@@ -22,269 +22,250 @@ permissions:
 
 env:
   VERSION: ${{ github.event.inputs.version }}
-  ZIP_NAME: IDS_DEStruct-${{ github.event.inputs.version }}-windows-mingw64.zip
-  ZIP_REL_PATH: release/IDS_DEStruct-${{ github.event.inputs.version }}-windows-mingw64.zip
+  QT_VERSION: "5.15.2"
+  ZIP_NAME: IDS_DEStruct-${{ github.event.inputs.version }}-windows-x64.zip
 
 jobs:
-  build-windows-mingw:
-    name: Windows (MSYS2/MinGW64 + Qt5 + Qwt) – Portable
-    runs-on: windows-latest
+  build-windows-msvc:
+    name: Windows (MSVC 2019 + Qt5 + Qwt local)
+    runs-on: windows-2019
 
     steps:
-      - name: Checkout
+      - name: Checkout código
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
-      - name: Habilitar long paths no Git
-        shell: pwsh
-        run: |
-          git config --system core.longpaths true
-          git config --global core.longpaths true
-
-      - name: Setup MSYS2 + MinGW64 + Qt5 (+ Tools + Qwt)
-        uses: msys2/setup-msys2@v2
+      - name: Configurar MSVC 2019
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          release: true
-          update: true
-          msystem: MINGW64
-          path-type: minimal
+          arch: x64
+          vsversion: 2019
+
+      - name: Instalar Qt5
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          modules: qtscript qtsvg
           cache: true
-          install: >-
-            base-devel
-            git
-            zip
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-binutils
-            mingw-w64-x86_64-qt5-base
-            mingw-w64-x86_64-qt5-svg
-            mingw-w64-x86_64-qt5-script
-            mingw-w64-x86_64-qt5-tools
-            mingw-w64-x86_64-qt5-translations
-            mingw-w64-x86_64-ntldd-git
-            mingw-w64-x86_64-qwt-qt5
-            
-      - name: Instalar mingw-w64-x86_64-qt5-opengl manualmente (ignorar se falhar)
-        shell: msys2 {0}
-        run: |
-          pacman -S --noconfirm mingw-w64-x86_64-qt5-opengl || echo "mingw-w64-x86_64-qt5-opengl não disponível"
 
       - name: Validar versão
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${VERSION}" || { echo "Versão não informada."; exit 1; }
-          echo "Versão/Tag alvo: ${VERSION}"
-
-      - name: Detectar Qt (qmake-qt5, windeployqt-qt5) + plugins
-        shell: msys2 {0}
-        run: |
-          set -Eeuo pipefail
-          export PATH="/mingw64/bin:$PATH"
-
-          if [ -f "/mingw64/bin/qmake-qt5.exe" ]; then
-            QMAKE="/mingw64/bin/qmake-qt5.exe"
-          elif command -v qmake-qt5 >/dev/null 2>&1; then
-            QMAKE="$(command -v qmake-qt5)"
-          else
-            echo "❌ qmake-qt5 não encontrado"; exit 1
-          fi
-
-          if [ -f "/mingw64/bin/windeployqt-qt5.exe" ]; then
-            WINDEPLOY="/mingw64/bin/windeployqt-qt5.exe"
-          elif command -v windeployqt-qt5 >/dev/null 2>&1; then
-            WINDEPLOY="$(command -v windeployqt-qt5)"
-          else
-            WINDEPLOY=""
-          fi
-
-          PLUG_DIR="$("$QMAKE" -query QT_INSTALL_PLUGINS || true)"
-          if [ -z "$PLUG_DIR" ] || [ ! -d "$PLUG_DIR" ]; then
-            for d in /mingw64/share/qt5/plugins /mingw64/plugins /mingw64/lib/qt5/plugins; do
-              [ -d "$d" ] && PLUG_DIR="$d" && break
-            done
-          fi
-
-          echo "QMAKE=$QMAKE" >> $GITHUB_ENV
-          echo "WINDEPLOY=$WINDEPLOY" >> $GITHUB_ENV
-          echo "QT_PLUGIN_PATH=$PLUG_DIR" >> $GITHUB_ENV
-          echo "/mingw64/bin" >> $GITHUB_PATH
-
-          echo "✔ QMAKE=$QMAKE"
-          echo "✔ WINDEPLOY=$WINDEPLOY"
-          echo "✔ QT_PLUGIN_PATH=$PLUG_DIR"
-
-      - name: Criar alias "lrelease" (se necessário)
-        shell: msys2 {0}
-        run: |
-          set -Eeuo pipefail
-          export PATH="/mingw64/bin:$PATH"
-          if [ ! -f /mingw64/bin/lrelease.exe ] && [ -f /mingw64/bin/lrelease-qt5.exe ]; then
-            cp -f /mingw64/bin/lrelease-qt5.exe /mingw64/bin/lrelease.exe
-          fi
-          command -v lrelease >/dev/null 2>&1 || true
-
-      - name: Preflight do projeto
-        shell: bash
-        run: |
-          set -euo pipefail
-          [ -f IDS_DEStruct.pro ] || { echo "❌ IDS_DEStruct.pro não encontrado na raiz do repo."; ls -la; exit 1; }
-
-      - name: Gerar ci_qwt.pri (detecta include/lib do Qwt instalado)
-        shell: msys2 {0}
-        run: |
-          set -Eeuo pipefail
-          export PATH="/mingw64/bin:$PATH"
-
-          PKG="mingw-w64-x86_64-qwt-qt5"
-          pacman -Q "$PKG" >/dev/null 2>&1 || { echo "❌ Pacote $PKG não instalado."; exit 1; }
-
-          # Descobre um include dir contendo qwt_plot.h
-          INC_CAND="$(pacman -Ql "$PKG" | awk '{print $2}' | tr '\r' '\n' | grep -E '/include/.*/qwt_plot\.h$' | head -n 1 || true)"
-          if [ -z "$INC_CAND" ]; then
-            # fallback: procura por qualquer qwt_plot.h
-            INC_CAND="$(find /mingw64/include -maxdepth 3 -name qwt_plot.h 2>/dev/null | head -n 1 || true)"
-          fi
-          [ -n "$INC_CAND" ] || { echo "❌ Não achei qwt_plot.h"; exit 1; }
-          INC_DIR="$(dirname "$INC_CAND")"
-
-          # Descobre lib (static ou import lib)
-          LIB_CAND="$(pacman -Ql "$PKG" | awk '{print $2}' | tr '\r' '\n' | grep -E '/lib/(libqwt.*\.(a|dll\.a))$' | head -n 1 || true)"
-          if [ -z "$LIB_CAND" ]; then
-            LIB_CAND="$(find /mingw64/lib -maxdepth 1 -name 'libqwt*.a' -o -name 'libqwt*.dll.a' 2>/dev/null | head -n 1 || true)"
-          fi
-          [ -n "$LIB_CAND" ] || { echo "❌ Não achei libqwt*.a/.dll.a"; exit 1; }
-          LIB_DIR="$(dirname "$LIB_CAND")"
-          LIB_FILE="$(basename "$LIB_CAND")"
-
-          # Extrai -lXXXX (remove lib e extensão)
-          LIB_NAME="$LIB_FILE"
-          LIB_NAME="${LIB_NAME#lib}"
-          LIB_NAME="${LIB_NAME%.dll.a}"
-          LIB_NAME="${LIB_NAME%.a}"
-
-          cat > ci_qwt.pri <<EOF
-          # ===== CI QWT (auto) =====
-          INCLUDEPATH += $INC_DIR
-          DEPENDPATH  += $INC_DIR
-          DEFINES     += QT_DLL QWT_DLL
-          LIBS        += -L$LIB_DIR -l$LIB_NAME
-          # =========================
-          EOF
-
-          echo "✔ ci_qwt.pri criado:"
-          cat ci_qwt.pri
-
-      - name: Patch no IDS_DEStruct.pro (remove DESTDIR hardcoded + desativa LIBS antigo do Qwt + inclui ci_qwt.pri)
-        shell: msys2 {0}
-        run: |
-          set -Eeuo pipefail
-          export PATH="/mingw64/bin:$PATH"
-
-          # 1) Comenta DESTDIR hardcoded (D:\Exec\Release etc)
-          # 2) Comenta LIBS que referencia $${QWT_LOCATION}\lib\libqwt*.a (inexistente no CI)
-          # 3) Garante include(ci_qwt.pri) no final
-          # 4) Define DESTDIR para pasta local (portable)
-          sed -i 's/^[[:space:]]*DESTDIR[[:space:]]*=.*/# &/g' IDS_DEStruct.pro
-
-          sed -i 's|^[[:space:]]*LIBS[[:space:]]*+=.*QWT_LOCATION.*lib.*lib\$\${QWTLIB}.*|# &\n# (CI) Qwt é linkado via ci_qwt.pri|g' IDS_DEStruct.pro
-
-          # evita duplicar include
-          if ! grep -q 'include(ci_qwt.pri)' IDS_DEStruct.pro; then
-            printf "\n# ===== CI OVERRIDES =====\nDESTDIR = \$\$OUT_PWD/bin\ninclude(ci_qwt.pri)\n# =======================\n" >> IDS_DEStruct.pro
-          fi
-
-          echo "---- IDS_DEStruct.pro (trecho final) ----"
-          tail -n 40 IDS_DEStruct.pro
-
-      - name: Compilar (qmake + mingw32-make Release) - build out-of-source
-        shell: msys2 {0}
-        run: |
-          set -Eeuo pipefail
-          export PATH="/mingw64/bin:$PATH"
-
-          rm -rf build_ci
-          mkdir -p build_ci
-          cd build_ci
-
-          rm -f Makefile* .qmake.stash 2>/dev/null || true
-          "$QMAKE" ../IDS_DEStruct.pro "CONFIG+=release"
-
-          CORES=$(nproc || echo 2)
-          mingw32-make -j"${CORES}" release
-
-      - name: Localizar executável (.exe)
-        id: exe
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s globstar nullglob nocaseglob
-
-          mapfile -t CAND < <(ls -1t build_ci/**/IDS_DEStruct*.exe build_ci/**/ids_destruct*.exe 2>/dev/null || true)
-          if [ ${#CAND[@]} -eq 0 ]; then
-            echo "❌ Nenhum .exe encontrado em build_ci"
-            find build_ci -maxdepth 6 -type f -name "*.exe" -print 2>/dev/null || true
-            exit 1
-          fi
-
-          EXE="${CAND[0]}"
-          EXE_DIR="$(dirname "$EXE")"
-
-          echo "Executável: $EXE"
-          echo "exe_unix=$EXE" >> $GITHUB_OUTPUT
-          echo "exe_dir_unix=$EXE_DIR" >> $GITHUB_OUTPUT
-          echo "exe_win=$(cygpath -w "$EXE")" >> $GITHUB_OUTPUT
-          echo "exe_dir_win=$(cygpath -w "$EXE_DIR")" >> $GITHUB_OUTPUT
-
-      - name: windeployqt (portable) – se disponível
-        shell: msys2 {0}
-        env:
-          QT_PLUGIN_PATH: ${{ env.QT_PLUGIN_PATH }}
-        run: |
-          set -Eeuo pipefail
-          export PATH="/mingw64/bin:$PATH"
-
-          EXE_WIN="${{ steps.exe.outputs.exe_win }}"
-          if [ -z "${WINDEPLOY}" ]; then
-            echo "⚠️ windeployqt não encontrado — pulando."
-            exit 0
-          fi
-
-          "$WINDEPLOY" --compiler-runtime "$EXE_WIN" || true
-
-      - name: Empacotar ZIP (portable) em release/
         shell: pwsh
         run: |
-          $exeDirWin  = "${{ steps.exe.outputs.exe_dir_win }}"
-          $workspace  = "${{ github.workspace }}"
-          $releaseDir = Join-Path $workspace "release"
+          if ([string]::IsNullOrWhiteSpace($env:VERSION)) {
+            throw "Versão não informada"
+          }
+          Write-Host "✔ Versão/Tag: $env:VERSION"
 
-          if (-not (Test-Path $releaseDir)) { New-Item -ItemType Directory -Path $releaseDir | Out-Null }
+      - name: Verificar estrutura do projeto
+        shell: pwsh
+        run: |
+          Write-Host "Verificando arquivos do projeto..."
+          if (-not (Test-Path "IDS_DEStruct.pro")) {
+            throw "IDS_DEStruct.pro não encontrado"
+          }
+          if (-not (Test-Path "qwt")) {
+            throw "Pasta qwt/ não encontrada"
+          }
+          if (-not (Test-Path "qwt/lib")) {
+            throw "Pasta qwt/lib/ não encontrada"
+          }
+          if (-not (Test-Path "qwt/src")) {
+            throw "Pasta qwt/src/ não encontrada"
+          }
+          Write-Host "✔ Estrutura do projeto OK"
+          Write-Host "Conteúdo de qwt/lib:"
+          Get-ChildItem -Path "qwt/lib" | Select-Object Name
 
-          $zipPathAbs = Join-Path $releaseDir "${{ env.ZIP_NAME }}"
-          if (Test-Path $zipPathAbs) { Remove-Item $zipPathAbs -Force }
+      - name: Ajustar IDS_DEStruct.pro para CI
+        shell: pwsh
+        run: |
+          Write-Host "Ajustando IDS_DEStruct.pro..."
+          
+          $proFile = "IDS_DEStruct.pro"
+          $content = Get-Content $proFile -Raw
+          
+          # Remover referências a caminhos hardcoded
+          $content = $content -replace 'DIRETORIO\s*=\s*C:', '# DIRETORIO = C:'
+          $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
+          
+          # Garantir que QWT_LOCATION aponta para a pasta local
+          $content = $content -replace 'QWT_LOCATION\s*=\s*[^\r\n]+', 'QWT_LOCATION = $$PWD/qwt'
+          
+          # Comentar DESTDIR hardcoded
+          $content = $content -replace '^(\s*)DESTDIR\s*=\s*\$\$\{DIRETORIO1\}[^\r\n]+', '# $1DESTDIR = (comentado para CI)'
+          
+          # Adicionar DESTDIR relativo no final se não existir
+          if ($content -notmatch 'DESTDIR\s*=\s*\$\$OUT_PWD') {
+            $content += "`n`n# ===== CI Configuration =====`n"
+            $content += "DESTDIR = `$`$OUT_PWD/release`n"
+          }
+          
+          Set-Content -Path $proFile -Value $content -NoNewline
+          
+          Write-Host "✔ IDS_DEStruct.pro ajustado"
+          Write-Host "`n--- Trecho relevante do .pro ---"
+          Get-Content $proFile | Select-String -Pattern "(QWT_LOCATION|DESTDIR|INCLUDEPATH.*qwt|LIBS.*qwt)" -Context 0,1
 
-          Compress-Archive -Path (Join-Path $exeDirWin '*') -DestinationPath $zipPathAbs
+      - name: Criar diretório de build
+        shell: pwsh
+        run: |
+          if (Test-Path "build") {
+            Remove-Item -Path "build" -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path "build" | Out-Null
+          Write-Host "✔ Diretório build criado"
 
-          if (-not (Test-Path $zipPathAbs)) { throw "ZIP não foi gerado em: $zipPathAbs" }
-          Write-Host "ZIP gerado: $zipPathAbs"
+      - name: Executar qmake
+        shell: pwsh
+        working-directory: build
+        run: |
+          Write-Host "Executando qmake..."
+          Write-Host "Qt: $env:Qt5_DIR"
+          Write-Host "qmake: $(Get-Command qmake -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
+          
+          qmake ..\IDS_DEStruct.pro "CONFIG+=release"
+          
+          if ($LASTEXITCODE -ne 0) {
+            throw "qmake falhou com código: $LASTEXITCODE"
+          }
+          Write-Host "✔ qmake concluído"
 
-      - name: Publicar artefato (CI)
+      - name: Compilar com nmake
+        shell: pwsh
+        working-directory: build
+        run: |
+          Write-Host "Compilando com nmake..."
+          nmake release
+          
+          if ($LASTEXITCODE -ne 0) {
+            throw "nmake falhou com código: $LASTEXITCODE"
+          }
+          Write-Host "✔ Compilação concluída"
+
+      - name: Localizar executável
+        id: find-exe
+        shell: pwsh
+        run: |
+          Write-Host "Procurando executável..."
+          
+          $exePaths = @(
+            "build/release/IDS_DEStruct.exe",
+            "build/release/IDS_DEStructd.exe",
+            "build/IDS_DEStruct.exe",
+            "build/release/bin/IDS_DEStruct.exe"
+          )
+          
+          $exeFound = $null
+          foreach ($path in $exePaths) {
+            if (Test-Path $path) {
+              $exeFound = (Resolve-Path $path).Path
+              break
+            }
+          }
+          
+          if (-not $exeFound) {
+            Write-Host "❌ Executável não encontrado nos caminhos esperados"
+            Write-Host "Procurando em toda a pasta build..."
+            Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | ForEach-Object {
+              Write-Host "  Encontrado: $($_.FullName)"
+            }
+            throw "Executável não encontrado"
+          }
+          
+          Write-Host "✔ Executável encontrado: $exeFound"
+          
+          $exeDir = Split-Path -Parent $exeFound
+          "exe_path=$exeFound" >> $env:GITHUB_OUTPUT
+          "exe_dir=$exeDir" >> $env:GITHUB_OUTPUT
+
+      - name: Copiar DLLs do Qwt
+        shell: pwsh
+        run: |
+          $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          Write-Host "Copiando DLLs do Qwt para: $exeDir"
+          
+          $qwtDlls = Get-ChildItem -Path "qwt/lib" -Filter "*.dll"
+          foreach ($dll in $qwtDlls) {
+            Copy-Item -Path $dll.FullName -Destination $exeDir -Force
+            Write-Host "  Copiado: $($dll.Name)"
+          }
+          Write-Host "✔ DLLs do Qwt copiadas"
+
+      - name: windeployqt (incluir DLLs do Qt)
+        shell: pwsh
+        run: |
+          $exePath = "${{ steps.find-exe.outputs.exe_path }}"
+          $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          
+          Write-Host "Executando windeployqt em: $exePath"
+          
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$exePath"
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️ windeployqt retornou código: $LASTEXITCODE (continuando...)"
+          } else {
+            Write-Host "✔ windeployqt concluído"
+          }
+          
+          Write-Host "`nConteúdo do diretório do executável:"
+          Get-ChildItem -Path $exeDir | Select-Object Name, Length
+
+      - name: Criar pacote ZIP
+        shell: pwsh
+        run: |
+          $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          $releaseDir = "release"
+          $zipPath = Join-Path $releaseDir $env:ZIP_NAME
+          
+          if (-not (Test-Path $releaseDir)) {
+            New-Item -ItemType Directory -Path $releaseDir | Out-Null
+          }
+          
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          
+          Write-Host "Criando ZIP: $zipPath"
+          Compress-Archive -Path "$exeDir\*" -DestinationPath $zipPath
+          
+          if (-not (Test-Path $zipPath)) {
+            throw "Falha ao criar ZIP"
+          }
+          
+          $zipSize = (Get-Item $zipPath).Length / 1MB
+          Write-Host "✔ ZIP criado com sucesso: $([math]::Round($zipSize, 2)) MB"
+          
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artefato
         uses: actions/upload-artifact@v4
         with:
-          name: IDS_DEStruct-${{ env.VERSION }}-windows-mingw64
-          path: ${{ env.ZIP_REL_PATH }}
+          name: IDS_DEStruct-${{ env.VERSION }}-windows-x64
+          path: release/${{ env.ZIP_NAME }}
           if-no-files-found: error
 
-      - name: Criar Release + Tag (anexando o ZIP)
+      - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
-          name: IDS_DEStruct ${{ env.VERSION }} (Windows MinGW, portable)
-          body: ${{ github.event.inputs.notes }}
+          name: IDS_DEStruct ${{ env.VERSION }} (Windows x64)
+          body: |
+            ${{ github.event.inputs.notes }}
+            
+            ## 📦 Download
+            - **Windows x64 (MSVC 2019)**: `${{ env.ZIP_NAME }}`
+            
+            ## 🔧 Requisitos
+            - Windows 10/11 64-bit
+            - Microsoft Visual C++ 2019 Redistributable (x64)
+            
+            ## 📝 Changelog
+            Veja as mudanças nesta versão nos commits abaixo.
           prerelease: ${{ github.event.inputs.prerelease }}
-          files: ${{ env.ZIP_REL_PATH }}
+          files: release/${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

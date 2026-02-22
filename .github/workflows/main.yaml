@@ -162,13 +162,13 @@ jobs:
           LIB_NAME="${LIB_NAME%.a}"
 
           cat > ci_qwt.pri <<EOF
-# ===== CI QWT (auto) =====
-INCLUDEPATH += $INC_DIR
-DEPENDPATH  += $INC_DIR
-DEFINES     += QT_DLL QWT_DLL
-LIBS        += -L$LIB_DIR -l$LIB_NAME
-# =========================
-EOF
+          # ===== CI QWT (auto) =====
+          INCLUDEPATH += $INC_DIR
+          DEPENDPATH  += $INC_DIR
+          DEFINES     += QT_DLL QWT_DLL
+          LIBS        += -L$LIB_DIR -l$LIB_NAME
+          # =========================
+          EOF
 
           echo "✔ ci_qwt.pri criado:"
           cat ci_qwt.pri

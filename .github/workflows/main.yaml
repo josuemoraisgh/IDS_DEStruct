@@ -60,12 +60,16 @@ jobs:
             mingw-w64-x86_64-binutils
             mingw-w64-x86_64-qt5-base
             mingw-w64-x86_64-qt5-svg
-            mingw-w64-x86_64-qt5-opengl
             mingw-w64-x86_64-qt5-script
             mingw-w64-x86_64-qt5-tools
             mingw-w64-x86_64-qt5-translations
             mingw-w64-x86_64-ntldd-git
             mingw-w64-x86_64-qwt-qt5
+            
+      - name: Instalar mingw-w64-x86_64-qt5-opengl manualmente (ignorar se falhar)
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm mingw-w64-x86_64-qt5-opengl || echo "mingw-w64-x86_64-qt5-opengl não disponível"
 
       - name: Validar versão
         shell: bash
@@ -162,13 +166,13 @@ jobs:
           LIB_NAME="${LIB_NAME%.a}"
 
           cat > ci_qwt.pri <<EOF
-# ===== CI QWT (auto) =====
-INCLUDEPATH += $INC_DIR
-DEPENDPATH  += $INC_DIR
-DEFINES     += QT_DLL QWT_DLL
-LIBS        += -L$LIB_DIR -l$LIB_NAME
-# =========================
-EOF
+          # ===== CI QWT (auto) =====
+          INCLUDEPATH += $INC_DIR
+          DEPENDPATH  += $INC_DIR
+          DEFINES     += QT_DLL QWT_DLL
+          LIBS        += -L$LIB_DIR -l$LIB_NAME
+          # =========================
+          EOF
 
           echo "✔ ci_qwt.pri criado:"
           cat ci_qwt.pri
@@ -189,7 +193,7 @@ EOF
 
           # evita duplicar include
           if ! grep -q 'include(ci_qwt.pri)' IDS_DEStruct.pro; then
-            printf "\n# ===== CI OVERRIDES =====\nDESTDIR = \$$OUT_PWD/bin\ninclude(ci_qwt.pri)\n# =======================\n" >> IDS_DEStruct.pro
+            printf "\n# ===== CI OVERRIDES =====\nDESTDIR = \$\$OUT_PWD/bin\ninclude(ci_qwt.pri)\n# =======================\n" >> IDS_DEStruct.pro
           fi
 
           echo "---- IDS_DEStruct.pro (trecho final) ----"

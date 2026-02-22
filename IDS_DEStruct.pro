@@ -3,7 +3,7 @@ DIRETORIO1 = C:
 
 #################################################################
 # QWT Location
-QWT_LOCATION = $${DIRETORIO}\\SourceCode\\qwt-6.3.0
+QWT_LOCATION = ..\\qwt
 
 # Installation paths (optional)
 target.path    += $${QWT_LOCATION}\\lib

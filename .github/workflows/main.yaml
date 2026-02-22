@@ -60,12 +60,16 @@ jobs:
             mingw-w64-x86_64-binutils
             mingw-w64-x86_64-qt5-base
             mingw-w64-x86_64-qt5-svg
-            mingw-w64-x86_64-qt5-opengl
             mingw-w64-x86_64-qt5-script
             mingw-w64-x86_64-qt5-tools
             mingw-w64-x86_64-qt5-translations
             mingw-w64-x86_64-ntldd-git
             mingw-w64-x86_64-qwt-qt5
+            
+      - name: Instalar mingw-w64-x86_64-qt5-opengl manualmente (ignorar se falhar)
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm mingw-w64-x86_64-qt5-opengl || echo "mingw-w64-x86_64-qt5-opengl não disponível"
 
       - name: Validar versão
         shell: bash

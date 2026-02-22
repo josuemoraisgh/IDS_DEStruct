@@ -77,16 +77,14 @@ public:
 class Cromossomo
 {
 public:
-    qreal erro,
-          aptidao;                //Aptidão calculada pelo método BIC
-    qint32 idSaida,               //Indentificador da saida para este cromossomo
-           maiorAtraso;
-    JMathVar<qreal> err,vlrsCoefic;
-    QVector<QVector<compTermo > > regress;
-    //QVector<QVector<compTermo > > regressResid;
     Cromossomo(){erro=0.0f;aptidao=0.0f;idSaida=0;maiorAtraso=0;vlrsCoefic.clear();err.clear();regress.clear();}
+    Cromossomo(const Cromossomo &cr) {*this = cr;}
+    
+    // Operador de atribuiÃ§Ã£o com verificaÃ§Ã£o de auto-atribuiÃ§Ã£o
     void operator=(const Cromossomo &cr)
     {
+        if(this == &cr) return; // Previne auto-atribuiÃ§Ã£o
+        
         erro=cr.erro;
         aptidao=cr.aptidao;
         idSaida=cr.idSaida;
@@ -102,7 +100,17 @@ public:
             qCopy(cr.regress[i].begin(),cr.regress[i].end(),regress[i].begin());
         }
     }
-    Cromossomo(const Cromossomo &cr) {*this = cr;}
+    
+    // Membros pÃºblicos mantidos para compatibilidade com cÃ³digo existente
+    // TODO: Refatorar para tornar privados e adicionar getters/setters
+    qreal erro;
+    qreal aptidao;                //AptidÃ£o calculada pelo mÃ©todo BIC
+    qint32 idSaida;               //Indentificador da saida para este cromossomo
+    qint32 maiorAtraso;
+    JMathVar<qreal> err;
+    JMathVar<qreal> vlrsCoefic;
+    QVector<QVector<compTermo > > regress;
+    //QVector<QVector<compTermo > > regressResid;
 };
 #endif //CROMOSSOMO
 
@@ -110,10 +118,10 @@ public:
 #define PSIM
 struct PSim{
     qint32 qtSaidas;        //Quantidade de saidas
-    QList<QString> nome;    //Vetor com os nomes dos pontos de operação
-    QList<qreal>   Vmaior;  //Vetor com os maiores pontos de operação
-    QList<qreal>   Vmenor;  //Vetor com os menores pontos de operação
-    JMathVar<qreal> valores; //Matriz onde Linha é as variaveis e coluna os atrasos.
+    QList<QString> nome;    //Vetor com os nomes dos pontos de operaï¿½ï¿½o
+    QList<qreal>   Vmaior;  //Vetor com os maiores pontos de operaï¿½ï¿½o
+    QList<qreal>   Vmenor;  //Vetor com os menores pontos de operaï¿½ï¿½o
+    JMathVar<qreal> valores; //Matriz onde Linha ï¿½ as variaveis e coluna os atrasos.
                             //(sendo as primeiras linhas as variaveis de saida)
                             //(sendo as ultimas linhas as entradas)
 };
@@ -125,11 +133,11 @@ struct infAGS{
     PSim   variaveis;            //Estrutura de dados das variaveis    
     qint32 iElitismo,            //Indice do elitismo das variaveis
            qtdadeVarAnte;        //Grava a quantidade de variaveis anteriores
-    qint32 tamPop;               //Tamanho da População
+    qint32 tamPop;               //Tamanho da Populaï¿½ï¿½o
     //qreal  timeAmost;            //Tempo de Amostragem em segundos
     qreal  timeInicial;          //Tempo Inicial em segundos
     qreal  timeFinal;            //Tempo Final em segundos
-    qint16 volatile isElitismo;  //0 - não fazer nada; 1 - Se vai aproveitar o elementos do elitismos anteriores; 2 - Começar do zero a população
+    qint16 volatile isElitismo;  //0 - nï¿½o fazer nada; 1 - Se vai aproveitar o elementos do elitismos anteriores; 2 - Comeï¿½ar do zero a populaï¿½ï¿½o
 };
 #endif //INFAGS
 
@@ -155,7 +163,7 @@ struct Config
             numeroCiclos;
     qreal   serr,
             jnrr;
-    QVector<qreal> melhorAptidaoAnt;//É a melhor aptidao no ultimo reset de cada saida
+    QVector<qreal> melhorAptidaoAnt;//ï¿½ a melhor aptidao no ultimo reset de cada saida
 
     QVector<qint32 > decimacao,
                      talDecim;

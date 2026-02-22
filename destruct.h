@@ -4,6 +4,7 @@
 #include <QVector>
 #include <QString>
 #include <QThread>
+#include <QAtomicInteger>
 
 
 #include <QtCore/QObject>
@@ -51,8 +52,8 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     static QList<QList<QVector<Cromossomo> > > DES_BufferSR;
     static QList<QVector<qint32 > > DES_idChange;
-    static volatile qint32 DES_index[TAMPIPELINE];
-    static volatile qint64 tamArquivo;//,DES_iteracoes;
+    static QAtomicInt DES_index[TAMPIPELINE];
+    static QAtomicInteger<qint64> tamArquivo;//,DES_iteracoes;
     static QString DES_fileName;
     static QList<qint32> DES_cVariaveis;
     static QList<QVector<Cromossomo > > DES_crMut;
@@ -98,7 +99,7 @@ signals:
     void signal_DES_closed();
     void signal_DES_Finalizado();
     void signal_DES_Parado();
-    void signal_DES_SetStatus(const volatile qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest) const;
+    void signal_DES_SetStatus(const qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest) const;
     void signal_DES_Desenha() const;
     void signal_DES_Finalizar() const;
     void signal_DES_Status(const quint16 index) const;
@@ -113,7 +114,8 @@ private slots:
 private:
     //QWaitCondition waitSync;
     XMatriz<qreal> *DES_vlrRegressores;
-    volatile bool DES_isEquacaoEscrita,DES_isStatusSetado;
+    QAtomicInt DES_isEquacaoEscrita;
+    QAtomicInt DES_isStatusSetado;
     void DES_Carregar();
     void DES_AlgDiffEvol();
     const JMathVar<qreal> MultMatrizResiduo(Cromossomo &cr,JMathVar<qreal> &VetResiduo, const JMathVar<qreal> &matrizRegress, const JMathVar<qreal> &vetorCoefic, const JMathVar<qreal> &vetorMedido, const QVector<QVector<qreal> > &matResiduo) const;
@@ -121,7 +123,8 @@ private:
     void DES_CalcHessi(JMathVar<qreal> &matHessi,const JMathVar<qreal> &matJacob) const;
     void DES_CalcGrad(JMathVar<qreal> &matGrad,const JMathVar<qreal> &matJacob,const XVetor<qreal> &residuos) const;
     void DES_CalcGL(qreal &res,const XVetor<qreal> &hlm,const JMathVar<qreal> &gradiente,const qreal &paramAmortecimento,const qint32 &nArgs) const;
-    static volatile qint16 DES_TH_size,DES_countSR;//,DES_countPipe;
+    static QAtomicInt DES_TH_size;
+    static QAtomicInt DES_countSR;//,DES_countPipe;
     qint32 DES_TH_id;
     bool DES_idParada_Th[TAMPIPELINE];
     //SRLevMarq *DES_LM;

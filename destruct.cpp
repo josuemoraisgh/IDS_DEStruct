@@ -3,6 +3,9 @@
 #include <QFileDialog>
 #include <QSemaphore>
 #include <QDateTime>
+#include <QReadLocker>
+#include <QWriteLocker>
+#include <QMutexLocker>
 #include <math.h>
 #include <qmath.h>
 #include <QLinkedList>
@@ -47,12 +50,12 @@ QList<QList<QVector<Cromossomo > > > DEStruct::DES_BufferSR = QVector<QList<QVec
 Config          DEStruct::DES_Adj;
 QList<qint32>   DEStruct::DES_cVariaveis;
 QString         DEStruct::DES_fileName;
-volatile qint32 DEStruct::DES_index[TAMPIPELINE] = {0,0,0};
+QAtomicInt DEStruct::DES_index[TAMPIPELINE];
 bool            DEStruct::DES_isCarregar,
                 DEStruct::DES_idParadaJust[TAMPIPELINE] = {false,false,false};
-volatile qint64 DEStruct::tamArquivo=0;
-volatile qint16 DEStruct::DES_TH_size = 0,
-                DEStruct::DES_countSR = 0;
+QAtomicInteger<qint64> DEStruct::tamArquivo(0);
+QAtomicInt DEStruct::DES_TH_size(0);
+QAtomicInt DEStruct::DES_countSR(0);
 QList<qreal>    DEStruct::DES_mediaY,
                 DEStruct::DES_mediaY2;
 ////////////////////////////////////////////////////////////////////////////
@@ -120,10 +123,9 @@ inline bool CmpMaiorTerm(const compTermo &vlr1, const compTermo &vlr2)
 ////////////////////////////////////////////////////////////////////////////////
 inline bool CmpMaiorApt(const qint32 &countCr1, const qint32 &countCr2,const qint32 &idSaida)
 {
-    DEStruct::lock_DES_BufferSR.lockForRead();
+    QReadLocker locker(&DEStruct::lock_DES_BufferSR);
     const Cromossomo cr1 = DEStruct::DES_Adj.Pop.at(idSaida).at(countCr1);
     const Cromossomo cr2 = DEStruct::DES_Adj.Pop.at(idSaida).at(countCr2);
-    DEStruct::lock_DES_BufferSR.unlock();
     return(cr1.aptidao == cr2.aptidao ? cr1.erro < cr2.erro : cr1.aptidao < cr2.aptidao);
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -308,31 +310,32 @@ XVetor<T> MultMatVet(const JMathVar<T> &mat1,const XVetor<T> &vet1)
 ////////////////////////////////////////////////////////////////////////////////
 DEStruct::DEStruct() : QThread()
 {
-    mutex.lock();
-    DES_TH_id = DES_TH_size;
-    if(DES_TH_id)//Cria uma quantidade de semafaros = qtdeThread-1
     {
-        for(qint32 count=0;count<TAMPIPELINE;count++) DES_justThread[count].release();
-        DES_waitThread.release();
+        QMutexLocker locker(&mutex);
+        DES_TH_id = DES_TH_size.fetchAndAddOrdered(0);
+        if(DES_TH_id)//Cria uma quantidade de semafaros = qtdeThread-1
+        {
+            for(qint32 count=0;count<TAMPIPELINE;count++) DES_justThread[count].release();
+            DES_waitThread.release();
+        }
+        else
+        {
+            DES_Adj.modeOper_TH = 1;    
+            DES_Adj.vetPop = QVector<QList<qint32 > >(TAMPIPELINE).toList();
+            DES_Adj.vetElitismo = QVector<QList<QVector<qint32 > > >(TAMPIPELINE).toList();
+            DES_Adj.isSR = QVector<QList<QList<bool> > >(TAMPIPELINE).toList();
+            DES_Adj.isCriado=false;
+        }
+        DES_TH_size.fetchAndAddOrdered(1);
     }
-    else
-    {
-        DES_Adj.modeOper_TH = 1;    
-        DES_Adj.vetPop = QVector<QList<qint32 > >(TAMPIPELINE).toList();
-        DES_Adj.vetElitismo = QVector<QList<QVector<qint32 > > >(TAMPIPELINE).toList();
-        DES_Adj.isSR = QVector<QList<QList<bool> > >(TAMPIPELINE).toList();
-        DES_Adj.isCriado=false;
-    }
-    DES_TH_size++;
-    mutex.unlock();
     //DES_LM = new SRLevMarq();
     DES_Adj.Dados.variaveis.nome.clear();
     DES_Adj.Dados.variaveis.valores.clear();
     DES_Adj.Dados.variaveis.Vmaior.clear();
     DES_Adj.Dados.variaveis.Vmenor.clear();
     DES_RG.seed(QTime::currentTime().msec());
-    DES_isEquacaoEscrita=true;
-    DES_isStatusSetado=true;
+    DES_isEquacaoEscrita.storeRelaxed(1);
+    DES_isStatusSetado.storeRelaxed(1);
     //DES_vlrRegressores = new XMatriz<qreal>();
     start();//Inicia thread
 }
@@ -340,10 +343,11 @@ DEStruct::DEStruct() : QThread()
 ////////////////////////////////////////////////////////////////////////////////
 DEStruct::~DEStruct()
 {
-    mutex.lock();
-    DES_Adj.modeOper_TH = 0;
-    DES_TH_size--;
-    mutex.unlock();
+    {
+        QMutexLocker locker(&mutex);
+        DES_Adj.modeOper_TH = 0;
+        DES_TH_size.fetchAndAddOrdered(-1);
+    }
     quit();
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -419,41 +423,47 @@ void DEStruct::DES_Carregar()
     }
     ////////////////////////////////////////////////////////////////////////////
     //Roda apenas uma thread para inicializar o tamanho do vetor dos dados e do arquivo.
-    mutex.lock();
-    if(DES_justThread[0].tryAcquire()) justSync.wait(&mutex);
-    else
     {
-        DES_justThread[0].release(DES_TH_size-1);
-        DES_index[0] = 0;
-        if(DES_isCarregar)
+        QMutexLocker locker(&mutex);
+        if(DES_justThread[0].tryAcquire()) justSync.wait(&mutex);
+        else
         {
-            DES_Adj.Dados.variaveis.nome.clear();
-            DES_Adj.Dados.variaveis.valores.clear();
+            DES_justThread[0].release(DES_TH_size.fetchAndAddOrdered(0)-1);
+            DES_index[0].storeRelaxed(0);
+            if(DES_isCarregar)
+            {
+                DES_Adj.Dados.variaveis.nome.clear();
+                DES_Adj.Dados.variaveis.valores.clear();
+            }
+            else indexIni = DES_Adj.Dados.variaveis.valores.numColunas();
+            DES_Adj.Dados.variaveis.Vmaior.clear();
+            DES_Adj.Dados.variaveis.Vmenor.clear();
+            DES_mediaY = QVector<qreal>(DES_Adj.Dados.variaveis.qtSaidas,0.0f).toList();
+            DES_mediaY2 = QVector<qreal>(DES_Adj.Dados.variaveis.qtSaidas,0.0f).toList();
+            if (file.open(QFile::ReadOnly))
+            {
+                tamArquivo.storeRelaxed(file.size());
+                file.close();
+            }
+            else qDebug() << "Func:DES_Carregar - N�o abriu arquivo para ler tamanho";
+            emit signal_DES_Status(0);
+            //Le a variavel sem o QReadWriteLock pois apenas uma thread esta rodando.
+            if(DES_Adj.modeOper_TH==2) waitSync.wait(&mutex);
+            justSync.wakeAll();
         }
-        else indexIni = DES_Adj.Dados.variaveis.valores.numColunas();
-        DES_Adj.Dados.variaveis.Vmaior.clear();
-        DES_Adj.Dados.variaveis.Vmenor.clear();
-        DES_mediaY = QVector<qreal>(DES_Adj.Dados.variaveis.qtSaidas,0.0f).toList();
-        DES_mediaY2 = QVector<qreal>(DES_Adj.Dados.variaveis.qtSaidas,0.0f).toList();
-        if (file.open(QFile::ReadOnly))
-        {
-            tamArquivo = file.size();
-            file.close();
-        }
-        else qDebug() << "Func:DES_Carregar - N�o abriu arquivo para ler tamanho";
-        emit signal_DES_Status(0);
-        //Le a variavel sem o QReadWriteLock pois apenas uma thread esta rodando.
-        if(DES_Adj.modeOper_TH==2) waitSync.wait(&mutex);
-        justSync.wakeAll();
     }
-    mutex.unlock();
     ////////////////////////////////////////////////////////////////////////////
     //Verifica se � para fechar o programa.
-    lock_DES_modeOper_TH.lockForRead();isOk=DES_Adj.modeOper_TH<=1;lock_DES_modeOper_TH.unlock();
+    {
+        QReadLocker locker(&lock_DES_modeOper_TH);
+        isOk = DES_Adj.modeOper_TH<=1;
+    }
     if(isOk) return;
     ////////////////////////////////////////////////////////////////////////////
     //Monta a divisao para cada thread
-    const qint32 tamCadaTh = ((DES_TH_id+1)==DES_TH_size)?tamArquivo - (DES_TH_id*(tamArquivo/DES_TH_size)):(tamArquivo/DES_TH_size);//Tamanho para cada thread sendo a ultima diferente
+    const qint64 tamArquivoValue = tamArquivo.loadAcquire();
+    const qint32 DES_TH_sizeValue = DES_TH_size.loadAcquire();
+    const qint32 tamCadaTh = ((DES_TH_id+1)==DES_TH_sizeValue)?tamArquivoValue - (DES_TH_id*(tamArquivoValue/DES_TH_sizeValue)):(tamArquivoValue/DES_TH_sizeValue);//Tamanho para cada thread sendo a ultima diferente
     const qint32 tamCadaRepet = (tamCadaTh>TAMMAXCARACTER)?TAMMAXCARACTER:tamCadaTh;
     const qint32 numRepet = (tamCadaTh/tamCadaRepet) + (tamCadaTh%tamCadaRepet?1:0);
     ////////////////////////////////////////////////////////////////////////////
@@ -824,13 +834,13 @@ void DEStruct::run()
 ////////////////////////////////////////////////////////////////////////////////
 void DEStruct::slot_DES_EquacaoEscrita()
 {
-    DES_isEquacaoEscrita = true;
+    DES_isEquacaoEscrita.storeRelaxed(1);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void DEStruct::slot_DES_StatusSetado()
 {
-    DES_isStatusSetado=true;
+    DES_isStatusSetado.storeRelaxed(1);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1048,8 +1058,8 @@ void DEStruct::DES_AlgDiffEvol()
                     for(idSaida=0;idSaida<qtSaidas;idSaida++)
                         DES_MontaSaida(crBest[idSaida],DES_vcalc[idPipeLine][idSaida],DES_residuos[idPipeLine][idSaida]);
                     emit signal_DES_SetStatus(DES_Adj.iteracoes,&DES_somaSSE.at(idPipeLine),&DES_vcalc.at(idPipeLine),&DES_residuos.at(idPipeLine),&crBest); //Este tem que ser feito numa conex�o direta
-                    if(DES_isEquacaoEscrita) {emit signal_DES_EscreveEquacao();DES_isEquacaoEscrita = false;}
-                    if(DES_isStatusSetado) {emit signal_DES_Desenha();DES_isStatusSetado=false;}//Este pode ser feito numa conexao livre.
+                    if(DES_isEquacaoEscrita.loadAcquire()) {emit signal_DES_EscreveEquacao();DES_isEquacaoEscrita.storeRelaxed(0);}
+                    if(DES_isStatusSetado.loadAcquire()) {emit signal_DES_Desenha();DES_isStatusSetado.storeRelaxed(0);}//Este pode ser feito numa conexao livre.
                     isPrint = false;
                 }
                 ////////////////////////////////////////////////////////////////////////////

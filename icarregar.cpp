@@ -29,7 +29,7 @@ ICarregar::ICarregar(QWidget* parent)
     dmmTal20        = dialogMaxMin->findChild<QLabel *>( "labelTal20");
     dmmgb           = dialogMaxMin->findChild<QGroupBox *>( "groupBox");
     //////////////////////////////////////////////////////////////////////////////
-    //Conexões
+    //Conexï¿½es
     connect( dmmComboBox,  SIGNAL( activated(int)), this, SLOT(slot_UL_ChangeCombo(int)));
     connect( dialogMaxMin, SIGNAL( finished(int )), this, SLOT(slot_UL_ChangeFim(int)));
     //////////////////////////////////////////////////////////////////////////////
@@ -38,7 +38,16 @@ ICarregar::ICarregar(QWidget* parent)
 ////////////////////////////////////////////////////////////////////////////
 ICarregar::~ICarregar()
 {
-
+    // Liberar recursos alocados dinamicamente
+    if (dialogMaxMin) {
+        delete dialogMaxMin;
+        dialogMaxMin = nullptr;
+    }
+    
+    if (UL_slm) {
+        delete UL_slm;
+        UL_slm = nullptr;
+    }
 }
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -124,10 +133,10 @@ void ICarregar::ativar(const bool &atv)
             BCarregar->setText("Parar");
             BCancel->setText("Finalizar");
             DIC_pb->setRange(0,5);
-            //Seleciona as pertubações que serão lidas.
+            //Seleciona as pertubaï¿½ï¿½es que serï¿½o lidas.
             for(i=0;i < LVEntradas->selectionModel()->selectedIndexes().size();i++)
                 UL_cVariaveis.append(LVEntradas->selectionModel()->selectedIndexes().at(i).row());
-            //Como a seleção pode ter sido feita fora da ordem então é ordenado a lista.
+            //Como a seleï¿½ï¿½o pode ter sido feita fora da ordem entï¿½o ï¿½ ordenado a lista.
             qSort(UL_cVariaveis.begin(),UL_cVariaveis.end(),qLess<int>());           
             //Seleciona a variavel dependente (saida).
             DEStruct::DES_Adj.Dados.variaveis.qtSaidas = LVSaida->selectionModel()->selectedIndexes().size();
@@ -162,7 +171,7 @@ void ICarregar::slot_UL_Status(const quint16 &std)
     {
         case 0:
             //Carrega o arquivo de banco de dados.
-            //Captura os dados selecionandos e registrar os maiores e menores valores para cada variavel, os quais serão usados para a normalização.
+            //Captura os dados selecionandos e registrar os maiores e menores valores para cada variavel, os quais serï¿½o usados para a normalizaï¿½ï¿½o.
             LVStBar->setText(QObject::trUtf8("Carregando arquivo de banco de dados..."));
             DIC_pb->setValue(1);
             LVStBar->repaint();
@@ -183,7 +192,7 @@ void ICarregar::slot_UL_Status(const quint16 &std)
             break;
 
         case 3:
-            //Fazendo a decimação
+            //Fazendo a decimaï¿½ï¿½o
             if(DEStruct::DES_Adj.decimacao.size())
             {
                 DEStruct::DES_Adj.decimacao[0] = (DEStruct::DES_Adj.talDecim.at(0)/20) + ((DEStruct::DES_Adj.talDecim.at(0)%20)?1:0);
@@ -191,9 +200,9 @@ void ICarregar::slot_UL_Status(const quint16 &std)
                 dmmTal10->setText(" < "+QString::number(((qreal) DEStruct::DES_Adj.talDecim.at(0))/10.));
                 dmmTal20->setText(QString::number(((qreal) DEStruct::DES_Adj.talDecim.at(0))/20.)+" < ");
                 //dialogDecimacao->show();
-                LVStBar->setText(QObject::trUtf8("Decimação..."));
+                LVStBar->setText(QObject::trUtf8("Decimaï¿½ï¿½o..."));
             }
-            //Normalizar os dados (0 à 1) e trunca-os para duas casas decimais (considerando erro de 1%).
+            //Normalizar os dados (0 ï¿½ 1) e trunca-os para duas casas decimais (considerando erro de 1%).
             for(qint32 i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
             {
                 dmmComboBox->addItem(DEStruct::DES_Adj.Dados.variaveis.nome.at(i));
@@ -248,7 +257,7 @@ void ICarregar::slot_UL_Finalizar()
 ////////////////////////////////////////////////////////////////////////////
 void ICarregar::slot_UL_Caminho()
 {
-    //Existe um conexão nesta line edit que so dela mudar seu valor a função slot_UL_Indicar é chamada.
+    //Existe um conexï¿½o nesta line edit que so dela mudar seu valor a funï¿½ï¿½o slot_UL_Indicar ï¿½ chamada.
     LECaminho->setText(QFileDialog::getOpenFileName(this,tr("Carregar Dados"), QDir::currentPath() , tr("Arquivo de Dados (*.txt)")));
 }
 ////////////////////////////////////////////////////////////////////////////

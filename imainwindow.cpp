@@ -80,7 +80,7 @@ public:
     }
 };
 ////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// Função  ////////////////////////////////////
+/////////////////////////////// Funï¿½ï¿½o  ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 //qreal expoToReal1(const Termo *var)
 //{
@@ -110,23 +110,23 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   //ini_MW_qwtPlot();
   ini_MW_qwtPlot1();
   //////////////////////////////////////////////////////////////////////////////
-  //Conexões 
-  connect(CheckBox1, SIGNAL(stateChanged(int)),this, SLOT(slot_MW_changeCheckBox1(int)));
-  connect(CheckBox2, SIGNAL(stateChanged(int)),this, SLOT(slot_MW_changeCheckBox2(int)));
-  connect(styleComboBox, SIGNAL(activated (int)),this, SLOT(slot_MW_changeStyle(int)));
-  connect(saidaComboBox, SIGNAL(activated (int)),this, SLOT(slot_MW_changeVerSaida(int)));
-  connect( actionIni, SIGNAL( triggered() ), this, SLOT( slot_MW_IniciarFinalizar() ) );
-  connect( actionParar, SIGNAL( triggered() ), this, SLOT( slot_MW_PararContinuar() ) );
-  connect( actionCarDados, SIGNAL( triggered() ), this, SLOT( slot_MW_CarDados() ) );
-  connect( cr, SIGNAL( finished ( int )), this, SLOT( slot_MW_CarDadosExit() ) );  
-  connect( cr,  SIGNAL( signal_UL_SalvarArquivo() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
-  connect( cr,  SIGNAL( signal_UL_FName(const QString &)), this, SLOT( slot_MW_FName(const QString &)),Qt::DirectConnection);
-  connect( actionConfig, SIGNAL(triggered()), dialogConfig, SLOT(open()));
-  connect( pbSalvarDadosTxT,  SIGNAL( clicked() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
-  connect( pbSalvarDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_saveAsConfig()),Qt::DirectConnection);
-  connect( pbOpenDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_openConfig()),Qt::DirectConnection);
-  connect( pbConcDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
-  connect( actionExit, SIGNAL(triggered()), this, SLOT(close())); 
+  //ConexÃµes - Sintaxe moderna de signals/slots (Qt 5+)
+  connect(CheckBox1, &QCheckBox::stateChanged, this, &ICalc::slot_MW_changeCheckBox1);
+  connect(CheckBox2, &QCheckBox::stateChanged, this, &ICalc::slot_MW_changeCheckBox2);
+  connect(styleComboBox, QOverload<int>::of(&QComboBox::activated), this, &ICalc::slot_MW_changeStyle);
+  connect(saidaComboBox, QOverload<int>::of(&QComboBox::activated), this, &ICalc::slot_MW_changeVerSaida);
+  connect(actionIni, &QAction::triggered, this, &ICalc::slot_MW_IniciarFinalizar);
+  connect(actionParar, &QAction::triggered, this, &ICalc::slot_MW_PararContinuar);
+  connect(actionCarDados, &QAction::triggered, this, &ICalc::slot_MW_CarDados);
+  connect(cr, QOverload<int>::of(&QDialog::finished), this, &ICalc::slot_MW_CarDadosExit);
+  connect(cr, &ICarregar::signal_UL_SalvarArquivo, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
+  connect(cr, &ICarregar::signal_UL_FName, this, &ICalc::slot_MW_FName, Qt::DirectConnection);
+  connect(actionConfig, &QAction::triggered, dialogConfig, &QDialog::open);
+  connect(pbSalvarDadosTxT, &QPushButton::clicked, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
+  connect(pbSalvarDados, &QPushButton::clicked, this, &ICalc::slot_MW_saveAsConfig, Qt::DirectConnection);
+  connect(pbOpenDados, &QPushButton::clicked, this, &ICalc::slot_MW_openConfig, Qt::DirectConnection);
+  connect(pbConcDados, &QPushButton::clicked, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
+  connect(actionExit, &QAction::triggered, this, &ICalc::close); 
 
   for(qint32 i=0;i < 1/*QThread::idealThreadCount()*/;i++)
   {      
@@ -145,7 +145,7 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
     connect( ags->at(i), SIGNAL(signal_DES_Status(const quint16 &)), cr, SLOT( slot_UL_Status(const quint16 &)),Qt::QueuedConnection);
     connect( ags->at(i), SIGNAL(signal_DES_Tam()), cr, SLOT(slot_UL_Tam()),Qt::QueuedConnection);
   }
-  isThClose = false;
+  isThClose.storeRelaxed(0);
   connect( this, SIGNAL(signal_MW_Estado(const quint16 &)), ags->at(0), SLOT(slot_DES_Estado(const quint16 &)),Qt::QueuedConnection);
   connect( cr,  SIGNAL(signal_UL_Estado(const quint16 &)), ags->at(0), SLOT(slot_DES_Estado(const quint16 &)),Qt::QueuedConnection);
   //////////////////////////////////////////////////////////////////////////////
@@ -164,19 +164,43 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
 ////////////////////////////////////////////////////////////////////////////
 ICalc::~ICalc()
 {
-
+    // Liberar recursos alocados dinamicamente
+    if (ags) {
+        for (int i = 0; i < ags->size(); ++i) {
+            if (ags->at(i)) {
+                delete ags->at(i);
+            }
+        }
+        delete ags;
+        ags = nullptr;
+    }
+    
+    if (cr) {
+        delete cr;
+        cr = nullptr;
+    }
+    
+    if (xmlRW) {
+        delete xmlRW;
+        xmlRW = nullptr;
+    }
+    
+    if (dialogConfig) {
+        delete dialogConfig;
+        dialogConfig = nullptr;
+    }
 }
 ////////////////////////////////////////////////////////////////////////////
-//Fecha a tela apenas se as threads ja foram fechadas, senão manda fecha-las e aguarda
+//Fecha a tela apenas se as threads ja foram fechadas, senï¿½o manda fecha-las e aguarda
 void ICalc::closeEvent(QCloseEvent *event)
 {
     bool isOk;
-    if(isThClose) event->accept();
+    if(isThClose.loadAcquire()) event->accept();
     else
     {
         isOk = DEStruct::DES_modo_Oper_TH() == 1;       
         if(isOk) emit signal_MW_Estado(0);//Finaliza as threads
-        else QMessageBox::warning(this, tr("Impossível fechar"),tr("Finalize as tarefas para poder fecha-lo!"));
+        else QMessageBox::warning(this, tr("Impossï¿½vel fechar"),tr("Finalize as tarefas para poder fecha-lo!"));
         event->ignore();
     }
 }
@@ -185,7 +209,7 @@ void ICalc::closeEvent(QCloseEvent *event)
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_closed()
 {
-    isThClose = true;
+    isThClose.storeRelaxed(1);
     QMainWindow::close();
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -203,7 +227,7 @@ void ICalc::slot_MW_changeStyle(const int &changeStyle)
     else
     {
         qwtPlot1->setAxisTitle(QwtPlot::yLeft, "Residuos");
-        MW_crv_C->setTitle("Distribuição dos Residuos");
+        MW_crv_C->setTitle("Distribuiï¿½ï¿½o dos Residuos");
         MW_crv_R->detach();
         CheckBox1->setDisabled(true);
         CheckBox2->setDisabled(true);
@@ -297,7 +321,7 @@ void ICalc::slot_MW_IniciarFinalizar()
         DEStruct::DES_Adj.iteracoes = 0;
         DEStruct::DES_Adj.segundos = QDateTime::fromString("M1d1y0000:00:00","'M'M'd'd'y'yyhh:mm:ss");
         ////////////////////////////////////////////////////////////////////////////
-        DEStruct::DES_Adj.Dados.isElitismo = 2;//Começa do zero
+        DEStruct::DES_Adj.Dados.isElitismo = 2;//Comeï¿½a do zero
         if(DEStruct::DES_Adj.Dados.qtdadeVarAnte==DEStruct::DES_Adj.Dados.variaveis.valores.numLinhas())
         {
             if(!(QMessageBox::question(this, tr("Limpar pontos"),tr("Deseja manter os pontos do Elitismo?"),tr("&Yes"), tr("&No"),QString::null, 0, 1 ) ))
@@ -328,11 +352,11 @@ void ICalc::Iniciar()
     //MW_xbestmedia.clear();
     saidaComboBox->clear();
     ////////////////////////////////////////////////////////////////////////////
-    //Escreve os valores de máximo e mínimo das variaveis.
+    //Escreve os valores de mï¿½ximo e mï¿½nimo das variaveis.
     str.append(QString("Cl:= ")+QString::number(MW_iteracoes)+QString("; Tempo: ")+DEStruct::DES_Adj.segundos.toString("hh:mm:ss.zzz")+QString("ms\n"));
     for(i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
     {
-        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decimação = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
+        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decimaï¿½ï¿½o = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
         else str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString("; "));
     }
     textEdit->append(str);
@@ -514,7 +538,7 @@ void ICalc::slot_MW_EscreveEquacao()
     //+dt.toString("hh:mm:ss.zzz")+QString("ms\n"));
     for(i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
     {
-        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decimação = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
+        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decimaï¿½ï¿½o = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
         else str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString("; "));
     }
     for(idSaida=0;idSaida<DEStruct::DES_Adj.Dados.variaveis.qtSaidas;idSaida++)
@@ -529,10 +553,10 @@ void ICalc::slot_MW_EscreveEquacao()
                 for(i=0;i<crBest.at(idSaida).regress.at(countRegress).size();i++)
                 {
                     idVariavel = crBest.at(idSaida).regress.at(countRegress).at(i).vTermo.tTermo1.var;  //Obtem a variavel
-                    if(!DEStruct::DES_Adj.isTipoExpo) idExpo = crBest.at(idSaida).regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da Não-Linearidade)
+                    if(!DEStruct::DES_Adj.isTipoExpo) idExpo = crBest.at(idSaida).regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da Nï¿½o-Linearidade)
                     else
                     {
-                        idExpo = (qint32) crBest.at(idSaida).regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da Não-Linearidade)
+                        idExpo = (qint32) crBest.at(idSaida).regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da Nï¿½o-Linearidade)
                         idExpo +=(crBest.at(idSaida).regress.at(countRegress).at(i).expoente-idExpo)>=0.5?1:(crBest.at(idSaida).regress.at(countRegress).at(i).expoente-idExpo)<=-0.5?-1:0;
                         if(DEStruct::DES_Adj.isTipoExpo==2) idExpo = fabs(idExpo);
                     }                     
@@ -540,7 +564,7 @@ void ICalc::slot_MW_EscreveEquacao()
                     {
                         idAtraso   = crBest.at(idSaida).regress.at(countRegress).at(i).vTermo.tTermo1.atraso;
                         ///////////////////////////////////////////////////////////////////////////////////
-                        //Monta a string versão c++
+                        //Monta a string versï¿½o c++
                         /*strRegress += (idCoefic)&&(idExpo)?
                                                  (idVariavel>=1?(idExpo>1?QString("pow(" + DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "[%1],%2)*").arg(idAtraso).arg(idExpo):
                                                                 (idExpo==1?QString(DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "[%1]*").arg(idAtraso):""))
@@ -549,7 +573,7 @@ void ICalc::slot_MW_EscreveEquacao()
                                                   )
                                                  :"";*/
                         ///////////////////////////////////////////////////////////////////////////////////
-                        //Monta a string versão Scilab/MatLab
+                        //Monta a string versï¿½o Scilab/MatLab
                         strRegress += (idCoefic)&&(idExpo)?
                                     (idVariavel>=1?((idExpo!=1.)&&(idExpo!=0.)?QString("(" + DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "(k-%1)^%2)*").arg(idAtraso).arg(idExpo):
                                                    ((idExpo==1.)?QString(DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "(k-%1)*").arg(idAtraso):""))
@@ -720,7 +744,9 @@ void ICalc::slot_MW_changeCheckBox2(int st)
 void ICalc::ini_MW_interface()
 {
     dialogConfig = new QDialog(this);
-    (new Ui::DialogConfig())->setupUi(dialogConfig);
+    Ui::DialogConfig *uiConfig = new Ui::DialogConfig();
+    uiConfig->setupUi(dialogConfig);
+    // Note: uiConfig should be stored as member if needed later, or deleted in destructor
     mainToolbar = this->findChild<QToolBar *>("toolBar");
     actionExit =  this->findChild<QAction *>("actionExit");
     actionIni =  this->findChild<QAction *>( "actionIni");
@@ -843,7 +869,7 @@ void ICalc::ini_MW_interface()
     mainToolbar->addWidget(CheckBox2);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();
-    mainToolbar->addWidget(new QLabel(" Saída Visível:= ",this));
+    mainToolbar->addWidget(new QLabel(" Saï¿½da Visï¿½vel:= ",this));
     saidaComboBox = new QComboBox;
     mainToolbar->addWidget(saidaComboBox);
     //////////////////////////////////////////////////////////////////////////////
@@ -914,8 +940,8 @@ void ICalc::ini_MW_qwtPlot()
     grid->attach(qwtPlot);
     // Axes2
     qwtPlot->enableAxis(QwtPlot::yLeft);
-    qwtPlot->setAxisTitle(QwtPlot::xBottom, "Gerações");
-    qwtPlot->setAxisTitle(QwtPlot::yLeft, "Aptidões");
+    qwtPlot->setAxisTitle(QwtPlot::xBottom, "Geraï¿½ï¿½es");
+    qwtPlot->setAxisTitle(QwtPlot::yLeft, "Aptidï¿½es");
     qwtPlot->setAxisMaxMajor(QwtPlot::xBottom, 6);
     qwtPlot->setAxisMaxMinor(QwtPlot::xBottom, 10);
     // Best QWP2
@@ -1031,7 +1057,7 @@ void ICalc::moved1(const QPoint &pos)
     qwtPlot1->invTransform(QwtPlot::yRight, pos.y());
 }
 ////////////////////////////////////////////////////////////////////////////
-//Carrega um configuração
+//Carrega um configuraï¿½ï¿½o
 void ICalc::slot_MW_openConfig()
 {
     NameConfigSave.clear();
@@ -1077,12 +1103,12 @@ void ICalc::slot_MW_openConfig()
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_saveAsConfig()
 {
-    if(NameConfigSave.isEmpty()) NameConfigSave=QFileDialog::getSaveFileName(this, tr("Salvar dados de configuração"),QDir::currentPath(),tr("XBEL Files (*.xbel *.xml)"));
+    if(NameConfigSave.isEmpty()) NameConfigSave=QFileDialog::getSaveFileName(this, tr("Salvar dados de configuraï¿½ï¿½o"),QDir::currentPath(),tr("XBEL Files (*.xbel *.xml)"));
     if(NameConfigSave.isEmpty()) return;
     QFile file(NameConfigSave);
     if (!file.open(QFile::WriteOnly | QFile::Text)) {
         QMessageBox::warning(this, tr("QXmlStream Bookmarks"),
-                             tr("Arquivo %1 não pode ser escrito:\n%2.")
+                             tr("Arquivo %1 nï¿½o pode ser escrito:\n%2.")
                              .arg(NameConfigSave)
                              .arg(file.errorString()));
         return;

@@ -193,7 +193,7 @@ jobs:
 
           # evita duplicar include
           if ! grep -q 'include(ci_qwt.pri)' IDS_DEStruct.pro; then
-            printf "\n# ===== CI OVERRIDES =====\nDESTDIR = \$$OUT_PWD/bin\ninclude(ci_qwt.pri)\n# =======================\n" >> IDS_DEStruct.pro
+            printf "\n# ===== CI OVERRIDES =====\nDESTDIR = \$\$OUT_PWD/bin\ninclude(ci_qwt.pri)\n# =======================\n" >> IDS_DEStruct.pro
           fi
 
           echo "---- IDS_DEStruct.pro (trecho final) ----"

@@ -62,7 +62,7 @@ inline void reCopy(QList<QVector<qreal > > &cr1,const QList<QVector<qreal > > &c
     qint32 id;
     const qint32 count1=cr1.size(),count2=cr2.size();
     if(count1<count2) cr1 += QVector<QVector<qreal > >(count2-count1).toList();
-    else for(id=count2;id<count1;id++) cr1.removeAt(id);
+    else while(cr1.size()>count2) cr1.removeLast();
     for(id=0;id<count2;id++) reCopy(cr1[id],cr2.at(id));
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +143,7 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   for(qint32 i=0;i < 1/*QThread::idealThreadCount()*/;i++)
   {      
     ags->append(new DEStruct());
-    connect( ags->at(i), SIGNAL(signal_DES_SetStatus(const volatile qint64 &,const QVector<qreal> *,const QList<QVector<qreal> > *,const QList<QVector<qreal> > *,const QVector<Cromossomo> *)), this, SLOT( slot_MW_SetStatus(const volatile qint64 &,const QVector<qreal> *,const QList<QVector<qreal> > *,const QList<QVector<qreal> > *,const QVector<Cromossomo> *)),Qt::DirectConnection);
+    connect(ags->at(i), &DEStruct::signal_DES_SetStatus, this, &ICalc::slot_MW_SetStatus, Qt::DirectConnection);
     connect( ags->at(i), SIGNAL(signal_DES_closed()), this, SLOT( slot_MW_closed()),Qt::QueuedConnection);
     connect( ags->at(i), SIGNAL(signal_DES_Parado()), cr, SLOT( slot_UL_Parado()),Qt::QueuedConnection);
     connect( ags->at(i), SIGNAL(signal_DES_Parado()), this, SLOT( slot_MW_Parado()),Qt::QueuedConnection);
@@ -526,17 +526,20 @@ void ICalc::slot_MW_SalvarArquivo()
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest)
 {    
+    MW_LogLifecycle(QString("slot_MW_SetStatus iter=%1").arg(iteracoes));
     QWriteLocker locker(&DEStruct::LerDados);
     MW_iteracoes.storeRelaxed(iteracoes);
     reCopy(MW_resObtido,*resObtido);
     reCopy(MW_residuo,*residuo);
     reCopy(MW_somaEr,*somaEr);
+    if(MW_crBest.size()!=crBest->size()) MW_crBest.resize(crBest->size());
     std::copy(crBest->begin(), crBest->end(), MW_crBest.begin());
     emit signal_MW_StatusSetado();
 }
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_EscreveEquacao()
 {
+    MW_LogLifecycle("slot_MW_EscreveEquacao");
     qint64 iteracoes;
     bool isFeito=false;
     QVector<qreal> somaEr;
@@ -559,14 +562,17 @@ void ICalc::slot_MW_EscreveEquacao()
         if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decima��o = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
         else str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString("; "));
     }
-    for(idSaida=0;idSaida<DEStruct::DES_Adj.Dados.variaveis.qtSaidas;idSaida++)
+    const qint32 qtSaidas = qMin<qint32>(DEStruct::DES_Adj.Dados.variaveis.qtSaidas, crBest.size());
+    for(idSaida=0;idSaida<qtSaidas;idSaida++)
     {
+        varAux = 0.0;
         numColuna  = DEStruct::DES_Adj.Dados.variaveis.valores.numColunas()-crBest.at(idSaida).maiorAtraso;
         isFeito = false;
         strErr = "";
         strNum = "";strDen = "";strErrNum = "";strErrDen = "";strRegress = "";
         for(countRegress=0;countRegress<crBest.at(idSaida).regress.size();countRegress++) //Varre todos os termos para aquele cromossomo
         {
+            if(countRegress>=crBest.at(idSaida).vlrsCoefic.size()) break;
             idCoefic = crBest.at(idSaida).vlrsCoefic.at(countRegress);
             if(crBest.at(idSaida).regress.at(countRegress).at(0).vTermo.tTermo1.reg)
             {
@@ -604,7 +610,7 @@ void ICalc::slot_MW_EscreveEquacao()
 
                     }
                 }
-                strRegress.remove(strRegress.size()-1,1);
+                if(!strRegress.isEmpty()) strRegress.remove(strRegress.size()-1,1);
                 if(idCoefic)
                 {
                     if(crBest.at(idSaida).regress.at(countRegress).at(0).vTermo.tTermo1.nd)
@@ -661,8 +667,9 @@ void ICalc::slot_MW_EscreveEquacao()
             varAux += aux*aux;
         }
         jn  = crBest.at(idSaida).erro;//DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida);
-        jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
-        rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
+        jnM = (idSaida<somaEr.size() && DEStruct::DES_Adj.Dados.tamPop>0) ? (somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop)) : 0.0;
+        if((numColuna>2)&&(varAux>0.0)&&(jn>=0.0)) rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
+        else rsme = 0.0;
         str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
         if(strNum.size()) str.append(QString("\n%1(k) = (("+strNum+strErr+")/("+strDen+"));\nERR:=("+strErrNum+")/("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
     }
@@ -675,6 +682,7 @@ void ICalc::slot_MW_EscreveEquacao()
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_Desenha()
 {
+    MW_LogLifecycle("slot_MW_Desenha");
     QList<QVector<qreal> > resObtido;
     QVector<Cromossomo> crBest;
     QList<QVector<qreal> > residuos;
@@ -689,14 +697,22 @@ void ICalc::slot_MW_Desenha()
     qCopy(MW_crBest.begin(),MW_crBest.end(),crBest.begin());
     DEStruct::LerDados.unlock();
 
+    if((MW_SaidaUsada<0)||(MW_SaidaUsada>=resObtido.size())||(MW_SaidaUsada>=crBest.size())||(MW_SaidaUsada>=residuos.size()))
+        return;
     numColuna=resObtido.at(MW_SaidaUsada).size();
+    if(numColuna<=0) return;
     time.clear();
     if(!MW_changeStyle)
     {
         for(i=crBest.at(MW_SaidaUsada).maiorAtraso;i<numColuna;i++)
         {
             time.append(i);
-            medida.append(DEStruct::DES_Adj.Dados.variaveis.valores.at(MW_SaidaUsada,i*DEStruct::DES_Adj.decimacao.at(MW_SaidaUsada)));
+            const qint32 dec = qMax<qint32>(1,DEStruct::DES_Adj.decimacao.at(MW_SaidaUsada));
+            const qint32 idxCol = i*dec;
+            if(idxCol<DEStruct::DES_Adj.Dados.variaveis.valores.numColunas())
+                medida.append(DEStruct::DES_Adj.Dados.variaveis.valores.at(MW_SaidaUsada,idxCol));
+            else
+                medida.append(0.0);
         }
         MW_crv_C->setSamples(time,resObtido.at(MW_SaidaUsada));
         MW_crv_R->setSamples(time,medida);
@@ -704,6 +720,7 @@ void ICalc::slot_MW_Desenha()
     else
     {
         residuo+=residuos[MW_SaidaUsada].mid(residuos[MW_SaidaUsada].size()/2,residuos[MW_SaidaUsada].size()-(residuos[MW_SaidaUsada].size()/2));
+        if(residuo.isEmpty()) return;
         qSort(residuo.begin(),residuo.end(),qLess<qreal>());
         auxReal1 = residuo.last()>(-residuo.first())?residuo.last()/25:(-residuo.first())/25;
         auxReal2 = (residuo.last()>(-residuo.first())?(-residuo.last()):residuo.first())-(auxReal1/2);

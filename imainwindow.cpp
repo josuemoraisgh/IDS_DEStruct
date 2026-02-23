@@ -140,7 +140,8 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   connect(pbConcDados, &QPushButton::clicked, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
   connect(actionExit, &QAction::triggered, this, &ICalc::close); 
 
-  for(qint32 i=0;i < 1/*QThread::idealThreadCount()*/;i++)
+  const qint32 thCount = qMax<qint32>(1, QThread::idealThreadCount());
+  for(qint32 i=0;i < thCount;i++)
   {      
     ags->append(new DEStruct());
     connect(ags->at(i), &DEStruct::signal_DES_SetStatus, this, &ICalc::slot_MW_SetStatus, Qt::DirectConnection);

@@ -36,6 +36,17 @@ Q_DECLARE_METATYPE(QVector<qreal> )
 Q_DECLARE_METATYPE(QList<QVector<qreal> > )
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+static void MW_LogLifecycle(const QString &msg)
+{
+    QFile f(QDir::currentPath() + "/lifecycle_debug.log");
+    if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+    {
+        QTextStream out(&f);
+        out << QDateTime::currentDateTime().toString(Qt::ISODate) << " " << msg << "\n";
+    }
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 inline void reCopy(QVector<qreal > &cr1,const QVector<qreal > &cr2)
 {
     qint32 id;
@@ -161,6 +172,8 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   QRect r = geometry();
   r.moveCenter(QApplication::desktop()->availableGeometry().center());
   setGeometry(r);
+  MW_LogLifecycle("ICalc initialized");
+  connect(qApp, &QCoreApplication::aboutToQuit, this, [](){ MW_LogLifecycle("aboutToQuit"); });
 }
 ////////////////////////////////////////////////////////////////////////////
 ICalc::~ICalc()
@@ -196,6 +209,7 @@ ICalc::~ICalc()
 void ICalc::closeEvent(QCloseEvent *event)
 {
     bool isOk;
+    MW_LogLifecycle(QString("closeEvent isThClose=%1 mode=%2").arg(isThClose.loadAcquire()).arg(DEStruct::DES_modo_Oper_TH()));
     if(isThClose.loadAcquire()) event->accept();
     else
     {
@@ -210,6 +224,7 @@ void ICalc::closeEvent(QCloseEvent *event)
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_closed()
 {
+    MW_LogLifecycle("slot_MW_closed");
     isThClose.storeRelaxed(1);
     QMainWindow::close();
 }
@@ -422,10 +437,12 @@ void ICalc::slot_MW_PararContinuar()
         actionParar->setText(QString("Parar"));
         actionIni->setEnabled(false);    
         MW_tempo = QDateTime::currentDateTime();
-        DEStruct::DES_Adj.Dados.tamPop = LEN->text().toInt();
+        // O DE usa 3 individuos distintos (count0,count1,count2), portanto tamPop minimo 3.
+        DEStruct::DES_Adj.Dados.tamPop = qMax<qint32>(3, LEN->text().toInt());
         ////////////////////////////////////////////////////////////////////////////
         if((DEStruct::DES_Adj.Dados.iElitismo==0)||(DEStruct::DES_Adj.Dados.iElitismo!=LEEL->text().toInt()))
             DEStruct::DES_Adj.Dados.iElitismo = LEEL->text().toInt() ? LEEL->text().toInt() : 5;//iElitismo
+        DEStruct::DES_Adj.Dados.iElitismo = qMin(DEStruct::DES_Adj.Dados.iElitismo, DEStruct::DES_Adj.Dados.tamPop);
         ////////////////////////////////////////////////////////////////////////////
         //Verifica se cada saida esta com a quantiadade correta de cromossomos.
         if((!DEStruct::DES_Adj.isCriado)||(DEStruct::DES_Adj.Pop.at(0).size()<DEStruct::DES_Adj.Dados.tamPop))
@@ -545,6 +562,8 @@ void ICalc::slot_MW_EscreveEquacao()
     for(idSaida=0;idSaida<DEStruct::DES_Adj.Dados.variaveis.qtSaidas;idSaida++)
     {
         numColuna  = DEStruct::DES_Adj.Dados.variaveis.valores.numColunas()-crBest.at(idSaida).maiorAtraso;
+        isFeito = false;
+        strErr = "";
         strNum = "";strDen = "";strErrNum = "";strErrDen = "";strRegress = "";
         for(countRegress=0;countRegress<crBest.at(idSaida).regress.size();countRegress++) //Varre todos os termos para aquele cromossomo
         {
@@ -645,7 +664,7 @@ void ICalc::slot_MW_EscreveEquacao()
         jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
         rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
         str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
-        if(strNum.size()) str.append(QString("\n%1(k) = (("+strNum+")/("+strDen+"))"+strErr+";\nERR:=("+strErrNum+")/("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
+        if(strNum.size()) str.append(QString("\n%1(k) = (("+strNum+strErr+")/("+strDen+"));\nERR:=("+strErrNum+")/("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
     }
     str.append(QString("\n"));
     CheckBox1->setChecked(true);

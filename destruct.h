@@ -72,7 +72,7 @@ public:
     void DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const;
     void DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const;
     void DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVar<qreal> &vlrsMedido,const bool &isValidacao=false,const bool &isLinearCoef=true) const;
-    void DES_CalcVlrsEstimado(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,JMathVar<qreal> &vlrsEstimado,qint32 &tamNum,qint32 &tamDen) const;
+    void DES_CalcVlrsEstimado(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,JMathVar<qreal> &vlrsEstimado,qint32 &tamNum,qint32 &tamDen,JMathVar<qreal> *vlrsDenominador = nullptr) const;
     void DES_SuperResp(Cromossomo &crResult, QVector<Cromossomo> &vetorResult) const;
     void DES_MinimizarLevMarq(Cromossomo &cr) const;
     ////////////////////////////////////////////////////////////////////////////

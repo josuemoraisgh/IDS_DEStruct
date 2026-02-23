@@ -876,9 +876,8 @@ void DEStruct::DES_AlgDiffEvol()
             for(idSaida=0;idSaida<qtSaidas;idSaida++)
             {
                 DES_idChange[idPipeLine][idSaida]=tamPop+1;
-                DES_Adj.vetElitismo[idPipeLine][idSaida].append(1);
-                DES_Adj.vetElitismo[idPipeLine][idSaida].append(0);
-                for(count0=2;count0<tamPop;count0++)
+                DES_Adj.vetElitismo[idPipeLine][idSaida].clear();
+                for(count0=0;count0<tamPop;count0++)
                     DES_Adj.vetElitismo[idPipeLine][idSaida].append(count0);
                 DES_crMut[idPipeLine][idSaida] = DES_criaCromossomo(idSaida);//� o melhor cromossomo inicial
                 if(idPipeLine == 0) DES_Adj.melhorAptidaoAnt[idSaida] = DES_crMut.at(idPipeLine).at(idSaida).aptidao;
@@ -1372,7 +1371,7 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-inline void DEStruct::DES_CalcVlrsEstimado(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,JMathVar<qreal> &vlrsEstimado,qint32 &tamNum,qint32 &tamDen) const
+inline void DEStruct::DES_CalcVlrsEstimado(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,JMathVar<qreal> &vlrsEstimado,qint32 &tamNum,qint32 &tamDen,JMathVar<qreal> *vlrsDenominador) const
 {
     //////////////////////////////////////////////////////////////////////////////////
     JStrSet jst;
@@ -1396,9 +1395,21 @@ inline void DEStruct::DES_CalcVlrsEstimado(const Cromossomo &cr,const JMathVar<q
     ////////////////////////////////////////////////////////////////////////////////
     //Faz o c�lculo do valor estimado.
     vlrsEstimado = vlrsRegressNum(vlrsCoeficNum,jst.set("(:,:)*(:,:)'"));
-    b = vlrsRegressDen(vlrsCoeficDen,jst.set("(:,:)*(:,:)'"));
-    a.fill(1,b.numLinhas(),b.numColunas());
-    a.copy(b,jst.set("(:,:)+=(:,:)"));
+    if(tamDen>0 && vlrsRegressDen.numColunas()>0 && vlrsCoeficDen.numColunas()>0)
+        b = vlrsRegressDen(vlrsCoeficDen,jst.set("(:,:)*(:,:)'"));
+    else
+        b.fill(0,vlrsEstimado.numLinhas(),vlrsEstimado.numColunas()?vlrsEstimado.numColunas():1);
+    if((b.numLinhas()==vlrsEstimado.numLinhas()) && (b.numColunas()==vlrsEstimado.numColunas()) && b.numLinhas())
+    {
+        a.fill(1,b.numLinhas(),b.numColunas());
+        a.copy(b,jst.set("(:,:)+=(:,:)"));
+    }
+    else
+    {
+        // Sem denominador explicito (modelo polinomial): Den = 1
+        a.fill(1,vlrsEstimado.numLinhas(),vlrsEstimado.numColunas()?vlrsEstimado.numColunas():1);
+    }
+    if(vlrsDenominador) *vlrsDenominador = a;
     vlrsEstimado.copy(a,jst.set("(:,:)/=(:,:)"));
     ////////////////////////////////////////////////////////////////////////////////
 }
@@ -1496,7 +1507,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr,const qint32 &tamTestErro) const
     //MTRand RG(QTime::currentTime().msec());
     QVector<QVector<compTermo > > regressNum, regressDen;
     JMathVar<qreal> vlrsRegress,vlrsRegress1,vlrsRegressNum,vlrsRegressDen,vlrsRegressDenAux,vlrsCoefic,vlrsCoefic1,
-                    vlrsEstimado,vlrsResiduo,vlrsMedido,
+                    vlrsEstimado,vlrsResiduo,vlrsMedido,vlrsDenominador,
                     errNum,errDen,auxDen,
                     sigma1,sigma2,aux1,aux2,x,v;
     qint32 i,tamNum=0,tamDen=0,count1=0,count2=0,size=0;
@@ -1623,8 +1634,27 @@ void DEStruct::DES_calAptidao(Cromossomo &cr,const qint32 &tamTestErro) const
             ////////////////////////////////////////////////////////////////////////////////
             if(isOk)
             {
-                DES_CalcVlrsEstimado(cr,vlrsRegress1,vlrsCoefic1,vlrsEstimado,tamNum,tamDen);
+                DES_CalcVlrsEstimado(cr,vlrsRegress1,vlrsCoefic1,vlrsEstimado,tamNum,tamDen,&vlrsDenominador);
                 vlrsResiduo  = vlrsMedido(vlrsEstimado,jst.set("(:)-(:)"));   //residuo = medido - estimado :Faz o c�lculo dos residuos                ////////////////////////////////////////////////////////////////////////////////
+                const qint32 tamErroAtual = vlrsCoefic1.numColunas()-(tamNum+tamDen);
+                if(tamErroAtual)
+                {
+                    vlrsResiduo.fill(0,vlrsMedido.numLinhas(),1);
+                    for(qint32 atraso=0;atraso<vlrsMedido.numLinhas();atraso++)
+                    {
+                        qreal extra = 0.0;
+                        for(i=0;i<tamErroAtual;i++)
+                        {
+                            const qint32 idxResiduo = atraso-(i+1);
+                            extra += vlrsCoefic1.at(tamNum+tamDen+i)*((idxResiduo>=0)?vlrsResiduo.at(idxResiduo):0.0);
+                        }
+                        const qreal denom = (vlrsDenominador.numLinhas()>atraso)?vlrsDenominador.at(atraso):1.0;
+                        if(denom!=0.0) vlrsEstimado(atraso) += (extra/denom);
+                        else vlrsEstimado(atraso) += extra;
+                        vlrsResiduo(atraso) = vlrsMedido.at(atraso)-vlrsEstimado.at(atraso);
+                    }
+                }
+                else vlrsResiduo  = vlrsMedido(vlrsEstimado,jst.set("(:)-(:)"));   //residuo = medido - estimado :Faz o cï¿½lculo dos residuos                ////////////////////////////////////////////////////////////////////////////////
                 var1 = cov(vlrsResiduo);
                 ////////////////////////////////////////////////////////////////////////////////
                 isOk1 = compara(vlrsCoefic,vlrsCoefic1,1e-3);
@@ -1653,13 +1683,13 @@ void DEStruct::DES_MontaSaida(const Cromossomo &crPrinc,QVector<qreal> &vplotar,
     //////////////////////////////////////////////////////////////////////////////////
     JStrSet jst;
     Cromossomo cr = crPrinc;
-    JMathVar<qreal> vlrsRegress,vlrsEstimado,vlrsResiduo,vlrsMedido;
+    JMathVar<qreal> vlrsRegress,vlrsEstimado,vlrsResiduo,vlrsMedido,vlrsDenominador;
     qint32 i=0,atraso=0,tamNum=0,tamDen=0;
     qreal *estimado,*medido,*residuo;
     //////////////////////////////////////////////////////////////////////////////////
     //Monta a matrix valores dos regressores
     DES_MontaVlrs(cr,vlrsRegress,vlrsMedido,true,false);
-    DES_CalcVlrsEstimado(cr,vlrsRegress,cr.vlrsCoefic,vlrsEstimado,tamNum,tamDen);
+    DES_CalcVlrsEstimado(cr,vlrsRegress,cr.vlrsCoefic,vlrsEstimado,tamNum,tamDen,&vlrsDenominador);
     //Insere os termos do residuo no sistema se houver
     const qint32 tamErro = cr.vlrsCoefic.numColunas()-(tamNum+tamDen);
     if(tamErro)
@@ -1670,8 +1700,15 @@ void DEStruct::DES_MontaSaida(const Cromossomo &crPrinc,QVector<qreal> &vplotar,
         const qint32 tamvlrsRegress = (tamNum+tamDen);
         for(atraso=0,estimado=vlrsEstimado.begin(),residuo=vlrsResiduo.begin(),medido=vlrsMedido.begin();medido < vlrsMedido.end();medido++,residuo++,estimado++,atraso++)
         {
+            qreal extra = 0.0;
             for(i=0;i<tamErro;i++)
-                *estimado += cr.vlrsCoefic.at(tamvlrsRegress+i)*((atraso-i)>=0?*(residuo-i):0);
+            {
+                const qint32 idxResiduo = atraso-(i+1);
+                extra += cr.vlrsCoefic.at(tamvlrsRegress+i)*((idxResiduo>=0)?vlrsResiduo.at(idxResiduo):0.0);
+            }
+            const qreal denom = (vlrsDenominador.numLinhas()>atraso)?vlrsDenominador.at(atraso):1.0;
+            if(denom!=0.0) *estimado += (extra/denom);
+            else *estimado += extra;
             *residuo = *medido - *estimado;
         }
     }

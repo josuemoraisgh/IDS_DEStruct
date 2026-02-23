@@ -579,8 +579,14 @@ JMathVar<T> JMathVar<T>::opMat(const JMathVar<T> &mt,const qint32 id[15],const q
                 }
                 else
                 {
-                    qDebug() << "Error na Opera??????o de multiplica??????o das duas matrizes";
-                    exit(1);
+                    qWarning() << "Erro na operacao de multiplicacao de matrizes: dimensoes incompativeis."
+                               << "linhas(A)=" << ((fimLinhas-iniLinhas)/stepLinhas)
+                               << "colunas(A)=" << ((fimAux-iniAux)/stepAux)
+                               << "linhas(B)=" << ((fimAux-iniAux)/stepAux)
+                               << "colunas(B)=" << ((fimColunas-iniColunas)/stepColunas);
+                    // Evita encerramento abrupto da aplicacao; retorna matriz nula com dimensao esperada.
+                    result.fill(0, (fimLinhas-iniLinhas)/stepLinhas, (fimColunas-iniColunas)/stepColunas);
+                    return result;
                 }
                 //break;
             //case 4: //Divis???o: <M1, M2> = <M1,N> * inv(<M2, N>)

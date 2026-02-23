@@ -379,8 +379,9 @@ void ICalc::Iniciar()
         for(j=0;j<qtSaidas;j++)
         {
             DEStruct::DES_BufferSR[k][j] = QVector<Cromossomo >(10);
-            DEStruct::DES_vcalc[k][j] = QVector<qreal>(tamDados/DEStruct::DES_Adj.decimacao.at(j));
-            DEStruct::DES_residuos[k][j] = QVector<qreal>(tamDados/DEStruct::DES_Adj.decimacao.at(j));
+            const qint32 decimacao = qMax<qint32>(1, DEStruct::DES_Adj.decimacao.at(j));
+            DEStruct::DES_vcalc[k][j] = QVector<qreal>(tamDados/decimacao);
+            DEStruct::DES_residuos[k][j] = QVector<qreal>(tamDados/decimacao);
         }
     }
     ////////////////////////////////////////////////////////////////////////////
@@ -744,9 +745,8 @@ void ICalc::slot_MW_changeCheckBox2(int st)
 void ICalc::ini_MW_interface()
 {
     dialogConfig = new QDialog(this);
-    Ui::DialogConfig *uiConfig = new Ui::DialogConfig();
-    uiConfig->setupUi(dialogConfig);
-    // Note: uiConfig should be stored as member if needed later, or deleted in destructor
+    Ui::DialogConfig uiConfig;
+    uiConfig.setupUi(dialogConfig);
     mainToolbar = this->findChild<QToolBar *>("toolBar");
     actionExit =  this->findChild<QAction *>("actionExit");
     actionIni =  this->findChild<QAction *>( "actionIni");
@@ -836,7 +836,7 @@ void ICalc::ini_MW_interface()
     LEEM->setSizePolicy(sizePolicy3);
     LEEM->setMaximumSize(QSize(40, 16777215));
     LEEM->setContextMenuPolicy(Qt::NoContextMenu);
-    LEEM->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEEM->setValidator(new QDoubleValidator (0.0,1e9,6,this));
     mainToolbar->addWidget(LEEM);
     //////////////////////////////////////////////////////////////////////////////
     LENC = new QLabel(" NCy:= ",this);
@@ -848,7 +848,7 @@ void ICalc::ini_MW_interface()
     LEENC->setSizePolicy(sizePolicy3);
     LEENC->setMaximumSize(QSize(40, 16777215));
     LEENC->setContextMenuPolicy(Qt::NoContextMenu);
-    LEENC->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEENC->setValidator(new QIntValidator (1,1000000,this));
     mainToolbar->addWidget(LEENC);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();

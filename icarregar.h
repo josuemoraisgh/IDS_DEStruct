@@ -69,7 +69,7 @@ class ICarregar : public DICarregar
         QList<qint32> UL_cVariaveis;
         QString UL_fileName;
         QStringList UL_CabecalhoList;
-        QStringListModel *UL_slm;
+        QStringListModel *UL_slm = nullptr;
         QStatusBar *LVStBar1;
 
         QGroupBox *dmmgb;

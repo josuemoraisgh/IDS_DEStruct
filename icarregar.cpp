@@ -13,11 +13,13 @@ ICarregar::ICarregar(QWidget* parent)
 {
     setupUi(this);
     UL_IndexVar = 0;
+    UL_slm = nullptr;
     //////////////////////////////////////////////////////////////////////////////
     //Inicializa o dialog Max Min
     dialogMaxMin = new QDialog(this);
     //dialogDecimacao = new QDialog(this);
-    (new Ui::DialogMaxMin())->setupUi(dialogMaxMin);
+    Ui::DialogMaxMin uiMaxMin;
+    uiMaxMin.setupUi(dialogMaxMin);
     //(new Ui::DialogDecimacao())->setupUi(dialogDecimacao);
     dmmComboBox     = dialogMaxMin->findChild<QComboBox *>("comboBox"   );
     dmmLineEditMax  = dialogMaxMin->findChild<QLineEdit *>("lineEditMax");
@@ -55,8 +57,10 @@ void ICarregar::slot_UL_ChangeCombo(int indexVar)
 {
     if((indexVar< DEStruct::DES_Adj.Dados.variaveis.qtSaidas)&&(DEStruct::DES_Adj.decimacao.size()>indexVar))
         DEStruct::DES_Adj.decimacao[indexVar] = dmmLineEditDECI->text().toDouble();
-    DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
-    DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
+    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmaior.size()))
+        DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
+    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmenor.size()))
+        DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=indexVar;
     dmmLineEditMax->setText(QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(UL_IndexVar)));
     dmmLineEditMin->setText(QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(UL_IndexVar)));
@@ -87,8 +91,10 @@ void ICarregar::slot_UL_ChangeFim(int)
 {
     if((UL_IndexVar<DEStruct::DES_Adj.Dados.variaveis.qtSaidas)&&(DEStruct::DES_Adj.decimacao.size()>UL_IndexVar))
         DEStruct::DES_Adj.decimacao[UL_IndexVar] = dmmLineEditDECI->text().toDouble();
-    DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
-    DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
+    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmaior.size()))
+        DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
+    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmenor.size()))
+        DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=0;
     //Manda normalizar os dados
     emit signal_UL_Estado(5);//Manda o comando multi-thread para normalizar
@@ -264,7 +270,7 @@ void ICarregar::slot_UL_Caminho()
 ////////////////////////////////////////////////////////////////////////////
 void ICarregar::slot_UL_Indicar(const QString &fileName)
 {
-    quint64 tam;
+    qint64 tam;
     bool isok= false,confere = false;
     QString line;
     QStringList strList;
@@ -282,6 +288,7 @@ void ICarregar::slot_UL_Indicar(const QString &fileName)
                 strList = line.split(QRegExp("(\\s+)"));
                 if(strList.size()?strList.first().isEmpty():false) strList.removeFirst();
                 UL_CabecalhoList.append(strList);
+                if (UL_slm) delete UL_slm;
                 UL_slm = new QStringListModel(UL_CabecalhoList);
                 LVEntradas->setSelectionMode(QAbstractItemView::MultiSelection);
                 LVSaida->setSelectionMode(QAbstractItemView::MultiSelection);
@@ -297,35 +304,28 @@ void ICarregar::slot_UL_Indicar(const QString &fileName)
                 CBTIni->setCurrentIndex(0);
             }
             tam = file.size();
-            do
-            {
-                tam-=50;
-                confere=stream.seek(tam);
-                stream.readLine();
-                line = stream.readLine();
-            }
-            while(stream.atEnd()||line.size()<=7||!confere);
-            if(!line.isNull()&&line.size()>7)
-            {
-                line.split(QString(QChar(32)),QString::SkipEmptyParts).at(0).toFloat(&confere);
-                if(confere) LETFim->setText(line.split(QString(QChar(32)),QString::SkipEmptyParts).at(0));
-            }
-            do
+            Q_UNUSED(tam);
+            // Leitura robusta: evita underflow/seek invalido em arquivos pequenos.
+            while(!stream.atEnd())
             {
                 line = stream.readLine();
-                if(!line.isNull()&&line.size()>7)
+                if(!line.isNull()&&line.size()>0)
                 {
-                    line.split(QString(QChar(32)),QString::SkipEmptyParts).at(0).toFloat(&confere);
-                    if(confere) LETFim->setText(line.split(QString(QChar(32)),QString::SkipEmptyParts).at(0));
+                    const QStringList campos = line.split(QString(QChar(32)),QString::SkipEmptyParts);
+                    if(campos.size())
+                    {
+                        campos.at(0).toFloat(&confere);
+                        if(confere) LETFim->setText(campos.at(0));
+                    }
                 }
             }
-            while(!stream.atEnd());
             file.close();
             CBTFim->setCurrentIndex(0);
         }
     }
     if(!isok)
     {
+        if (UL_slm) delete UL_slm;
         UL_slm = new QStringListModel();
         LVEntradas->setModel(UL_slm);
         LVSaida->setModel(UL_slm);

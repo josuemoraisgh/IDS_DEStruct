@@ -700,7 +700,6 @@ void DEStruct::DES_Carregar()
     {
         DES_justThread[0].release(DES_TH_size-1);
         DES_index[0]=0;
-        DES_index[0]=0;
         //////////////////////////////////////////////////////////////        
         if(!isNormalizado)
         {
@@ -858,7 +857,7 @@ void DEStruct::DES_AlgDiffEvol()
     bool isOk=false,isPrint=true;
     qint32 count0=0,count1=0,count2=0,cr0Point,cr1Point,cr2Point,idSaida=0,idPipeLine = 0;//count3=0;
     ////////////////////////////////////////////////////////////////////////////
-    for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++) DES_idParada_Th[idPipeLine] = !DES_idParadaJust[count0];
+    for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++) DES_idParada_Th[idPipeLine] = !DES_idParadaJust[idPipeLine];
     ////////////////////////////////////////////////////////////////////////////    
     //Apenas um thread qualquer inicializa as variaveis e os ponteiros deste m�todo.
     mutex.lock();
@@ -868,6 +867,8 @@ void DEStruct::DES_AlgDiffEvol()
         for(count2=0;count2<m1.size();count2++) {m1[count2]=count2;m2[count2]=count2;}
         DES_justThread[0].release(DES_TH_size-1);
         DES_Adj.tp = QTime::currentTime();
+        DES_Adj.melhorAptidaoAnt.clear();
+        DES_Adj.melhorAptidaoAnt.resize(qtSaidas);
         for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++)
         {
             if(idPipeLine) DES_Adj.vetPop[idPipeLine].clear();
@@ -879,8 +880,7 @@ void DEStruct::DES_AlgDiffEvol()
                 for(count0=2;count0<tamPop;count0++)
                     DES_Adj.vetElitismo[idPipeLine][idSaida].append(count0);
                 DES_crMut[idPipeLine][idSaida] = DES_criaCromossomo(idSaida);//� o melhor cromossomo inicial
-                DES_Adj.melhorAptidaoAnt.clear();
-                DES_Adj.melhorAptidaoAnt.append(DES_crMut.at(idPipeLine).at(idSaida).aptidao);
+                if(idPipeLine == 0) DES_Adj.melhorAptidaoAnt[idSaida] = DES_crMut.at(idPipeLine).at(idSaida).aptidao;
             }
         }
         for(count0=0;count0<tamPop;count0++)
@@ -958,11 +958,11 @@ void DEStruct::DES_AlgDiffEvol()
                 do{count2 = DES_RG.randInt(0,tamPop-1);}while((count2 == count0)||(count2 == count1));
                 //count3 = DES_RG.randInt(0,DES_BufferSR.at(idPipeLine).at(idSaida).size()-1);
                 //do{count3 = DES_RG.randInt(0,tamPop-1);}while((count3 == count1)||(count3 == count2)||(count3 == count0));
-                lock_DES_Elitismo[TAMPIPELINE].lockForRead();
+                lock_DES_Elitismo[idPipeLine].lockForRead();
                 cr0Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(count0);
                 cr1Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(count1);
                 cr2Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(count2);
-                lock_DES_Elitismo[TAMPIPELINE].unlock();
+                lock_DES_Elitismo[idPipeLine].unlock();
                 lock_DES_BufferSR.lockForRead();
                 cr0=DES_Adj.Pop.at(idSaida).at(cr0Point);
                 cr1=DES_Adj.Pop.at(idSaida).at(cr1Point);

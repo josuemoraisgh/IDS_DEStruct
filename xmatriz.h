@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <QVector>
 
-//Inser��o de constantes reais com nota��o cientifica apenas pelo argReal n�o podendo ser inserida na string.
+//Inser??????o de constantes reais com nota??????o cientifica apenas pelo argReal n???o podendo ser inserida na string.
 class JStrSet
 {
  public:
@@ -55,17 +55,17 @@ class JStrSet
                     else if((*(ch+1)=='(')&&((*(ch-1)==')')||(*(ch-1)=='\''))) id[14]=1;
                     tipoDado=0;multNumber=1;break;
                 case '-':
-                    if(*(ch+1)=='=') {ch++;id[14]=2;tipoDado=0;multNumber=1;} //Subtra��o de Matrizes
-                    else if((*(ch+1)=='(')&&((*(ch-1)==')')||(*(ch-1)=='\''))) {id[14]=2;tipoDado=0;multNumber=1;} //Subtra��o de Matrizes
+                    if(*(ch+1)=='=') {ch++;id[14]=2;tipoDado=0;multNumber=1;} //Subtra??????o de Matrizes
+                    else if((*(ch+1)=='(')&&((*(ch-1)==')')||(*(ch-1)=='\''))) {id[14]=2;tipoDado=0;multNumber=1;} //Subtra??????o de Matrizes
                     else multNumber=-1; //Caso o numero lido tenha o sinal negativo
                     break;
                 case '*':
-                    if(*(ch+1)=='=') {ch++;id[14]=3;}//Multiplica��o de Matrizes
-                    else if((*(ch+1)=='(')&&((*(ch-1)==')')||(*(ch-1)=='\''))) id[14]=3;//Multiplica��o de Matrizes
+                    if(*(ch+1)=='=') {ch++;id[14]=3;}//Multiplica??????o de Matrizes
+                    else if((*(ch+1)=='(')&&((*(ch-1)==')')||(*(ch-1)=='\''))) id[14]=3;//Multiplica??????o de Matrizes
                     else
                     {
                         if((multNumber>1)||(multNumber<-1)) {rd[0]=(tipoDado==3?JSS_rd[number-1]:tipoDado==2?JSS_id[number-1]:(tipoDado==1?numberReal:number));} else tipoDado=1;
-                    } //Multiplica��o de uma Matriz por uma constante
+                    } //Multiplica??????o de uma Matriz por uma constante
                     tipoDado=0;multNumber=1;break;
                 case '/':
                     if(*(ch+1)=='=') {ch++;id[14]=4;}
@@ -163,7 +163,7 @@ class JStrSet
            }
            ch++;
         }
-        if((j==6)||(j==7)) {id[7]=0;id[8]=0;id[9]=0;if(multNumber!=1) rd[0]=tipoDado==3?JSS_rd[number-1]:numberReal;} //Faz uma marca de que n�o tem os dados da outra matriz.
+        if((j==6)||(j==7)) {id[7]=0;id[8]=0;id[9]=0;if(multNumber!=1) rd[0]=tipoDado==3?JSS_rd[number-1]:numberReal;} //Faz uma marca de que n???o tem os dados da outra matriz.
         if(isExp) rd[1]=tipoDado==3?JSS_rd[number-1]:numberReal;
         multNumber=1;
     }
@@ -178,7 +178,7 @@ class JMathVar : public QVector<T>
     volatile qint32 JMV_numColunas;
     ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    //M�todos B�sicos
+    //M???todos B???sicos
     JMathVar():QVector<T>(1) {JMV_numLinhas=1;JMV_numColunas=1;}
     JMathVar(const JMathVar<T> &v): QVector<T>((QVector<T> ) v) {JMV_numLinhas  = v.numLinhas();JMV_numColunas = v.numColunas();}
     JMathVar(const qint32 &qtdeElementos,const T &valor = T(0.0f)):QVector<T>(qtdeElementos,valor) {JMV_numLinhas  = 1;JMV_numColunas = qtdeElementos;}
@@ -193,9 +193,9 @@ class JMathVar : public QVector<T>
     void append(const char &ch,const T &vlr);
     void prepend(const char &ch, const T &vlr);
     void remove(const char &ch, const qint32 &posElementos) {if(ch=='C'||ch=='c') JMV_numColunas--;else JMV_numLinhas--;((QVector<T> *) this)->remove(posElementos);}
-    const bool fill(const T &valor, const qint32 &qtdeLinha, const qint32 &qtdeColuna); //Tem que fazer o fill para n�o perder a posi��o quando insere linhas do que ja existe
+    const bool fill(const T &valor, const qint32 &qtdeLinha, const qint32 &qtdeColuna); //Tem que fazer o fill para n???o perder a posi??????o quando insere linhas do que ja existe
     const bool fill(const T &valor, const qint32 &qtdeElementos) {return fill(valor,1,qtdeElementos);}
-    void resize(const qint32 &qtdeLinha ,const qint32 &qtdeColuna); //Tem que fazer o resize para n�o perder a posi��o quando insere linhas do que ja existe
+    void resize(const qint32 &qtdeLinha ,const qint32 &qtdeColuna); //Tem que fazer o resize para n???o perder a posi??????o quando insere linhas do que ja existe
     inline void resize(const qint32 &qtdeElementos) {resize(1,qtdeElementos);}
     inline T& operator()(const qint32 &posLinha, const qint32 &posColuna) {return (*this)[(JMV_numLinhas*posColuna)+posLinha];}
     inline T& operator()(const qint32 &posElementos) { return (*this)(0,posElementos);}
@@ -205,34 +205,34 @@ class JMathVar : public QVector<T>
     void swap(const qint32 id[15]);
     const bool copy(const JMathVar<T> &mt,const qint32 id[15],const qreal rd[2]);
     JMathVar<T> opMat(const JMathVar<T> &mt,const qint32 id[15],const qreal rd[2]) const;
-    JMathVar<T> Inv() const; //Este M�todo vai no futuro chamar o m�todo opMat
-    JMathVar<T> Trans() const;  //Este M�todo vai no futuro chamar o m�todo opMat
+    JMathVar<T> Inv() const; //Este M???todo vai no futuro chamar o m???todo opMat
+    JMathVar<T> Trans() const;  //Este M???todo vai no futuro chamar o m???todo opMat
     ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    //Fazer uma unica fun��o do tipo operador para vai receber um vetor de caracter informando o tipo
-    //Dai ela vai fazer todo o resto numa unica fun��o usando o recurso va_arg onde posso passar varios tipo de dados
+    //Fazer uma unica fun??????o do tipo operador para vai receber um vetor de caracter informando o tipo
+    //Dai ela vai fazer todo o resto numa unica fun??????o usando o recurso va_arg onde posso passar varios tipo de dados
     //Ver http://www.cplusplus.com/reference/cstdarg/va_start/
     //
-    //const JMathVar<T> operator()(const char ch); //Faz todas as opera��es com quantas matrizes desejar
-    //const JMathVar<T> operator()(va_arg d[]);//Faz apenas opera��es de duas em duas matrizes
+    //const JMathVar<T> operator()(const char ch); //Faz todas as opera??????es com quantas matrizes desejar
+    //const JMathVar<T> operator()(va_arg d[]);//Faz apenas opera??????es de duas em duas matrizes
     //
     // TIPO(:,:) = %M1(:,%2) + %M3(%4,%5)*%f6*%M7(:,:)
     //
     //Onde os TIPOs podem ser:
     //
-    //  F[Fill]    = Preenche a matriz this conforme uma m�trica.
-    //  S[Swap]    = Troca elementos da matriz this podendo fazer opera��es com eles na troca.
-    //  A[Append]  = Adiciona elementos na matriz this deslocando a matriz em uma dada regi�o.
+    //  F[Fill]    = Preenche a matriz this conforme uma m???trica.
+    //  S[Swap]    = Troca elementos da matriz this podendo fazer opera??????es com eles na troca.
+    //  A[Append]  = Adiciona elementos na matriz this deslocando a matriz em uma dada regi???o.
     //  E[Extract] = Extrai o conteudo obedecendo uma metrica da matriz this e a retorna.
-    //  C[Copy]    = Copia para a matriz this os dados de outra ou dela mesma podendo aumetar a matriz caso seja necess�rio.
+    //  C[Copy]    = Copia para a matriz this os dados de outra ou dela mesma podendo aumetar a matriz caso seja necess???rio.
     //  R[Repalce] = Copia para a matriz this os dados de outra ou dela mesma e apaga na matrix this tudo o que tiver a mais pro final do que foi copiado.
-    //  D[Delete]  = Deleta removendo uma dada regi�o conforme uma metrica
+    //  D[Delete]  = Deleta removendo uma dada regi???o conforme uma metrica
     //  sem tipo   = C[Copy]
     //
-    //Se n�o tiver o igual retorna uma matriz qualquer com o igual retorna a matriz que chamou o m�todo.
+    //Se n???o tiver o igual retorna uma matriz qualquer com o igual retorna a matriz que chamou o m???todo.
     //A matriz %M0 e considerada a matriz da chamada
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    //M�todos com parsing que ser�o removidos no futuro
+    //M???todos com parsing que ser???o removidos no futuro
     JMathVar<T> operator()(const JStrSet &parsing) const; //Extrai o conteudo obedecendo uma metrica de uma matriz
     JMathVar<T> operator()(const JMathVar<T> &mt, const JStrSet &parsing) const;
     const bool copy(const JStrSet &parsing);
@@ -242,7 +242,7 @@ class JMathVar : public QVector<T>
     void swap(const JStrSet &parsing);
     ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    //M�todos gerais  
+    //M???todos gerais  
     T Norma(const qint32 &tipo) const;
     T NormaInf() const;
     T MaiorElem(const JStrSet &parsing,qint32 &posLinha,qint32 &posColuna) const;
@@ -251,7 +251,7 @@ class JMathVar : public QVector<T>
     JMathVar<T> SistemaLinear(const JMathVar<T> &vet1,bool &isOK=false);
     ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    //Operadores Matem�ticos.
+    //Operadores Matem???ticos.
     JMathVar<T>&operator=(const T &valor);
     //JMathVar<T>&operator+=(const T &valor);
     //JMathVar<T>&operator-=(const T &valor);
@@ -268,7 +268,7 @@ class JMathVar : public QVector<T>
 };
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
-//M�todos B�sicos
+//M???todos B???sicos
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
 inline void JMathVar<T>::clear()
@@ -517,7 +517,7 @@ const bool JMathVar<T>::copy(const JMathVar<T> &mt,const qint32 id[15],const qre
     return isOk;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////Faz as opera��es de matriz com uma matriz/////////////////////
+//////////////////////////Faz as opera??????es de matriz com uma matriz/////////////////////
 template<typename T>
 JMathVar<T> JMathVar<T>::opMat(const JMathVar<T> &mt,const qint32 id[15],const qreal rd[2]) const
 {
@@ -579,11 +579,11 @@ JMathVar<T> JMathVar<T>::opMat(const JMathVar<T> &mt,const qint32 id[15],const q
                 }
                 else
                 {
-                    qDebug() << "Error na Opera��o de multiplica��o das duas matrizes";
+                    qDebug() << "Error na Opera??????o de multiplica??????o das duas matrizes";
                     exit(1);
                 }
                 //break;
-            //case 4: //Divis�o: <M1, M2> = <M1,N> * inv(<M2, N>)
+            //case 4: //Divis???o: <M1, M2> = <M1,N> * inv(<M2, N>)
                 //break;
             //case 5: //Exp valendo apenas quando for um ponto elevado a outro ponto
             //case 6: //Inv
@@ -593,7 +593,7 @@ JMathVar<T> JMathVar<T>::opMat(const JMathVar<T> &mt,const qint32 id[15],const q
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
-//M�todos com parsing
+//M???todos com parsing
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T> //fazer inversa e transpota pertencendo aos operadores
 JMathVar<T> JMathVar<T>::operator()(const JStrSet &parsing) const
@@ -688,7 +688,7 @@ void JMathVar<T>::swap(const JStrSet &parsing)
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 ///
-//Existe um erro nesta fun��o tenho que corrigir quando usa a multiplica��o.
+//Existe um erro nesta fun??????o tenho que corrigir quando usa a multiplica??????o.
 template<typename T>
 const bool JMathVar<T>::copy(const JStrSet &parsing) //Ou faz com ele mesmo ou com uma constante.
 {
@@ -758,7 +758,7 @@ const bool JMathVar<T>::copy(const JStrSet &parsing) //Ou faz com ele mesmo ou c
 template<typename T>
 const bool JMathVar<T>::copy(const JMathVar<T> &mt, const JStrSet &parsing)
 {
-    if((parsing=="(:,:)=(:,:)")&&(parsing=="(:)=(:)"))
+    if((parsing=="(:,:)=(:,:)")||(parsing=="(:)=(:)"))
     {
         this->resize(mt.numLinhas(),mt.numColunas());
         qCopy(mt.begin(),mt.end(),this->begin());
@@ -788,7 +788,7 @@ const bool JMathVar<T>::copy(const JMathVar<T> &mt, const JStrSet &parsing)
 template<typename T>
 const bool JMathVar<T>::replace(const JMathVar<T> &mt, const JStrSet &parsing)
 {
-    if((parsing=="(:,:)=(:,:)")&&(parsing=="(:)=(:)"))
+    if((parsing=="(:,:)=(:,:)")||(parsing=="(:)=(:)"))
     {
         this->resize(mt.numLinhas(),mt.numColunas());
         qCopy(mt.begin(),mt.end(),this->begin());
@@ -828,12 +828,12 @@ void JMathVar<T>::append(const QList<T> &list, const qint32 &linha, const qint32
         *((QVector<T> *) this) += list.toVector();
     }
     else
-        qDebug()<< "JMathVar<T>::append: O tamanho das Linhas n�o s�o iguais";
+        qDebug()<< "JMathVar<T>::append: O tamanho das Linhas n???o s???o iguais";
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
 void JMathVar<T>::append(const char &ch, const JMathVar<T> &mat)
-{//Fazer se � para linha ou coluna
+{//Fazer se ??? para linha ou coluna
     (void)ch;
     if(JMV_numLinhas == mat.numLinhas() || this->isEmpty() ||JMV_numLinhas==1)
     {
@@ -842,7 +842,7 @@ void JMathVar<T>::append(const char &ch, const JMathVar<T> &mat)
         JMV_numLinhas  = mat.numLinhas();
         (*this) += (QVector<T> ) mat;
     }
-    else qDebug()<< "JMathVar<T>::append(const JMathVar<T> &mat): O tamanho das Linhas n�o s�o iguais";
+    else qDebug()<< "JMathVar<T>::append(const JMathVar<T> &mat): O tamanho das Linhas n???o s???o iguais";
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
@@ -905,7 +905,7 @@ T JMathVar<T>::Norma(const qint32 &tipo) const
         pos--;
         //////////////////////////////////////////////////////////////////////////////////////////
     }
-    return qPow(norma,(qreal) 1/tipo);
+    return qPow(norma,((qreal) 1)/tipo);
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
@@ -989,83 +989,62 @@ qreal JMathVar<T>::Det()
 template <typename T>
 JMathVar<T> JMathVar<T>::Inv() const
 {
-    //Algoritmo pela eliminac�o simple de Gauss
     const qint32 ordem = numLinhas();
-    JMathVar<T> result(ordem,ordem),L(ordem,ordem);
-    qint32 i, j, k;
-    qreal determ,factor, *D, *X;
+    JMathVar<T> inversa(ordem,ordem,0.0);
+    if((ordem <= 0) || (ordem != numColunas())) return inversa;
 
-    X = new qreal [ordem];
-    D = new qreal [ordem];
+    JMathVar<T> a(*this);
+    for (qint32 i = 0; i < ordem; ++i) inversa(i,i) = 1.0;
 
-    for (k = 0; k < ordem - 1; k++)
+    for (qint32 i = 0; i < ordem; ++i)
     {
-        for (i = k+1; i < ordem;  i++)
+        qint32 pivoLinha = i;
+        qreal maxAbs = qFabs((qreal)a.item(i,i));
+        for (qint32 r = i + 1; r < ordem; ++r)
         {
-            factor = result.item(i,k)/result.item(k,k);
-            for (j = k+1; j < ordem + 1; j++) result(i,j) = result.item(i,j) - factor * result.item(k,j);
+            const qreal valor = qFabs((qreal)a.item(r,i));
+            if (valor > maxAbs) { maxAbs = valor; pivoLinha = r; }
+        }
+
+        if (maxAbs <= 1e-15) return JMathVar<T>(ordem,ordem,0.0);
+
+        if (pivoLinha != i)
+        {
+            for (qint32 c = 0; c < ordem; ++c)
+            {
+                qSwap(a(i,c), a(pivoLinha,c));
+                qSwap(inversa(i,c), inversa(pivoLinha,c));
+            }
+        }
+
+        const qreal pivo = (qreal)a.item(i,i);
+        for (qint32 c = 0; c < ordem; ++c)
+        {
+            a(i,c) = (qreal)a.item(i,c) / pivo;
+            inversa(i,c) = (qreal)inversa.item(i,c) / pivo;
+        }
+
+        for (qint32 r = 0; r < ordem; ++r)
+        {
+            if (r == i) continue;
+            const qreal fator = (qreal)a.item(r,i);
+            if (fator == 0.0) continue;
+            for (qint32 c = 0; c < ordem; ++c)
+            {
+                a(r,c) = (qreal)a.item(r,c) - fator * (qreal)a.item(i,c);
+                inversa(r,c) = (qreal)inversa.item(r,c) - fator * (qreal)inversa.item(i,c);
+            }
         }
     }
-    //C�lculo do determinante de uma matriz superior
-    for (i = 0,determ = 1.0; i < ordem; i++) determ = determ * result.item(i,i);
-    //Rotina para determinar as matrizes L (inferior) e U (superior) da descomposic�o LU
-    if (determ != 0)
-    {
-        for (i = 0; i < ordem; i++)
-        {
-            for (j = 0; j < ordem; j++)
-            {
-                if (i > j)
-                {
-                    L(i,j) = result.item(i,j)/result.item(j,j);
-                    result(i,j) = 0;
-                }
-            }
-        }
-        for (i = 0; i < ordem; i++) for (j = 0; j < ordem; j++) L(j,j) = 1;
-        //Implementac�o de uma rotina para o c�lculo da inversa
-        for (k = 0; k < ordem; k++)
-        {
-            //Esta rotina inicializa os L[i][n] para ser utilizados com a matriz L
-            for (i = 0; i < ordem; i++)
-            {
-                if (i == k) L(i,ordem) = 1;
-                else  L(i,ordem) = 0;
-            }
-            //Esta func�o implementa a sustitui��o hacia adelante con la matriz L y los L[i][n] produzida pela rotina anterior
-            D[0] = L.item(0,ordem);
-            for (i = 1; i < ordem; i++)
-            {
-                factor = 0;
-                for (j = 0; j < i; j++) factor = factor + L.item(i,j)*D[j];
-                D[i] = L.item(i,ordem) - factor;
-            }
-            //Rotina asigna los D[i] que produce forward para ser utilizados con la matriz U
-            for (i = 0; i < ordem; i++) (*this)(i,ordem) = D[i];
-            //Rotina que aplica a sustitui��o obtida atras
-            X[ordem-1] = result.item(ordem-1,ordem)/result.item(ordem-1,ordem-1);
-            //Determina��o das raz�es restantes
-            for (i = ordem - 2; i > -1; i--)
-            {
-                factor = 0;
-                for (j = i+1; j < ordem; j++) factor = factor + result.item(i,j)*X[j];
-                X[i] = (result.item(i,ordem) - factor)/result.item(i,i);
-            }
-            //Esta rotina substitui os X[i] que s�o os elementos de a matriz inversa
-            for (i = 0; i < ordem; i++) result(i,k) = X[i];
-        }   //Fecha o For para k
-    }//Fecha o if
-    delete D;
-    delete X;
-    return result;
-}
-//////////////////////////////////////////////////////////////////////////////////////////
+
+    return inversa;
+}//////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////Calcula o sistema linear//////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
-//     Resolve sistemas de equa��es lineares do tipo: [this].{Solu��o} = {vet1}         //
-//     this    - [Matriz] matriz sim�trica.                                             //
+//     Resolve sistemas de equa??????es lineares do tipo: [this].{Solu??????o} = {vet1}         //
+//     this    - [Matriz] matriz sim???trica.                                             //
 //     vet1    - {vetor}  termos independentes.                                         //
-//     Solu��o - {vetor}  solu��o do sistema.                                           //
+//     Solu??????o - {vetor}  solu??????o do sistema.                                           //
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 //C0[L0 L1 L2 ..] C1[L0 L1 L2 ..] C2[L0 L1 L2 ..] C3[L0 L1 L2 ..] C..
@@ -1085,10 +1064,10 @@ JMathVar<T> JMathVar<T>::SistemaLinear(const JMathVar<T> &vet1,bool &isOK)
         {
             if(this->Det()>=10e-15)
             {
-                //Implementando o M�todo de Gauss transformando em uma matriz triangular superior
-                for (k=0;k<n-1;k++) //Varre todas as colunas com exce��o da ultima coluna da matriz e da coluna expandida
+                //Implementando o M???todo de Gauss transformando em uma matriz triangular superior
+                for (k=0;k<n-1;k++) //Varre todas as colunas com exce??????o da ultima coluna da matriz e da coluna expandida
                 {
-                    for (i=k+1;i<n;i++) //Varre todas a linhas das colunas em avalia��o
+                    for (i=k+1;i<n;i++) //Varre todas a linhas das colunas em avalia??????o
                     {
                         m=(matAux.at(i,k)/matAux.at(k,k)); //Multiplicadores
                         for (j=0;j<n+1;j++) matAux(i,j)=matAux.at(i,j)-(m*matAux.at(k,j)); //Matriz com a transformada em Gauss
@@ -1145,7 +1124,9 @@ inline bool compara(JMathVar<qreal> mat1,JMathVar<qreal> mat2,qreal valor)
     return false;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
-//  Macros para compatibilidade - XMatriz é apenas um alias de JMathVar
+//  Macros para compatibilidade - XMatriz ?? apenas um alias de JMathVar
 #define XMatriz JMathVar
 //////////////////////////////////////////////////////////////////////////////////////////
 #endif //JMathVar
+
+

@@ -56,7 +56,11 @@ SRLevMarq::SRLevMarq()
 //////////////////////////////////////////////////////////////////////////////////////////
 SRLevMarq::~SRLevMarq()
 {
-
+    delete residuos;
+    delete jacobiana;
+    delete hessiana;
+    delete quasiGradi;
+    delete matauxiliar;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 void SRLevMarq::LMQ_CalcF(qreal &erro, const XVetor<qreal> &fx)
@@ -130,13 +134,13 @@ inline void SRLevMarq::LMQ_ProdVet(qreal *prodVetorial,const qint32 incProdVet,
 {
     if((endVet1 != NULL)&&(endVet2 != NULL)&&(prodVetorial != NULL))
     {
-        *prodVetorial= (*endVet1)*(*endVet1);
+        *prodVetorial= (*endVet1)*(*endVet2);
         for(qint32 i=1;i<tam;i++)
         {
             endVet1 += incVet1;
             endVet2 += incVet2;
             prodVetorial += incProdVet;
-            *prodVetorial = (*endVet1)*(*endVet1);
+            *prodVetorial = (*endVet1)*(*endVet2);
         }
     }
     else qDebug() << "Func:LMQ_ProdVet-falhou";
@@ -149,12 +153,12 @@ inline void SRLevMarq::LMQ_ProdEsc(qreal *prodEscalar, const qint32 tam,
 {
     if((endVet1 != NULL)&&(endVet2 != NULL))
     {
-        *prodEscalar = (*endVet1)*(*endVet1);
+        *prodEscalar = (*endVet1)*(*endVet2);
         for(qint32 i=1;i<tam;i++)
         {
             endVet1 += incVet1;
             endVet2 += incVet2;
-            *prodEscalar += (*endVet1)*(*endVet1);
+            *prodEscalar += (*endVet1)*(*endVet2);
         }
     }
     else qDebug() << "Func:LMQ_ProdEsc-falhou";

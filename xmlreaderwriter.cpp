@@ -77,7 +77,8 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
         xmlWriter.writeEndElement();
 
     //XWR_Ajts->Pop
-        for(j=0;j<XWR_Ajts->Dados.variaveis.qtSaidas;j++)
+        const qint32 saidasCount = qMin<qint32>(XWR_Ajts->Dados.variaveis.qtSaidas, XWR_Ajts->Pop.size());
+        for(j=0;j<saidasCount;j++)
         {
             xmlWriter.writeStartElement("Saida"+QString::number(j));
             for(k=0;k<XWR_Ajts->Pop.at(j).size();k++)
@@ -88,7 +89,10 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
                 xmlWriter.writeAttribute("idSaida", QString::number(XWR_Ajts->Pop.at(j).at(k).idSaida));
                 xmlWriter.writeAttribute("maiorAtraso", QString::number(XWR_Ajts->Pop.at(j).at(k).maiorAtraso));
                 strTermo.clear();strCoefic.clear();strExpoente.clear();
-                for(l=0;l<XWR_Ajts->Pop.at(j).at(k).regress.size();l++)
+                const qint32 regressCount = qMin<qint32>(XWR_Ajts->Pop.at(j).at(k).regress.size(),
+                                                         qMin<qint32>(XWR_Ajts->Pop.at(j).at(k).err.size(),
+                                                                      XWR_Ajts->Pop.at(j).at(k).vlrsCoefic.size()));
+                for(l=0;l<regressCount;l++)
                 {
                     xmlWriter.writeStartElement("Regress"+QString::number(l));
                     xmlWriter.writeAttribute("Err", QString::number(XWR_Ajts->Pop.at(j).at(k).err.at(l)));
@@ -121,20 +125,35 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
 
 bool XmlReaderWriter::readFile(QIODevice *device)
 {
-    QString aux1,aux2;
-    int termo=0,regress=0,cromo=0,saidas=0;
+    if(XWR_Ajts == NULL) return false;
 
+    xmlRead.clear();
     xmlRead.setDevice(device);
 
-    if (xmlRead.readNextStartElement()) {
-        if (xmlRead.name() == "xbel" && xmlRead.attributes().value("version") == "1.0");
-        else
-            xmlRead.raiseError(QObject::tr("The file is not an XBEL version 1.0 file."));
+    const auto splitTokens = [](const QString &text) -> QStringList {
+        return text.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+    };
+
+    XWR_Ajts->decimacao.clear();
+    XWR_Ajts->talDecim.clear();
+    XWR_Ajts->Dados.variaveis.nome.clear();
+    XWR_Ajts->Dados.variaveis.Vmaior.clear();
+    XWR_Ajts->Dados.variaveis.Vmenor.clear();
+    XWR_Ajts->Dados.variaveis.valores.clear();
+    XWR_Ajts->Pop.clear();
+
+    if (!xmlRead.readNextStartElement()) return false;
+
+    if (xmlRead.name() != "xbel" || xmlRead.attributes().value("version") != "1.0")
+    {
+        xmlRead.raiseError(QObject::tr("The file is not an XBEL version 1.0 file."));
+        return false;
     }
 
     while (xmlRead.readNextStartElement())
     {
-        if (xmlRead.name() == "Ajustes")
+        const QString nodeName = xmlRead.name().toString();
+        if (nodeName == "Ajustes")
         {
             XWR_Ajts->numeroCiclos = xmlRead.attributes().value("numeroCiclos").toString().toInt();
             XWR_Ajts->jnrr = xmlRead.attributes().value("jnrr").toString().toDouble();
@@ -143,154 +162,88 @@ bool XmlReaderWriter::readFile(QIODevice *device)
             XWR_Ajts->isRacional = xmlRead.attributes().value("isRacional").toString().toInt();
             XWR_Ajts->isIniciaEnabled = xmlRead.attributes().value("isIniciaEnabled").toString().toInt();
             XWR_Ajts->salvarAutomati = xmlRead.attributes().value("salvarAutomati").toString().toInt();
-            aux1 = xmlRead.attributes().value("decimacao").toString();
-            for(int i=0; i<aux1.length(); i++)
-            {
-                if(aux1.at(i) != ' ') aux2.append(aux1.at(i));
-                else
-                {
-                    XWR_Ajts->decimacao.push_back(aux2.toInt());
-                    aux2.clear();
-                }
-            }
-            aux1 = xmlRead.attributes().value("talDecim").toString();
-            for(int i=0; i<aux1.length(); i++)
-            {
-                if(aux1.at(i) != ' ') aux2.append(aux1.at(i));
-                else
-                {
-                    XWR_Ajts->talDecim.push_back(aux2.toInt());
-                    aux2.clear();
-                }
-            }
-            XWR_Ajts->iteracoes = xmlRead.attributes().value("iteracoes").toString().toDouble();
-            XWR_Ajts->isPararContinuarEnabled = xmlRead.attributes().value("isPararContinuarEnabled").toString().toDouble();
-            XWR_Ajts->qdadeCrSalvos = xmlRead.attributes().value("qdadeCrSalvos").toString().toDouble();
-            XWR_Ajts->salvDadosCarre = xmlRead.attributes().value("salvDadosCarre").toString().toDouble();
+            const QStringList decimacao = splitTokens(xmlRead.attributes().value("decimacao").toString());
+            for(int i=0; i<decimacao.size(); i++) XWR_Ajts->decimacao.push_back(decimacao.at(i).toInt());
+            const QStringList talDecim = splitTokens(xmlRead.attributes().value("talDecim").toString());
+            for(int i=0; i<talDecim.size(); i++) XWR_Ajts->talDecim.push_back(talDecim.at(i).toInt());
+            XWR_Ajts->iteracoes = xmlRead.attributes().value("iteracoes").toString().toLongLong();
+            XWR_Ajts->isPararContinuarEnabled = xmlRead.attributes().value("isPararContinuarEnabled").toString().toInt();
+            XWR_Ajts->qdadeCrSalvos = xmlRead.attributes().value("qdadeCrSalvos").toString().toUInt();
+            XWR_Ajts->salvDadosCarre = xmlRead.attributes().value("salvDadosCarre").toString().toUInt();
             XWR_Ajts->nomeArqConfTxT = xmlRead.attributes().value("nomeArqConfTxT").toString();
-        }
-    }
-
-    while (xmlRead.readNextStartElement())
-    {
-        if (xmlRead.name() == "PSim")
-        {
-            XWR_Ajts->Dados.variaveis.qtSaidas = xmlRead.attributes().value("qtSaidas").toString().toDouble();
-            aux1 = xmlRead.attributes().value("nome").toString();
-            for(int i=0; i<aux1.length(); i++)
-            {
-                if(aux1.at(i) != ' '){
-                    aux2.append(aux1.at(i));
-                }
-                else{
-                    XWR_Ajts->Dados.variaveis.nome.push_back(aux2);
-                    aux2.clear();
-                }
-            }
-
-            aux1 = xmlRead.attributes().value("Vmaior").toString();
-            for(int i=0; i<aux1.length(); i++) {
-                if(aux1.at(i) != ' '){
-                    aux2.append(aux1.at(i));
-                }
-                else{
-                    XWR_Ajts->Dados.variaveis.Vmaior.push_back(aux2.toDouble());
-                    aux2.clear();
-                }
-            }
-
-            aux1 = xmlRead.attributes().value("Vmenor").toString();
-            for(int i=0; i<aux1.length(); i++) {
-                if(aux1.at(i) != ' '){
-                    aux2.append(aux1.at(i));
-                }
-                else{
-                    XWR_Ajts->Dados.variaveis.Vmenor.push_back(aux2.toDouble());
-                    aux2.clear();
-                }
-            }
-        }
-        else
             xmlRead.skipCurrentElement();
-    }
-    XWR_Ajts->Dados.variaveis.valores.clear();
-    XWR_Ajts->Dados.variaveis.valores.remove('C',0);
-    while (xmlRead.readNextStartElement())
-    {
-        if (xmlRead.name() == "valores")
+        }
+        else if (nodeName == "PSim")
         {
-            aux1 = xmlRead.attributes().value("valores").toString();
-            for(int i=0; i<aux1.length(); i++) {
-                if(aux1.at(i) != ' '){
-                    aux2.append(aux1.at(i));
-                }
-                else{
-                    XWR_Ajts->Dados.variaveis.valores.push_back(aux2.toDouble());
-                    aux2.clear();
-                }
-            }
-            XWR_Ajts->Dados.variaveis.valores.setNumLinhas( xmlRead.attributes().value("linha").toString().toInt());
-            XWR_Ajts->Dados.variaveis.valores.setNumColunas( xmlRead.attributes().value("coluna").toString().toInt());
+            XWR_Ajts->Dados.variaveis.qtSaidas = xmlRead.attributes().value("qtSaidas").toString().toInt();
+            const QStringList nomes = splitTokens(xmlRead.attributes().value("nome").toString());
+            for(int i=0; i<nomes.size(); i++) XWR_Ajts->Dados.variaveis.nome.push_back(nomes.at(i));
+            const QStringList maiores = splitTokens(xmlRead.attributes().value("Vmaior").toString());
+            for(int i=0; i<maiores.size(); i++) XWR_Ajts->Dados.variaveis.Vmaior.push_back(maiores.at(i).toDouble());
+            const QStringList menores = splitTokens(xmlRead.attributes().value("Vmenor").toString());
+            for(int i=0; i<menores.size(); i++) XWR_Ajts->Dados.variaveis.Vmenor.push_back(menores.at(i).toDouble());
+            xmlRead.skipCurrentElement();
+        }
+        else if (nodeName == "valores")
+        {
+            const QStringList valores = splitTokens(xmlRead.attributes().value("valores").toString());
+            for(int i=0; i<valores.size(); i++) XWR_Ajts->Dados.variaveis.valores.push_back(valores.at(i).toDouble());
+            XWR_Ajts->Dados.variaveis.valores.setNumLinhas(xmlRead.attributes().value("linha").toString().toInt());
+            XWR_Ajts->Dados.variaveis.valores.setNumColunas(xmlRead.attributes().value("coluna").toString().toInt());
             XWR_Ajts->Dados.iElitismo = xmlRead.attributes().value("iElitismo").toString().toInt();
             XWR_Ajts->Dados.qtdadeVarAnte = xmlRead.attributes().value("qtdadeVarAnte").toString().toInt();
             XWR_Ajts->Dados.timeInicial = xmlRead.attributes().value("timeInicial").toString().toDouble();
             XWR_Ajts->Dados.timeFinal = xmlRead.attributes().value("timeFinal").toString().toDouble();
             XWR_Ajts->Dados.isElitismo = xmlRead.attributes().value("isElitismo").toString().toInt();
+            xmlRead.skipCurrentElement();
+        }
+        else if (nodeName.startsWith("Saida"))
+        {
+            QVector<Cromossomo> saidaPop;
+            while (xmlRead.readNextStartElement())
+            {
+                if (!xmlRead.name().toString().startsWith("Cromossomo")) { xmlRead.skipCurrentElement(); continue; }
+
+                Cromossomo cromossomo;
+                cromossomo.aptidao = xmlRead.attributes().value("aptidao").toString().toDouble();
+                cromossomo.erro = xmlRead.attributes().value("erro").toString().toDouble();
+                cromossomo.idSaida = xmlRead.attributes().value("idSaida").toString().toInt();
+                cromossomo.maiorAtraso = xmlRead.attributes().value("maiorAtraso").toString().toInt();
+
+                while (xmlRead.readNextStartElement())
+                {
+                    if (!xmlRead.name().toString().startsWith("Regress")) { xmlRead.skipCurrentElement(); continue; }
+
+                    cromossomo.err.append('C',xmlRead.attributes().value("Err").toString().toDouble());
+                    cromossomo.vlrsCoefic.append('C',xmlRead.attributes().value("Coefic").toString().toDouble());
+                    cromossomo.regress.append(QVector<compTermo>());
+
+                    while (xmlRead.readNextStartElement())
+                    {
+                        if (!xmlRead.name().toString().startsWith("Termo")) { xmlRead.skipCurrentElement(); continue; }
+
+                        compTermo termo;
+                        termo.vTermo.tTermo1.var = xmlRead.attributes().value("var").toString().toUInt();
+                        termo.vTermo.tTermo1.atraso = xmlRead.attributes().value("atraso").toString().toUInt();
+                        termo.vTermo.tTermo1.reg = xmlRead.attributes().value("reg").toString().toUInt();
+                        termo.vTermo.tTermo1.nd = xmlRead.attributes().value("nd").toString().toUInt();
+                        termo.expoente = xmlRead.attributes().value("expoente").toString().toDouble();
+                        cromossomo.regress.last().append(termo);
+                        xmlRead.skipCurrentElement();
+                    }
+                }
+
+                saidaPop.append(cromossomo);
+            }
+            XWR_Ajts->Pop.append(saidaPop);
         }
         else
+        {
             xmlRead.skipCurrentElement();
-    }
-    saidas=-1;
-    cromo=-1;
-    regress=-1;
-    termo=-1;
-    aux1 = "Inicio";
-    while(aux1.size())
-    {
-        xmlRead.readNextStartElement();
-        aux1 = xmlRead.name().toString();
-        if(aux1==("Termo"+QString::number(termo+1)))
-        {
-            termo++;
-            XWR_Ajts->Pop[saidas][cromo].regress[regress].append(compTermo());
-            XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].vTermo.tTermo1.var = xmlRead.attributes().value("var").toString().toInt();
-            XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].vTermo.tTermo1.atraso = xmlRead.attributes().value("atraso").toString().toInt();
-            XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].vTermo.tTermo1.reg = xmlRead.attributes().value("reg").toString().toInt();
-            XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].vTermo.tTermo1.nd = xmlRead.attributes().value("nd").toString().toInt();
-            XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].expoente = xmlRead.attributes().value("expoente").toString().toDouble();
-        }
-        else if(aux1 == ("Regress"+QString::number(regress+1)))
-        {
-            termo=-1;
-            regress++;
-            XWR_Ajts->Pop[saidas][cromo].err.append('C',xmlRead.attributes().value("Err").toString().toDouble());
-            XWR_Ajts->Pop[saidas][cromo].vlrsCoefic.append('C',xmlRead.attributes().value("Coefic").toString().toDouble());
-            XWR_Ajts->Pop[saidas][cromo].regress.append(QVector<compTermo>());
-        }
-        else if(aux1 == ("Cromossomo"+QString::number(cromo+1)))
-        {
-            termo=-1;
-            regress=-1;
-            cromo++;
-            XWR_Ajts->Pop[saidas].append(Cromossomo());
-            XWR_Ajts->Pop[saidas][cromo].aptidao = xmlRead.attributes().value("aptidao").toString().toDouble();
-            XWR_Ajts->Pop[saidas][cromo].erro = xmlRead.attributes().value("erro").toString().toDouble();
-            XWR_Ajts->Pop[saidas][cromo].idSaida = xmlRead.attributes().value("idSaida").toString().toInt();
-            XWR_Ajts->Pop[saidas][cromo].maiorAtraso = xmlRead.attributes().value("maiorAtraso").toString().toInt();
-            XWR_Ajts->Pop[saidas][cromo].err.remove('C',0);
-            XWR_Ajts->Pop[saidas][cromo].vlrsCoefic.remove('C',0);
-        }
-        else if(aux1 == ("Saida"+QString::number(saidas+1)))
-        {
-            termo=-1;
-            regress=-1;
-            cromo=-1;
-            saidas++;
-            XWR_Ajts->Pop.append(QVector<Cromossomo >());
         }
     }
-    return(true);
-    //return(!xmlRead.error());
+
+    return !xmlRead.error();
 }
 
 QString XmlReaderWriter::errorString() const

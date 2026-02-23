@@ -71,13 +71,13 @@ void SRLevMarq::LMQ_CalcF(qreal &erro, const XVetor<qreal> &fx)
     erro /= 2.0;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
-void SRLevMarq::LMQ_CalcErro(qreal &erro, const XVetor<qreal> &residuos)
+void SRLevMarq::LMQ_CalcErro(qreal &erro, const XVetor<qreal> &residuosIn)
 {
     erro = 0.0f;
-    if(!residuos.empty())
+    if(!residuosIn.empty())
     {
-        for(const qreal *res = residuos.begin(); res < residuos.end(); res++) erro += fabs(*res); //residuos.at(i)*residuos.at(i);
-        erro /= residuos.size();
+        for(const qreal *res = residuosIn.begin(); res < residuosIn.end(); res++) erro += fabs(*res); //residuos.at(i)*residuos.at(i);
+        erro /= residuosIn.size();
     }
     else qDebug() << "Func:LMQ_CalcErro-falhou";
 }
@@ -164,22 +164,22 @@ inline void SRLevMarq::LMQ_ProdEsc(qreal *prodEscalar, const qint32 tam,
     else qDebug() << "Func:LMQ_ProdEsc-falhou";
 }
 //////////////////////////////////////////////////////////////////////////////////////////
-void SRLevMarq::LMQ_CalcJacobResiduos(XVetor<qreal>* residuos,
-                                      XMatriz<qreal>* jacobiana,
+void SRLevMarq::LMQ_CalcJacobResiduos(XVetor<qreal>* residuosOut,
+                                      XMatriz<qreal>* jacobianaOut,
                                       const XVetor<qreal> &coefic,
                                       const XVetor<qreal> &GL_fx,
                                       const Cromossomo    &cr)
 {
-    (void)residuos; (void)jacobiana; (void)coefic; (void)GL_fx; (void)cr;  // Stub function - interface nao compativel
+    (void)residuosOut; (void)jacobianaOut; (void)coefic; (void)GL_fx; (void)cr;  // Stub function - interface nao compativel
 }
 //////////////////////////////////////////////////////////////////////////////////////////
-void SRLevMarq::LMQ_CalcHessGrad(XMatriz<qreal>* matHessi,
-                                 XMatriz<qreal> *matQuasiGrad,
-                                 const XMatriz<qreal> &jacobiana,
-                                 const XVetor<qreal>  &residuos,
+void SRLevMarq::LMQ_CalcHessGrad(XMatriz<qreal>* matHessiOut,
+                                 XMatriz<qreal> *matQuasiGradOut,
+                                 const XMatriz<qreal> &jacobianaIn,
+                                 const XVetor<qreal>  &residuosIn,
                                  const Cromossomo     &cr)
 {
-    (void)matHessi; (void)matQuasiGrad; (void)jacobiana; (void)residuos; (void)cr;  // Stub function - interface nao compativel
+    (void)matHessiOut; (void)matQuasiGradOut; (void)jacobianaIn; (void)residuosIn; (void)cr;  // Stub function - interface nao compativel
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 void SRLevMarq::LMQ_MinimizarLevMarq(Cromossomo *cr,

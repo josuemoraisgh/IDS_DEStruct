@@ -106,3 +106,15 @@ win32 {
     # Suppress deprecated warnings on MSVC
     QMAKE_CXXFLAGS += /wd4996
 }
+
+#################################################################
+# Strict Build Profile
+# Use with: qmake IDS_DEStruct.pro "CONFIG+=strict_build"
+#################################################################
+win32:contains(CONFIG, strict_build) {
+    message(Strict build profile enabled: /W4 /WX /permissive-)
+    QMAKE_CFLAGS_WARN_ON = /W4
+    QMAKE_CXXFLAGS_WARN_ON = /W4
+    QMAKE_CFLAGS += /WX
+    QMAKE_CXXFLAGS += /WX /permissive- /w14577 /w14456 /w14457 /w14458 /w14100 /w14189 /w14467 /wd4127
+}

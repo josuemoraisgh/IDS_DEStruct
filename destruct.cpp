@@ -468,7 +468,9 @@ void DEStruct::DES_Carregar()
     const qint32 numRepet = (tamCadaTh/tamCadaRepet) + (tamCadaTh%tamCadaRepet?1:0);
     ////////////////////////////////////////////////////////////////////////////
     //Le do arquivo os dados referentes a esta thread.
-    posicaoFinal = DES_TH_id*(tamArquivo/DES_TH_size);
+    const qint64 threadChunkStart = DES_TH_id * (tamArquivoValue / DES_TH_sizeValue);
+    const qint64 threadChunkEnd = (DES_TH_id + 1) * (tamArquivoValue / DES_TH_sizeValue);
+    posicaoFinal = threadChunkStart;
     //lock_DES_index[0].lockForWrite();
     if(file.open(QFile::ReadOnly))
     {
@@ -476,8 +478,7 @@ void DEStruct::DES_Carregar()
         {
             ////////////////////////////////////////////////////////////////////////////
             posicaoIni = posicaoFinal;
-            posicaoFinal = (posicaoIni+tamCadaRepet);
-            posicaoFinal =  posicaoFinal>tamArquivo?tamArquivo:posicaoFinal>((DES_TH_id+1)*(tamArquivo/DES_TH_size))?((DES_TH_id+1)*(tamArquivo/DES_TH_size)):posicaoFinal;
+            posicaoFinal = qMin<qint64>(posicaoIni + tamCadaRepet, qMin<qint64>(tamArquivoValue, threadChunkEnd));
             ////////////////////////////////////////////////////////////////////////////
             lock_DES_modeOper_TH.lockForRead();isOk=DES_Adj.modeOper_TH<=1;lock_DES_modeOper_TH.unlock();
             if(isOk) return;
@@ -850,7 +851,7 @@ void DEStruct::DES_AlgDiffEvol()
     const qint32 tamPop = DES_Adj.Dados.tamPop;
     //QList<QVector<Cromossomo > > buffer;   
     Cromossomo cr0, cr1, cr2;// cr3;
-    qint32 tokenPop;
+    qint32 tokenPop = 0;
     JMathVar<qreal> m1(10,10,5.0),m2(10,10,5.0);
     QVector<Cromossomo > crBest(qtSaidas);
     ////////////////////////////////////////////////////////////////////////////
@@ -1307,8 +1308,8 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
     {
         for(i=0;i<size1;i++)
         {
-            const qint32 size2 = crA1.regress.at(i).size();
-            for(j=0;j<size2;j++) if(crA1.regress.at(i).at(j).vTermo.tTermo1.reg) crA1.regress[i][j].vTermo.tTermo1.reg = (size1-i);
+            const qint32 regSize = crA1.regress.at(i).size();
+            for(j=0;j<regSize;j++) if(crA1.regress.at(i).at(j).vTermo.tTermo1.reg) crA1.regress[i][j].vTermo.tTermo1.reg = (size1-i);
         }
         if((crA1.aptidao <= crAvali.aptidao)||(crAvali.aptidao!=crAvali.aptidao)) {lock_DES_BufferSR.lockForWrite();crAvali = crA1;lock_DES_BufferSR.unlock();}
     }
@@ -1489,7 +1490,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr,const qint32 &tamTestErro) const
 {
     //////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////
-    bool isOk1,isOk2,isOk=true;
+    bool isOk1=false,isOk2=false,isOk=true;
     JStrSet jst;
     qreal var=0,var1=0,erroDepois=9e99;
     //MTRand RG(QTime::currentTime().msec());

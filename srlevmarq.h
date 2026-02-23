@@ -33,20 +33,20 @@ public:
     void LMQ_CalcF(qreal &erro,
                    const XVetor<qreal> &fx);
     void LMQ_CalcErro(qreal &erro,
-                      const XVetor<qreal> &residuos);
+                      const XVetor<qreal> &residuosIn);
     void LMQ_CalcGanhoLinear(qreal &res,
                              const XVetor<qreal>  &hlm,
                              const XMatriz<qreal> &matQuasiGrad,
                              const qreal          &paramAmortecimento);
-    void LMQ_CalcJacobResiduos(XVetor<qreal> *residuos,
-                               XMatriz<qreal> *numDenum,
+    void LMQ_CalcJacobResiduos(XVetor<qreal> *residuosOut,
+                               XMatriz<qreal> *jacobianaOut,
                                const XVetor<qreal> &coefic,
                                const XVetor<qreal> &GL_fx,
                                const Cromossomo    &cr);
-    void LMQ_CalcHessGrad(XMatriz<qreal>* matHessi,
-                          XMatriz<qreal> *matQuasiGrad,
-                          const XMatriz<qreal> &numDenum,
-                          const XVetor<qreal> &residuos,
+    void LMQ_CalcHessGrad(XMatriz<qreal>* matHessiOut,
+                          XMatriz<qreal> *matQuasiGradOut,
+                          const XMatriz<qreal> &jacobianaIn,
+                          const XVetor<qreal> &residuosIn,
                           const Cromossomo    &cr);
     void LMQ_ResolverSistLinear(XVetor<qreal>  &vetor,
                                 XMatriz<qreal> &matriz);

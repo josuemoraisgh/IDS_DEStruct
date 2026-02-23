@@ -99,3 +99,16 @@ IDS_DEStruct/
 - O executável precisa das DLLs (Qt + Qwt) para rodar
 - Para distribuição, use `windeployqt` para copiar as DLLs necessárias
 - O GitHub Actions já faz isso automaticamente
+
+## Build Estrito
+
+Para habilitar warnings mais severos e tratar warnings como erro:
+
+```cmd
+mkdir build
+cd build
+qmake ..\IDS_DEStruct.pro "CONFIG+=debug strict_build"
+nmake
+```
+
+No perfil `strict_build`, o projeto aplica `/W4`, `/WX` e `/permissive-` no MSVC.

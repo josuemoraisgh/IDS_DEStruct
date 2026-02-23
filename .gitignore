@@ -1,0 +1,54 @@
+# Diretórios de build
+build/
+build-*/
+
+# Arquivos gerados pelo Qt
+*.pro.user
+*.pro.user.*
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.autosave
+
+# Arquivos de compilação
+*.o
+*.obj
+*.exe
+*.exp
+*.ilk
+*.pdb
+*.idb
+*.suo
+*.user
+*.ncb
+*.aps
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+
+# Makefiles gerados
+Makefile
+Makefile.Debug
+Makefile.Release
+
+# Diretórios de saída
+debug/
+release/
+x64/
+x86/
+
+# Visual Studio
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+
+# Temporários
+*.log
+*.tmp
+*~
+.DS_Store
+Thumbs.db

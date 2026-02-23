@@ -2,21 +2,83 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "cppbuild",
-            "label": "Compilar com MSVC",
-            "command": "cl.exe",
+            "label": "Build (Release) - MSVC 2019",
+            "type": "shell",
+            "command": "cmd.exe",
             "args": [
-                "/Zi",
-                "/EHsc",
-                "/nologo",
-                "/Fe:",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe",
-                "${file}"
+                "/c",
+                "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\build\" && qmake ..\\IDS_DEStruct.pro \"CONFIG+=release\" && nmake"
             ],
             "options": {
-                "cwd": "${workspaceDir}"
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
             },
             "problemMatcher": ["$msCompile"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build (Debug) - MSVC 2019",
+            "type": "shell",
+            "command": "cmd.exe",
+            "args": [
+                "/c",
+                "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\build\" && qmake ..\\IDS_DEStruct.pro \"CONFIG+=debug\" && nmake"
+            ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "group": "build",
+            "problemMatcher": ["$msCompile"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Clean Build",
+            "type": "shell",
+            "command": "cmd.exe",
+            "args": [
+                "/c",
+                "if exist \"${workspaceFolder}\\build\" rmdir /s /q \"${workspaceFolder}\\build\" && mkdir \"${workspaceFolder}\\build\""
+            ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Clean + Build (Release)",
+            "dependsOn": [
+                "Clean Build",
+                "Build (Release) - MSVC 2019"
+            ],
+            "dependsOrder": "sequence",
             "group": "build"
         }
     ]

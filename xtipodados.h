@@ -6,6 +6,7 @@
 #include <QtScript/QScriptString>
 #include <QReadWriteLock>
 #include <QTimer>
+#include <algorithm>
 #include "xmatriz.h"
 #include "xvetor.h"
 
@@ -90,14 +91,14 @@ public:
         idSaida=cr.idSaida;
         maiorAtraso=cr.maiorAtraso;        
         vlrsCoefic.resize(cr.vlrsCoefic.size());
-        qCopy(cr.vlrsCoefic.begin(),cr.vlrsCoefic.end(),vlrsCoefic.begin());
+        std::copy(cr.vlrsCoefic.begin(),cr.vlrsCoefic.end(),vlrsCoefic.begin());
         err.resize(cr.err.size());
-        qCopy(cr.err.begin(),cr.err.end(),err.begin());
+        std::copy(cr.err.begin(),cr.err.end(),err.begin());
         regress.resize(cr.regress.size());
         for(qint32 i=0;i<cr.regress.size();i++)
         {
             regress[i].resize(cr.regress.at(i).size());
-            qCopy(cr.regress[i].begin(),cr.regress[i].end(),regress[i].begin());
+            std::copy(cr.regress[i].begin(),cr.regress[i].end(),regress[i].begin());
         }
     }
     
@@ -110,6 +111,10 @@ public:
     JMathVar<qreal> err;
     JMathVar<qreal> vlrsCoefic;
     QVector<QVector<compTermo > > regress;
+    // Aliases para compatibilidade com código legacy (srlevmarq.cpp)
+    JMathVar<qreal> coefic() const { return vlrsCoefic; }
+    QVector<qint32> regressores() const { return QVector<qint32>(); }
+    QVector<compTermo> termos() const { return QVector<compTermo>(); }
     //QVector<QVector<compTermo > > regressResid;
 };
 #endif //CROMOSSOMO

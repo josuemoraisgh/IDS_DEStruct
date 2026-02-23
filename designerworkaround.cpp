@@ -1,5 +1,6 @@
 #include <qlabel.h>
 #include <QtGui>
+#include <QStyleFactory>
 #include "designerworkaround.h"
 //////////////////////////////////////////////////////////////////////////////////
 namespace
@@ -87,7 +88,7 @@ void DesignerWorkaround::setupWorkaround(QMainWindow* mw)
     resetfont = new QAction(tr("&Reset"), fontAC);
   ////////////////////////////////////////////////////////////////////////////
   // toolbars
-  mainToolbar = qFindChild<QToolBar*>(mw, "toolBar");
+  mainToolbar = mw->findChild<QToolBar*>("toolBar");
   mainToolbar->setObjectName(QString::fromUtf8("mainToolbar"));
   mainToolbar->setMovable(true);
   //CBSelecao = new QComboBox;
@@ -161,7 +162,7 @@ void DesignerWorkaround::setupWorkaround(QMainWindow* mw)
             LEEL->setContextMenuPolicy(Qt::NoContextMenu);
   mainToolbar->addWidget(LEEL);
 
-            LEM = new QLabel("    Erro Médio[máximo]:=  ",mw);
+            LEM = new QLabel("    Erro Mï¿½dio[mï¿½ximo]:=  ",mw);
             LEM->setSizePolicy(sizePolicy3);
   mainToolbar->addWidget(LEM);
 
@@ -186,7 +187,7 @@ void DesignerWorkaround::setupWorkaround(QMainWindow* mw)
   mainToolbar->addWidget(LEDI);
   mainToolbar->addSeparator();
 
-            LPI = new QLabel(" Ordem máxima:=",mw);
+            LPI = new QLabel(" Ordem mï¿½xima:=",mw);
             LPI->setSizePolicy(sizePolicy3);
   mainToolbar->addWidget(LPI);
             LEPI = new QLineEdit("5",mw);
@@ -226,7 +227,7 @@ void DesignerWorkaround::setupWorkaround(QMainWindow* mw)
   //CBSelecao->addItem( tr( "Rank" ) );
   //CBSelecao->addItem( tr( "Roleta" ) );
   //CBSelecao->addItem( tr( "Torneio" ) );
-  //CBSelecao->setToolTip(tr( "Metodo de Seleção" ) );
+  //CBSelecao->setToolTip(tr( "Metodo de Seleï¿½ï¿½o" ) );
   QObject::connect(Exit, SIGNAL(triggered()), mw, SLOT(close()));
 }
 //////////////////////////////////////////////////////////////////////////////////

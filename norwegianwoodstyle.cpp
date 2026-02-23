@@ -39,6 +39,11 @@
  ****************************************************************************/
 
  #include <QtGui>
+ #include <QtWidgets>
+ #include <QPushButton>
+ #include <QComboBox>
+ #include <QStyleOption>
+ #include <QStyleOptionButton>
 
  #include "norwegianwoodstyle.h"
 
@@ -100,9 +105,9 @@
      case PM_ComboBoxFrameWidth:
          return 8;
      case PM_ScrollBarExtent:
-         return QMotifStyle::pixelMetric(metric, option, widget) + 4;
+         return QCommonStyle::pixelMetric(metric, option, widget) + 4;
      default:
-         return QMotifStyle::pixelMetric(metric, option, widget);
+         return QCommonStyle::pixelMetric(metric, option, widget);
      }
  }
 
@@ -116,7 +121,7 @@
      case SH_EtchDisabledText:
          return int(true);
      default:
-         return QMotifStyle::styleHint(hint, option, widget, returnData);
+         return QCommonStyle::styleHint(hint, option, widget, returnData);
      }
  }
 
@@ -216,7 +221,7 @@
          }
          break;
      default:
-         QMotifStyle::drawPrimitive(element, option, painter, widget);
+         QCommonStyle::drawPrimitive(element, option, painter, widget);
      }
  }
 
@@ -241,11 +246,11 @@
                      }
                  }
              }
-             QMotifStyle::drawControl(element, &myButtonOption, painter, widget);
+             QCommonStyle::drawControl(element, &myButtonOption, painter, widget);
          }
          break;
      default:
-         QMotifStyle::drawControl(element, option, painter, widget);
+         QCommonStyle::drawControl(element, option, painter, widget);
      }
  }
 

@@ -1138,7 +1138,7 @@ const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
         {
             vlrTermo.vTermo.tTermo1.var = RG.randInt(1,numVariaveis);//Escolhe uma variavel ate o tamanho m�ximo de variaveis do sistema.
             vlrTermo.vTermo.tTermo1.atraso = RG.randInt(1,vlrMaxAtras);
-            if(vlrTermo.vTermo.tTermo1.atraso>cr.maiorAtraso) cr.maiorAtraso = vlrTermo.vTermo.tTermo1.atraso;
+            if(static_cast<qint32>(vlrTermo.vTermo.tTermo1.atraso)>cr.maiorAtraso) cr.maiorAtraso = vlrTermo.vTermo.tTermo1.atraso;
             vlrTermo.expoente = (qreal) RG.randInt(1,10);
             if(!vlrTermo.expoente) vlrTermo.expoente=1;//Elimina a chance de gerar um expoente inicial igual a zero.
             vetTermo.append(vlrTermo);
@@ -1329,7 +1329,7 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
         if(cr.regress.at(i).size())
         {
             for(j=0;j<cr.regress.at(i).size();j++)
-                if(cr.regress.at(i).at(j).vTermo.tTermo1.atraso>cr.maiorAtraso)
+                if(static_cast<qint32>(cr.regress.at(i).at(j).vTermo.tTermo1.atraso)>cr.maiorAtraso)
                     cr.maiorAtraso=cr.regress.at(i).at(j).vTermo.tTermo1.atraso;
         }
         else {cr.regress.remove(i);i--;}
@@ -1478,7 +1478,7 @@ void DEStruct::DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const
         //Verifica quem � o maior atraso e o atualiza.
         for(cr.maiorAtraso=0,i=0;i<cr.regress.size();i++)
             for(j=0;j<cr.regress.at(i).size();j++)
-                if(cr.regress.at(i).at(j).vTermo.tTermo1.atraso>cr.maiorAtraso)
+                if(static_cast<qint32>(cr.regress.at(i).at(j).vTermo.tTermo1.atraso)>cr.maiorAtraso)
                     cr.maiorAtraso=cr.regress.at(i).at(j).vTermo.tTermo1.atraso;
         ////////////////////////////////////////////////////////////////////////////////                               
     }
@@ -1683,7 +1683,9 @@ void DEStruct::DES_MontaSaida(const Cromossomo &crPrinc,QVector<qreal> &vplotar,
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 inline void DEStruct::DES_isOk(const Cromossomo &cr,const QString &str1) const
-{/*
+{
+    (void)str1; (void)cr;  // Stub function - interface not compatible
+    /*
     if(!cr.termos.size())
     {
         qDebug() << str1+ " cr.termos.size()==0";
@@ -1714,7 +1716,9 @@ inline void DEStruct::DES_isOk(const Cromossomo &cr,const QString &str1) const
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void DEStruct::DES_SuperResp(Cromossomo &crResult,QVector<Cromossomo> &vetorResult) const
-{/*
+{
+    (void)crResult; (void)vetorResult;  // Stub function
+    /*
     MTRand RG;
     Cromossomo cr0(crResult);
     ////////////////////////////////////////////////////////////////////////////////
@@ -1883,7 +1887,9 @@ void DEStruct::DES_SuperResp(Cromossomo &crResult,QVector<Cromossomo> &vetorResu
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void DEStruct::DES_MinimizarLevMarq(Cromossomo &cr) const
-{/*
+{
+    (void)cr;  // Stub function
+    /*
     /////////////////////Inicializa�ao das constantes////////////
     const qint32 numMaxIteracoes = 10;
     const qreal  tolerancia      = 1.0e-5f,//1.0e-8f,
@@ -2024,7 +2030,9 @@ void DEStruct::DES_MinimizarLevMarq(Cromossomo &cr) const
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 void DEStruct::DES_CalcJacob(JMathVar<qreal> &matJacob,const XVetor<qreal> &coefic,const Cromossomo &cr) const
-{/*
+{
+    (void)matJacob; (void)coefic; (void)cr;  // Stub function
+    /*
     const qint32 auxNumLinhas  = DES_Adj.Dados.variaveis.valores.numLinhas(),
                  auxNumColunas = DES_Adj.Dados.variaveis.valores.numColunas();
 

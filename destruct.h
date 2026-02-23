@@ -99,7 +99,7 @@ signals:
     void signal_DES_closed();
     void signal_DES_Finalizado();
     void signal_DES_Parado();
-    void signal_DES_SetStatus(const qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest) const;
+    void signal_DES_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest) const;
     void signal_DES_Desenha() const;
     void signal_DES_Finalizar() const;
     void signal_DES_Status(const quint16 index) const;

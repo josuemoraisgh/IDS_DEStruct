@@ -6,6 +6,8 @@
 #include <QtScript/QScriptString>
 
 #include "mtrand.h"
+#include "xmatriz.h"
+#include "xvetor.h"
 #include "xtipodados.h"
 
 class SRLevMarq

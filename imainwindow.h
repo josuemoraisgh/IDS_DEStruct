@@ -75,7 +75,7 @@ class ICalc : public DummyBase
         void slot_MW_FName(const QString &fileName);
         void slot_MW_IniciarFinalizar();
         void slot_MW_PararContinuar();
-        void slot_MW_SetStatus(const qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest);
+        void slot_MW_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest);
         void slot_MW_Desenha();
         void slot_MW_EscreveEquacao();
         void slot_MW_Finalizar();

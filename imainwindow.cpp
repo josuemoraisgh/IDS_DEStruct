@@ -8,6 +8,7 @@
 
 #include <QtCore>
 #include <QtGui>
+#include <algorithm>
 #include <QApplication>
 #include <QDesktopWidget>
 #include <QApplication>
@@ -505,16 +506,15 @@ void ICalc::slot_MW_SalvarArquivo()
     }
 }
 ////////////////////////////////////////////////////////////////////////////
-void ICalc::slot_MW_SetStatus(const volatile qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest)
+void ICalc::slot_MW_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest)
 {    
-    DEStruct::LerDados.lockForWrite();
-    MW_iteracoes = iteracoes;
+    QWriteLocker locker(&DEStruct::LerDados);
+    MW_iteracoes.storeRelaxed(iteracoes);
     reCopy(MW_resObtido,*resObtido);
     reCopy(MW_residuo,*residuo);
     reCopy(MW_somaEr,*somaEr);
-    qCopy(crBest->begin(),crBest->end(),MW_crBest.begin());
+    std::copy(crBest->begin(), crBest->end(), MW_crBest.begin());
     emit signal_MW_StatusSetado();
-    DEStruct::LerDados.unlock();
 }
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_EscreveEquacao()

@@ -254,6 +254,7 @@ Makefile: IDS_DEStruct.pro ..\..\Qt\5.15.2\msvc2019_64\mkspecs\win32-msvc\qmake.
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\qt_config.prf \
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\win32-msvc\qmake.conf \
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\spec_post.prf \
+		.qmake.stash \
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\exclusive_builds.prf \
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\common\msvc-version.conf \
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\toolchain.prf \
@@ -285,7 +286,6 @@ Makefile: IDS_DEStruct.pro ..\..\Qt\5.15.2\msvc2019_64\mkspecs\win32-msvc\qmake.
 		..\..\Qt\5.15.2\msvc2019_64\lib\Qt5Script.prl \
 		..\..\Qt\5.15.2\msvc2019_64\lib\Qt5Core.prl \
 		..\..\Qt\5.15.2\msvc2019_64\lib\qtmain.prl \
-		.qmake.stash \
 		..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\build_pass.prf \
 		qrc\images.qrc \
 		..\..\Qt\5.15.2\msvc2019_64\lib\Qt5OpenGLd.prl \
@@ -466,6 +466,7 @@ Makefile: IDS_DEStruct.pro ..\..\Qt\5.15.2\msvc2019_64\mkspecs\win32-msvc\qmake.
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\qt_config.prf:
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\win32-msvc\qmake.conf:
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\spec_post.prf:
+.qmake.stash:
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\exclusive_builds.prf:
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\common\msvc-version.conf:
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\toolchain.prf:
@@ -497,7 +498,6 @@ IDS_DEStruct.pro:
 ..\..\Qt\5.15.2\msvc2019_64\lib\Qt5Script.prl:
 ..\..\Qt\5.15.2\msvc2019_64\lib\Qt5Core.prl:
 ..\..\Qt\5.15.2\msvc2019_64\lib\qtmain.prl:
-.qmake.stash:
 ..\..\Qt\5.15.2\msvc2019_64\mkspecs\features\build_pass.prf:
 qrc\images.qrc:
 ..\..\Qt\5.15.2\msvc2019_64\lib\Qt5OpenGLd.prl:

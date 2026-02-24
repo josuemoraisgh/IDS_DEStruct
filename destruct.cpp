@@ -1385,11 +1385,13 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
     }
     ////////////////////////////////////////////////////////////////////////////////
     //Faz o c�lculo do valor estimado.
+    //Equa��o correta (consistente com o ELS Estendido):
+    //  y = (Rnum*Cnum + E*Ce) / (1 + Rden*Cden)
     vlrsEstimado = vlrsRegressNum(vlrsCoeficNum,jst.set("(:,:)*(:,:)'"));
     b = vlrsRegressDen(vlrsCoeficDen,jst.set("(:,:)*(:,:)'"));
-    a.fill(1,b.numLinhas(),b.numColunas());
-    a.copy(b,jst.set("(:,:)+=(:,:)"));
-    vlrsEstimado.copy(a,jst.set("(:,:)/=(:,:)"));
+    a.fill(1,vlrsEstimado.numLinhas(),vlrsEstimado.numColunas());
+    if(b.numLinhas() > 0)
+        a.copy(b,jst.set("(:,:)+=(:,:)"));
     ////////////////////////////////////////////////////////////////////////////////
     //Insere os termos do residuo no sistema se houver
     const qint32 tamErro = vlrsCoefic.numColunas()-(tamNum+tamDen);
@@ -1398,15 +1400,22 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
         vlrsResiduo.fill(0,vlrsMedido.numLinhas(),1);
         ////////////////////////////////////////////////////////////////////////////////
         //Calcula os valores estimados dos residuos com os regressores do residuo.
+        //Os termos de erro sao somados ao numerador ANTES da divisao pelo denominador.
         const qint32 tamvlrsRegress = (tamNum+tamDen);
-        for(atraso=0,estimado=vlrsEstimado.begin(),residuo=vlrsResiduo.begin(),medido=vlrsMedido.begin();medido < vlrsMedido.end();medido++,residuo++,estimado++,atraso++)
+        const qreal *denVal = a.begin();
+        for(atraso=0,estimado=vlrsEstimado.begin(),residuo=vlrsResiduo.begin(),medido=vlrsMedido.begin();medido < vlrsMedido.end();medido++,residuo++,estimado++,atraso++,denVal++)
         {
             for(i=0;i<tamErro;i++)
                 *estimado += vlrsCoefic.at(tamvlrsRegress+i)*((atraso-i)>=0?*(residuo-i):0);
+            *estimado /= *denVal;
             *residuo = *medido - *estimado;
         }
     }
-    else vlrsResiduo = vlrsMedido(vlrsEstimado,jst.set("(:)-(:)"));
+    else
+    {
+        vlrsEstimado.copy(a,jst.set("(:,:)/=(:,:)"));
+        vlrsResiduo = vlrsMedido(vlrsEstimado,jst.set("(:)-(:)"));
+    }
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

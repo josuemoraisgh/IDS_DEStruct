@@ -1,4 +1,4 @@
-name: Build & Release (Windows MSVC 2022, portable) - IDS_DEStruct
+name: Build & Release (Windows MSVC 2019, portable) - IDS_DEStruct
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ env:
 
 jobs:
   build-windows-msvc:
-    name: Windows (MSVC 2022 + Qt5 + Qwt local)
+    name: Windows (MSVC 2019 + Qt5 + Qwt local)
     runs-on: windows-latest
 
     steps:
@@ -36,11 +36,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar MSVC 2022
+      - name: Configurar MSVC 2019
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          vsversion: 2022
+          vsversion: 2019
 
       - name: Instalar Qt5
         uses: jurplel/install-qt-action@v3
@@ -48,7 +48,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
-          arch: win64_msvc2022_64
+          arch: win64_msvc2019_64
           modules: qtscript qtsvg
           cache: true
 
@@ -257,11 +257,11 @@ jobs:
             ${{ github.event.inputs.notes }}
             
             ## 📦 Download
-            - **Windows x64 (MSVC 2022)**: `${{ env.ZIP_NAME }}`
+            - **Windows x64 (MSVC 2019)**: `${{ env.ZIP_NAME }}`
             
             ## 🔧 Requisitos
             - Windows 10/11 64-bit
-            - Microsoft Visual C++ 2022 Redistributable (x64)
+            - Microsoft Visual C++ 2019 Redistributable (x64)
             
             ## 📝 Changelog
             Veja as mudanças nesta versão nos commits abaixo.

@@ -321,12 +321,104 @@ jobs:
         run: |
           Write-Host "Verificando biblioteca Qwt..."
           Write-Host "Conteúdo de ../qwt/lib:"
-          Get-ChildItem -Path "../qwt/lib" -ErrorAction SilentlyContinue | ForEach-Object {
-            Write-Host "  $($_.Name) - $($_.Length) bytes"
+          $qwtLibFiles = Get-ChildItem -Path "../qwt/lib" -ErrorAction SilentlyContinue
+          
+          if (-not $qwtLibFiles) {
+            Write-Host "❌ Nenhum arquivo encontrado em ../qwt/lib"
+            Write-Host "Conteúdo de ../qwt:"
+            Get-ChildItem -Path "../qwt" -Recurse | Select-Object -ExpandProperty FullName | Write-Host
+          } else {
+            foreach ($file in $qwtLibFiles) {
+              Write-Host "  $($file.Name) - $($file.Length) bytes"
+              
+              # Tentar determinar o tipo de biblioteca
+              $filePath = $file.FullName
+              
+              # Se é .a (estática MinGW), pode ser listada com nm
+              if ($file.Name -match '\.a$') {
+                Write-Host "    Tipo: Arquivo estático (.a)"
+                Write-Host "    Tentando listar símbolos..."
+                $nmExe = "$env:QT_MINGW_PATH\nm.exe"
+                if (Test-Path $nmExe) {
+                  & $nmExe --undefined-only $filePath 2>&1 | Select-Object -First 5 | Write-Host
+                }
+              } elseif ($file.Name -match '\.lib$') {
+                Write-Host "    Tipo: Arquivo de importação (.lib) - provável MSVC!"
+              } elseif ($file.Name -match '\.dll$') {
+                Write-Host "    Tipo: DLL dinâmica"
+              }
+            }
           }
           
           Write-Host "`nConteúdo de Makefile.Release (procurando por -lqwt):"
-          Select-String -Path "Makefile.Release" -Pattern "lqwt|QWT" | Write-Host
+          Select-String -Path "Makefile.Release" -Pattern "lqwt|QWT|qwt" | Select-Object -First 5 | Write-Host
+
+      - name: Compilar Qwt com MinGW (se necessário)
+        shell: pwsh
+        run: |
+          Write-Host "Verificando se precisa compilar Qwt..."
+          
+          # Verificar se a biblioteca Qwt compatível com MinGW existe
+          $qwtLibs = Get-ChildItem -Path "qwt/lib" -Filter "*.a" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*qwt*" }
+          
+          if (-not $qwtLibs -or $qwtLibs.Length -eq 0) {
+            Write-Host "⚠️ Biblioteca Qwt compatível com MinGW não encontrada. Compilando Qwt..."
+            
+            # Usar qwt/src/qwt.pro para compilar apenas a biblioteca
+            $qwtProFile = "qwt/src/qwt.pro"
+            if (-not (Test-Path $qwtProFile)) {
+              throw "Arquivo $qwtProFile não encontrado"
+            }
+            
+            # Criar diretório para build do Qwt
+            $qwtBuildDir = "qwt/build_mingw"
+            if (Test-Path $qwtBuildDir) {
+              Remove-Item -Path $qwtBuildDir -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $qwtBuildDir | Out-Null
+            
+            Push-Location $qwtBuildDir
+            
+            Write-Host "Executando qmake para Qwt (src/qwt.pro)..."
+            $qmakeExe = (Get-Command qmake).Source
+            $srcProFile = Resolve-Path "../src/qwt.pro" | Select-Object -ExpandProperty Path
+            
+            & $qmakeExe $srcProFile "CONFIG+=release" > qmake.log 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "❌ qmake falhou para Qwt. Log:"
+              Get-Content qmake.log | Write-Host
+              throw "qmake Qwt falhou"
+            }
+            
+            Write-Host "Compilando Qwt com mingw32-make..."
+            $makeExe = $env:QT_MINGW_MAKE
+            if (-not $makeExe -or -not (Test-Path $makeExe)) {
+              $makeExe = (Get-Command mingw32-make).Source
+            }
+            
+            & $makeExe -f Makefile.Release 2>&1 | ForEach-Object { Write-Host $_ }
+            if ($LASTEXITCODE -ne 0) {
+              throw "mingw32-make Qwt falhou"
+            }
+            
+            Write-Host "✔ Qwt compilada com sucesso"
+            
+            # Copiar biblioteca para qwt/lib/ se necessário
+            Write-Host "Localizando biblioteca compilada..."
+            $compiledLibs = Get-ChildItem -Path "." -Filter "*qwt*.a" -Recurse
+            if ($compiledLibs) {
+              Write-Host "Encontrado(s):"
+              foreach ($lib in $compiledLibs) {
+                Write-Host "  $($lib.FullName)"
+              }
+            } else {
+              Write-Host "⚠️ Nenhuma biblioteca .a encontrada. Verifique o build do Qwt."
+            }
+            
+            Pop-Location
+          } else {
+            Write-Host "✔ Biblioteca Qwt compatível encontrada"
+          }
 
       - name: Compilar com mingw32-make
         shell: pwsh

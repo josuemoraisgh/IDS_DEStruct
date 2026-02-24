@@ -1,4 +1,4 @@
-name: Build & Release (Windows MSVC 2019, portable) - IDS_DEStruct
+name: Build & Release (Windows MinGW, portable) - IDS_DEStruct
 
 on:
   workflow_dispatch:
@@ -26,8 +26,8 @@ env:
   ZIP_NAME: IDS_DEStruct-${{ github.event.inputs.version }}-windows-x64.zip
 
 jobs:
-  build-windows-msvc:
-    name: Windows (MSVC 2019 + Qt5 + Qwt local)
+  build-windows-mingw:
+    name: Windows (MinGW + Qt5 + Qwt local)
     runs-on: windows-latest
 
     steps:
@@ -36,19 +36,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar MSVC 2019
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-          vsversion: 2019
-
       - name: Instalar Qt5
         uses: jurplel/install-qt-action@v3
         with:
           version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
-          arch: win64_msvc2019_64
+          arch: win64_mingw81
           modules: qtscript qtsvg
           cache: true
 
@@ -134,15 +128,15 @@ jobs:
           }
           Write-Host "✔ qmake concluído"
 
-      - name: Compilar com nmake
+      - name: Compilar com mingw32-make
         shell: pwsh
         working-directory: build
         run: |
-          Write-Host "Compilando com nmake..."
-          nmake release
+          Write-Host "Compilando com mingw32-make..."
+          mingw32-make
           
           if ($LASTEXITCODE -ne 0) {
-            throw "nmake falhou com código: $LASTEXITCODE"
+            throw "mingw32-make falhou com código: $LASTEXITCODE"
           }
           Write-Host "✔ Compilação concluída"
 
@@ -257,11 +251,11 @@ jobs:
             ${{ github.event.inputs.notes }}
             
             ## 📦 Download
-            - **Windows x64 (MSVC 2019)**: `${{ env.ZIP_NAME }}`
+            - **Windows x64 (MinGW)**: `${{ env.ZIP_NAME }}`
             
             ## 🔧 Requisitos
             - Windows 10/11 64-bit
-            - Microsoft Visual C++ 2019 Redistributable (x64)
+            - Todas as DLLs necessárias estão incluídas no pacote
             
             ## 📝 Changelog
             Veja as mudanças nesta versão nos commits abaixo.

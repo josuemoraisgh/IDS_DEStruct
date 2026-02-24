@@ -43,7 +43,6 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw81
-          modules: qtscript qtsvg
           cache: true
 
       - name: Validar versão

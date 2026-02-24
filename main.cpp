@@ -1,5 +1,7 @@
 #include <QApplication>
 #include <QSplashScreen>
+#include <QTimer>
+#include <QPixmap>
 #include "imainwindow.h"
 
 int main( int argc, char** argv )

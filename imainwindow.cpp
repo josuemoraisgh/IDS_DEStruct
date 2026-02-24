@@ -628,7 +628,7 @@ void ICalc::slot_MW_EscreveEquacao()
         jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
         rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
         str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
-        if(strNum.size()) str.append(QString("\n%1(k) = (("+strNum+")/("+strDen+"))"+strErr+";\nERR:=("+strErrNum+")/("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
+        if(strNum.size()) str.append(QString("\n%1(k) = ((%1_Num+%1_Err)/(%1_Den));\n%1_Num = "+strNum+";\n%1_Err = "+strErr+";\n%1_Den = "+strDen+";\nERR_Num:=("+strErrNum+");\nERR_Den:=("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
     }
     str.append(QString("\n"));
     CheckBox1->setChecked(true);

@@ -1,6 +1,9 @@
 name: Build & Release (Windows MSVC 2019, portable) - IDS_DEStruct
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -21,9 +24,9 @@ permissions:
   contents: write
 
 env:
-  VERSION: ${{ github.event.inputs.version }}
+  VERSION: ${{ github.event.inputs.version || github.ref_name }}
   QT_VERSION: "5.15.2"
-  ZIP_NAME: IDS_DEStruct-${{ github.event.inputs.version }}-windows-x64.zip
+  ZIP_NAME: IDS_DEStruct-${{ github.event.inputs.version || github.ref_name }}-windows-x64.zip
 
 jobs:
   build-windows-msvc:
@@ -265,7 +268,7 @@ jobs:
             
             ## 📝 Changelog
             Veja as mudanças nesta versão nos commits abaixo.
-          prerelease: ${{ github.event.inputs.prerelease }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           files: release/${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

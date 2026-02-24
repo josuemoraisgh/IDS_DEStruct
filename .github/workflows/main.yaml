@@ -27,8 +27,8 @@ env:
 
 jobs:
   build-windows-msvc:
-    name: Windows (MSVC 2019 + Qt5 + Qwt local)
-    runs-on: windows-latest
+      name: Windows (MSVC 2022 + Qt5 + Qwt local)
+      runs-on: windows-latest
 
     steps:
       - name: Checkout código
@@ -37,10 +37,11 @@ jobs:
           fetch-depth: 0
 
       - name: Configurar MSVC 2019
+        - name: Configurar MSVC 2022
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          vsversion: 2019
+            vsversion: 2022
 
       - name: Instalar Qt5
         uses: jurplel/install-qt-action@v3
@@ -48,7 +49,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
-          arch: win64_msvc2019_64
+            arch: win64_msvc2022_64
           modules: qtscript qtsvg
           cache: true
 

@@ -50,7 +50,11 @@ jobs:
         run: |
           Write-Host "Configurando ambiente MinGW..."
           
-          $mingwPath = "D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\bin"
+          $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
+          if (-not $qtRoot) {
+            throw "Qt5_Dir/Qt5_DIR não definido pelo install-qt-action"
+          }
+          $mingwPath = Join-Path $qtRoot "bin"
           
           if (Test-Path $mingwPath) {
             Write-Host "✔ Caminho MinGW encontrado: $mingwPath"
@@ -103,7 +107,11 @@ jobs:
           Write-Host "Testando compilador g++..."
           
           # Encontrar o g++ correto do Qt
-          $qtGppPath = "D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\bin\g++.exe"
+          $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
+          if (-not $qtRoot) {
+            throw "Qt5_Dir/Qt5_DIR não definido pelo install-qt-action"
+          }
+          $qtGppPath = Join-Path (Join-Path $qtRoot "bin") "g++.exe"
           
           if (Test-Path $qtGppPath) {
             Write-Host "✔ Encontrado g++ do Qt: $qtGppPath"

@@ -246,12 +246,12 @@ jobs:
 
           $qtPath = $qtRoot
           $compileArgs = @(
+            "test_qt.cpp",
             "-I$qtPath\include",
             "-I$qtPath\include\QtCore",
             "-L$qtPath\lib",
             "-lQt5Core",
-            "-o", "test_qt.exe",
-            "test_qt.cpp"
+            "-o", "test_qt.exe"
           )
           
           Write-Host "Compilando teste Qt..."

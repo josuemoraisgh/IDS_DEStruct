@@ -14,7 +14,7 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Setup Qt
       uses: jurplel/install-qt-action@v3
@@ -38,7 +38,7 @@ jobs:
       run: cd build-debug && nmake
       
     - name: Upload debug build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: IDS_DEStruct-debug
         path: build-debug/debug/
@@ -49,7 +49,7 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Setup Qt
       uses: jurplel/install-qt-action@v3
@@ -106,7 +106,7 @@ jobs:
         Qt5_Dir: ${{ env.Qt5_Dir }}
         
     - name: Upload release build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: IDS_DEStruct-release
         path: deploy/

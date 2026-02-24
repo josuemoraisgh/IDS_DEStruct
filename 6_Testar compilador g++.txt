@@ -1,0 +1,94 @@
+﻿2026-02-24T15:40:09.7802989Z ##[group]Run Write-Host "Testando compilador g++..."
+2026-02-24T15:40:09.7803712Z [36;1mWrite-Host "Testando compilador g++..."[0m
+2026-02-24T15:40:09.7804195Z [36;1mWrite-Host "g++ version:"[0m
+2026-02-24T15:40:09.7804592Z [36;1mg++ --version | Write-Host[0m
+2026-02-24T15:40:09.7804988Z [36;1m[0m
+2026-02-24T15:40:09.7805258Z [36;1mWrite-Host "`nLocalizando g++..."[0m
+2026-02-24T15:40:09.7805890Z [36;1m$gppPath = (Get-Command g++ -ErrorAction SilentlyContinue).Source[0m
+2026-02-24T15:40:09.7806591Z [36;1mWrite-Host "g++ location: $gppPath"[0m
+2026-02-24T15:40:09.7806996Z [36;1m[0m
+2026-02-24T15:40:09.7807262Z [36;1m# Criar arquivo de teste[0m
+2026-02-24T15:40:09.7807946Z [36;1m$testCode = @"[0m
+2026-02-24T15:40:09.7808280Z [36;1m#include <iostream>[0m
+2026-02-24T15:40:09.7808623Z [36;1mint main() {[0m
+2026-02-24T15:40:09.7808996Z [36;1m  std::cout << "Hello World" << std::endl;[0m
+2026-02-24T15:40:09.7809446Z [36;1m  return 0;[0m
+2026-02-24T15:40:09.7809737Z [36;1m}[0m
+2026-02-24T15:40:09.7810014Z [36;1m"@[0m
+2026-02-24T15:40:09.7810253Z [36;1m[0m
+2026-02-24T15:40:09.7810595Z [36;1mSet-Content -Path "test.cpp" -Value $testCode[0m
+2026-02-24T15:40:09.7811112Z [36;1mWrite-Host "test.cpp criado"[0m
+2026-02-24T15:40:09.7811567Z [36;1mGet-Content test.cpp | Write-Host[0m
+2026-02-24T15:40:09.7811964Z [36;1m[0m
+2026-02-24T15:40:09.7812317Z [36;1mWrite-Host "`nTestando compilação simples..."[0m
+2026-02-24T15:40:09.7812778Z [36;1m[0m
+2026-02-24T15:40:09.7813067Z [36;1m# Tentar compilar com arquivo de log[0m
+2026-02-24T15:40:09.7813509Z [36;1m$logFile = "compile_error.log"[0m
+2026-02-24T15:40:09.7813967Z [36;1m& g++ -o test.exe test.cpp > $logFile 2>&1[0m
+2026-02-24T15:40:09.7814435Z [36;1m$exitCode = $LASTEXITCODE[0m
+2026-02-24T15:40:09.7814813Z [36;1m[0m
+2026-02-24T15:40:09.7815090Z [36;1mWrite-Host "Exit code: $exitCode"[0m
+2026-02-24T15:40:09.7815566Z [36;1mWrite-Host "`nConteúdo de $logFile :"[0m
+2026-02-24T15:40:09.7816027Z [36;1mif (Test-Path $logFile) {[0m
+2026-02-24T15:40:09.7816465Z [36;1m  Get-Content $logFile | Write-Host[0m
+2026-02-24T15:40:09.7816895Z [36;1m} else {[0m
+2026-02-24T15:40:09.7817093Z [36;1m  Write-Host "(arquivo não criado)"[0m
+2026-02-24T15:40:09.7817567Z [36;1m}[0m
+2026-02-24T15:40:09.7817706Z [36;1m[0m
+2026-02-24T15:40:09.7817896Z [36;1mWrite-Host "`nArquivos após compilação:"[0m
+2026-02-24T15:40:09.7818373Z [36;1mGet-ChildItem *.exe, *.o, test.cpp, compile_error.log -ErrorAction SilentlyContinue | Write-Host[0m
+2026-02-24T15:40:09.7818814Z [36;1m[0m
+2026-02-24T15:40:09.7818970Z [36;1mif ($exitCode -ne 0) {[0m
+2026-02-24T15:40:09.7819227Z [36;1m  Write-Host "`n❌ Compilação falhou"[0m
+2026-02-24T15:40:09.7819547Z [36;1m  throw "g++ compilação falhou com código: $exitCode"[0m
+2026-02-24T15:40:09.7819836Z [36;1m}[0m
+2026-02-24T15:40:09.7819980Z [36;1m[0m
+2026-02-24T15:40:09.7820159Z [36;1mWrite-Host "`n✔ Compilador g++ funciona"[0m
+2026-02-24T15:40:09.7820568Z [36;1mRemove-Item test.cpp, test.exe, $logFile -Force -ErrorAction SilentlyContinue[0m
+2026-02-24T15:40:09.7891804Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-02-24T15:40:09.7892122Z env:
+2026-02-24T15:40:09.7892287Z   VERSION: v1.0.1
+2026-02-24T15:40:09.7902953Z   QT_VERSION: 5.15.2
+2026-02-24T15:40:09.7903225Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:40:09.7903593Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:40:09.7904387Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+2026-02-24T15:40:09.7905182Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:40:09.7906199Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:40:09.7906927Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:40:09.7907350Z   Qt5_Dir: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64
+2026-02-24T15:40:09.7907667Z   QT_PLUGIN_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\plugins
+2026-02-24T15:40:09.7909751Z   QML2_IMPORT_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\qml
+2026-02-24T15:40:09.7910041Z ##[endgroup]
+2026-02-24T15:40:11.0779294Z Testando compilador g++...
+2026-02-24T15:40:11.0785957Z g++ version:
+2026-02-24T15:40:12.4716617Z g++.exe (x86_64-posix-seh-rev0, Built by MinGW-Builds project) 15.2.0
+2026-02-24T15:40:12.4722035Z Copyright (C) 2025 Free Software Foundation, Inc.
+2026-02-24T15:40:12.4726870Z This is free software; see the source for copying conditions.  There is NO
+2026-02-24T15:40:12.4732196Z warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+2026-02-24T15:40:12.4737306Z 
+2026-02-24T15:40:12.4751619Z 
+2026-02-24T15:40:12.4752168Z Localizando g++...
+2026-02-24T15:40:12.4955544Z g++ location: C:\mingw64\bin\g++.exe
+2026-02-24T15:40:12.7088643Z test.cpp criado
+2026-02-24T15:40:12.7121549Z #include <iostream>
+2026-02-24T15:40:12.8676272Z int main() {
+2026-02-24T15:40:12.8681934Z   std::cout << "Hello World" << std::endl;
+2026-02-24T15:40:12.8687408Z   return 0;
+2026-02-24T15:40:12.8692961Z }
+2026-02-24T15:40:12.8699779Z 
+2026-02-24T15:40:12.8700788Z Testando compilação simples...
+2026-02-24T15:40:13.2539026Z Exit code: 1
+2026-02-24T15:40:13.2545201Z 
+2026-02-24T15:40:13.2545787Z Conteúdo de compile_error.log :
+2026-02-24T15:40:13.2588589Z 
+2026-02-24T15:40:13.2589055Z Arquivos após compilação:
+2026-02-24T15:40:13.4993849Z D:\a\IDS_DEStruct\IDS_DEStruct\test.cpp
+2026-02-24T15:40:13.4999796Z D:\a\IDS_DEStruct\IDS_DEStruct\compile_error.log
+2026-02-24T15:40:13.5025138Z 
+2026-02-24T15:40:13.5025678Z ❌ Compilação falhou
+2026-02-24T15:40:14.7439655Z [31;1mException: [0mD:\a\_temp\6cfc2942-d949-4917-98e8-12cadb2823b1.ps1:43[0m
+2026-02-24T15:40:14.7440690Z [31;1m[0m[36;1mLine |[0m
+2026-02-24T15:40:14.7441523Z [31;1m[0m[36;1m[36;1m  43 | [0m   [36;1mthrow "g++ compilação falhou com código: $exitCode"[0m
+2026-02-24T15:40:14.7442137Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+2026-02-24T15:40:14.7443311Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mg++ compilação falhou com código: 1[0m
+2026-02-24T15:40:14.7989654Z ##[error]Process completed with exit code 1.

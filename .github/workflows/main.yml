@@ -45,6 +45,30 @@ jobs:
           arch: win64_mingw81
           cache: true
 
+      - name: Configurar variáveis de ambiente do MinGW do Qt
+        shell: pwsh
+        run: |
+          Write-Host "Configurando ambiente MinGW..."
+          
+          $mingwPath = "D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\bin"
+          
+          if (Test-Path $mingwPath) {
+            Write-Host "✔ Caminho MinGW encontrado: $mingwPath"
+            
+            # Adicionar ao PATH (PowerShell)
+            $env:PATH = "$mingwPath;$env:PATH"
+            
+            # Adicionar ao GITHUB_PATH para passos subsequentes
+            Add-Content -Path $env:GITHUB_PATH -Value $mingwPath
+            
+            Write-Host "✔ MinGW adicionado ao PATH"
+            Write-Host "`nVerificando ferramentas:"
+            Write-Host "g++: $(Get-Command g++ | Select-Object -ExpandProperty Source)"
+            Write-Host "mingw32-make: $(Get-Command mingw32-make | Select-Object -ExpandProperty Source)"
+          } else {
+            throw "Caminho MinGW não encontrado: $mingwPath"
+          }
+
       - name: Validar versão
         shell: pwsh
         run: |
@@ -77,55 +101,63 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Testando compilador g++..."
-          Write-Host "g++ version:"
-          g++ --version | Write-Host
           
-          Write-Host "`nLocalizando g++..."
-          $gppPath = (Get-Command g++ -ErrorAction SilentlyContinue).Source
-          Write-Host "g++ location: $gppPath"
+          # Encontrar o g++ correto do Qt
+          $qtGppPath = "D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\bin\g++.exe"
+          
+          if (Test-Path $qtGppPath) {
+            Write-Host "✔ Encontrado g++ do Qt: $qtGppPath"
+            Write-Host "Versão:"
+            & $qtGppPath --version | Write-Host
+          } else {
+            Write-Host "❌ g++ do Qt não encontrado em $qtGppPath"
+          }
+          
+          # Também verificar o que está no PATH
+          $pathGpp = (Get-Command g++ -ErrorAction SilentlyContinue).Source
+          Write-Host "`nG++ no PATH: $pathGpp"
           
           # Criar arquivo de teste
           $testCode = @"
-          #include <iostream>
-          int main() {
-            std::cout << "Hello World" << std::endl;
-            return 0;
-          }
-          "@
+#include <iostream>
+int main() {
+  std::cout << "Hello World" << std::endl;
+  return 0;
+}
+"@
           
           Set-Content -Path "test.cpp" -Value $testCode
-          Write-Host "test.cpp criado"
-          Get-Content test.cpp | Write-Host
+          Write-Host "`ntest.cpp criado"
           
-          Write-Host "`nTestando compilação simples..."
+          Write-Host "`nTestando compilação com g++ do Qt..."
           
           # Tentar compilar com arquivo de log
           $logFile = "compile_error.log"
-          & g++ -o test.exe test.cpp > $logFile 2>&1
+          & $qtGppPath -o test.exe test.cpp > $logFile 2>&1
           $exitCode = $LASTEXITCODE
           
           Write-Host "Exit code: $exitCode"
-          Write-Host "`nConteúdo de $logFile :"
+          
           if (Test-Path $logFile) {
-            Get-Content $logFile | Write-Host
+            $logContent = Get-Content $logFile
+            if ($logContent) {
+              Write-Host "`nErro/Output:"
+              Write-Host $logContent
+            } else {
+              Write-Host "(log vazio)"
+            }
+          }
+          
+          if (Test-Path "test.exe") {
+            Write-Host "✔ test.exe foi criado com sucesso!"
+            Write-Host "`nTestando executável..."
+            & .\test.exe | Write-Host
+            Remove-Item test.cpp, test.exe, $logFile -Force -ErrorAction SilentlyContinue
+            Write-Host "`n✔ Compilador g++ do Qt funciona"
           } else {
-            Write-Host "(arquivo não criado)"
+            Write-Host "`n❌ test.exe não foi criado"
+            throw "Compilação com g++ falhou"
           }
-          
-          Write-Host "`nArquivos após compilação:"
-          Get-ChildItem *.exe, *.o, test.cpp, compile_error.log -ErrorAction SilentlyContinue | Write-Host
-          
-          if ($exitCode -ne 0) {
-            Write-Host "`n❌ Compilação falhou"
-            throw "g++ compilação falhou com código: $exitCode"
-          }
-          
-          Write-Host "`n✔ Compilador g++ funciona"
-          Remove-Item test.cpp, test.exe, $logFile -Force -ErrorAction SilentlyContinue
-
-      - name: Testar Qt includes
-        shell: pwsh
-        run: |
           Write-Host "Testando Qt includes..."
           
           $qtTestCode = @"

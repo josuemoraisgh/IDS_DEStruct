@@ -28,7 +28,7 @@ env:
 jobs:
   build-windows-msvc:
     name: Windows (MSVC 2019 + Qt5 + Qwt local)
-    runs-on: windows-latest
+    runs-on: windows-2019
 
     steps:
       - name: Checkout código

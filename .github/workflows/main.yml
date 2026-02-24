@@ -113,12 +113,12 @@ jobs:
           Write-Host "Testando Qt includes..."
           
           $qtTestCode = @"
-#include <QCoreApplication>
-int main(int argc, char *argv[]) {
-  QCoreApplication app(argc, argv);
-  return 0;
-}
-"@
+          #include <QCoreApplication>
+          int main(int argc, char *argv[]) {
+            QCoreApplication app(argc, argv);
+            return 0;
+          }
+          "@
           
           Set-Content -Path "test_qt.cpp" -Value $qtTestCode
           

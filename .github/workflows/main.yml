@@ -364,8 +364,8 @@ jobs:
           if (-not $qwtLibs -or $qwtLibs.Length -eq 0) {
             Write-Host "⚠️ Biblioteca Qwt compatível com MinGW não encontrada. Compilando Qwt..."
             
-            # Usar qwt/src/qwt.pro para compilar apenas a biblioteca
-            $qwtProFile = "qwt/src/qwt.pro"
+            # Usar qwt/src/src.pro para compilar apenas a biblioteca
+            $qwtProFile = "qwt/src/src.pro"
             if (-not (Test-Path $qwtProFile)) {
               throw "Arquivo $qwtProFile não encontrado"
             }
@@ -379,9 +379,9 @@ jobs:
             
             Push-Location $qwtBuildDir
             
-            Write-Host "Executando qmake para Qwt (src/qwt.pro)..."
+            Write-Host "Executando qmake para Qwt (src/src.pro)..."
             $qmakeExe = (Get-Command qmake).Source
-            $srcProFile = Resolve-Path "../src/qwt.pro" | Select-Object -ExpandProperty Path
+            $srcProFile = Resolve-Path "../src/src.pro" | Select-Object -ExpandProperty Path
             
             & $qmakeExe $srcProFile "CONFIG+=release" > qmake.log 2>&1
             if ($LASTEXITCODE -ne 0) {
@@ -403,7 +403,7 @@ jobs:
             
             Write-Host "✔ Qwt compilada com sucesso"
             
-            # Copiar biblioteca para qwt/lib/ se necessário
+            # Copiar/Verificar biblioteca foi criada
             Write-Host "Localizando biblioteca compilada..."
             $compiledLibs = Get-ChildItem -Path "." -Filter "*qwt*.a" -Recurse
             if ($compiledLibs) {

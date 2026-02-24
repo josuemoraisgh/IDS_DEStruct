@@ -85,16 +85,13 @@ jobs:
           $content = $content -replace 'DIRETORIO\s*=\s*C:', '# DIRETORIO = C:'
           $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
           
-          # Garantir que QWT_LOCATION aponta para a pasta local (usando $$ sem backtick)
-          $content = $content -replace 'QWT_LOCATION\s*=\s*[^\r\n]+', 'QWT_LOCATION = $$PWD/qwt'
-          
           # Comentar DESTDIR hardcoded
           $content = $content -replace '^(\s*)DESTDIR\s*=\s*\$\$\{DIRETORIO1\}[^\r\n]+', '# $1DESTDIR = (comentado para CI)'
           
           # Adicionar DESTDIR relativo no final se não existir
           if ($content -notmatch 'DESTDIR\s*=\s*\$\$OUT_PWD') {
             $content += "`n`n# ===== CI Configuration =====`n"
-            $content += "DESTDIR = $$OUT_PWD/release`n"
+            $content += "DESTDIR = `$`$OUT_PWD/release`n"
           }
           
           Set-Content -Path $proFile -Value $content -NoNewline
@@ -120,7 +117,9 @@ jobs:
           Write-Host "Qt: $env:Qt5_DIR"
           Write-Host "qmake: $(Get-Command qmake -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
           
-          qmake ..\IDS_DEStruct.pro "CONFIG+=release"
+          # Passar QWT_LOCATION via linha de comando do qmake
+          $parentDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
+          qmake "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt"
           
           if ($LASTEXITCODE -ne 0) {
             throw "qmake falhou com código: $LASTEXITCODE"
@@ -132,7 +131,7 @@ jobs:
         working-directory: build
         run: |
           Write-Host "Compilando com mingw32-make..."
-          mingw32-make
+          mingw32-make -f Makefile.Release
           
           if ($LASTEXITCODE -ne 0) {
             throw "mingw32-make falhou com código: $LASTEXITCODE"

@@ -85,8 +85,8 @@ jobs:
           $content = $content -replace 'DIRETORIO\s*=\s*C:', '# DIRETORIO = C:'
           $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
           
-          # Garantir que QWT_LOCATION aponta para a pasta local
-          $content = $content -replace 'QWT_LOCATION\s*=\s*[^\r\n]+', 'QWT_LOCATION = `$`$PWD/qwt'
+          # Garantir que QWT_LOCATION aponta para a pasta local (usando $$ sem backtick)
+          $content = $content -replace 'QWT_LOCATION\s*=\s*[^\r\n]+', 'QWT_LOCATION = $$PWD/qwt'
           
           # Comentar DESTDIR hardcoded
           $content = $content -replace '^(\s*)DESTDIR\s*=\s*\$\$\{DIRETORIO1\}[^\r\n]+', '# $1DESTDIR = (comentado para CI)'
@@ -94,7 +94,7 @@ jobs:
           # Adicionar DESTDIR relativo no final se não existir
           if ($content -notmatch 'DESTDIR\s*=\s*\$\$OUT_PWD') {
             $content += "`n`n# ===== CI Configuration =====`n"
-            $content += "DESTDIR = `$`$OUT_PWD/release`n"
+            $content += "DESTDIR = $$OUT_PWD/release`n"
           }
           
           Set-Content -Path $proFile -Value $content -NoNewline

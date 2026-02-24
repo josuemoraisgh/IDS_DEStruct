@@ -1,0 +1,142 @@
+name: Build and Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Setup Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        arch: 'win64_msvc2019_64'
+        
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        
+    - name: Create build directory
+      run: mkdir -p build
+      shell: bash
+      
+    - name: Generate project files with qmake
+      run: cd build && qmake ..\IDS_DEStruct.pro "CONFIG+=release"
+      
+    - name: Build project with nmake
+      run: cd build && nmake
+      
+    - name: Create release directory structure
+      run: |
+        mkdir -p release/bin
+        mkdir -p release/lib
+        mkdir -p release/plugins
+      shell: bash
+      
+    - name: Copy executable
+      run: |
+        copy build\release\IDS_DEStruct.exe release\bin\
+      shell: cmd
+      
+    - name: Copy QWT libraries
+      run: |
+        if exist "qwt\lib\qwt.dll" copy qwt\lib\qwt.dll release\lib\
+        if exist "qwt\lib\qwtd.dll" copy qwt\lib\qwtd.dll release\lib\
+      shell: cmd
+      
+    - name: Copy Qt runtime libraries
+      run: |
+        copy "%Qt5_Dir%\bin\Qt5Core.dll" release\bin\
+        copy "%Qt5_Dir%\bin\Qt5Gui.dll" release\bin\
+        copy "%Qt5_Dir%\bin\Qt5Widgets.dll" release\bin\
+        copy "%Qt5_Dir%\bin\Qt5OpenGL.dll" release\bin\
+        copy "%Qt5_Dir%\bin\Qt5Svg.dll" release\bin\
+        copy "%Qt5_Dir%\bin\Qt5PrintSupport.dll" release\bin\
+        copy "%Qt5_Dir%\lib\Qt5Core.lib" release\lib\
+        copy "%Qt5_Dir%\lib\Qt5Gui.lib" release\lib\
+        copy "%Qt5_Dir%\lib\Qt5Widgets.lib" release\lib\
+        copy "%Qt5_Dir%\lib\Qt5OpenGL.lib" release\lib\
+        copy "%Qt5_Dir%\lib\Qt5Svg.lib" release\lib\
+        copy "%Qt5_Dir%\lib\Qt5PrintSupport.lib" release\lib\
+      shell: cmd
+      env:
+        Qt5_Dir: ${{ env.Qt5_Dir }}
+        
+    - name: Copy Qt platform plugin
+      run: |
+        mkdir -p release\plugins\platforms
+        copy "%Qt5_Dir%\plugins\platforms\qwindows.dll" release\plugins\platforms\
+      shell: cmd
+      env:
+        Qt5_Dir: ${{ env.Qt5_Dir }}
+        
+    - name: Copy project files (UI, configs for reference)
+      run: |
+        mkdir -p release\doc
+        copy BUILD.md release\doc\
+        copy LOGICA_EVOLUTIVA.md release\doc\
+      shell: cmd
+      
+    - name: Create portable package
+      run: |
+        7z a IDS_DEStruct-release.7z release\
+      shell: cmd
+      
+    - name: Create ZIP package
+      run: |
+        powershell -Command "& {Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory('release', 'IDS_DEStruct-release.zip')}"
+      shell: powershell
+      
+    - name: Get version from tag
+      id: tag_version
+      run: |
+        $version = "${{ github.ref }}".Replace("refs/tags/", "")
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+      shell: powershell
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          IDS_DEStruct-release.7z
+          IDS_DEStruct-release.zip
+        body: |
+          # Release ${{ steps.tag_version.outputs.version }}
+          
+          ## Build Information
+          - **Build Date**: ${{ github.event.head_commit.timestamp }}
+          - **Commit**: ${{ github.sha }}
+          - **Branch**: ${{ github.ref_name }}
+          
+          ## Contents
+          - IDS_DEStruct.exe (Main application)
+          - Qt runtime libraries (5.15.2)
+          - Qwt library binaries
+          - Platform plugins
+          
+          ## Installation
+          1. Extract the archive
+          2. Run `bin/IDS_DEStruct.exe`
+          3. Ensure `lib/` and `plugins/` are in the same directory as the executable
+          
+          ## Requirements
+          - Windows 64-bit
+          - Visual C++ Runtime (included via Qt)
+          
+          ## Documentation
+          See `doc/LOGICA_EVOLUTIVA.md` for algorithm details
+          
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

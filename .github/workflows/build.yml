@@ -1,0 +1,112 @@
+name: Build Application
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-debug:
+    runs-on: windows-latest
+    name: Build Debug
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Setup Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        arch: 'win64_msvc2019_64'
+        
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        
+    - name: Create build directory
+      run: mkdir -p build-debug
+      shell: bash
+      
+    - name: Generate project files (Debug)
+      run: cd build-debug && qmake ..\IDS_DEStruct.pro "CONFIG+=debug"
+      
+    - name: Build with nmake (Debug)
+      run: cd build-debug && nmake
+      
+    - name: Upload debug build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: IDS_DEStruct-debug
+        path: build-debug/debug/
+
+  build-release:
+    runs-on: windows-latest
+    name: Build Release
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Setup Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        arch: 'win64_msvc2019_64'
+        
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        
+    - name: Create build directory
+      run: mkdir -p build-release
+      shell: bash
+      
+    - name: Generate project files (Release)
+      run: cd build-release && qmake ..\IDS_DEStruct.pro "CONFIG+=release"
+      
+    - name: Build with nmake (Release)
+      run: cd build-release && nmake
+      
+    - name: Create deployment structure
+      run: |
+        mkdir -p deploy\bin
+        mkdir -p deploy\lib
+        mkdir -p deploy\plugins\platforms
+      shell: bash
+      
+    - name: Copy executable
+      run: copy build-release\release\IDS_DEStruct.exe deploy\bin\
+      shell: cmd
+      
+    - name: Copy QWT libraries
+      run: |
+        if exist "qwt\lib\qwt.dll" copy qwt\lib\qwt.dll deploy\lib\
+        if exist "qwt\lib\qwtd.dll" copy qwt\lib\qwtd.dll deploy\lib\
+        if exist "qwt\lib\qwt.lib" copy qwt\lib\qwt.lib deploy\lib\
+        if exist "qwt\lib\qwtd.lib" copy qwt\lib\qwtd.lib deploy\lib\
+      shell: cmd
+      
+    - name: Copy Qt runtime libraries
+      run: |
+        echo %Qt5_Dir%
+        copy "%Qt5_Dir%\bin\Qt5Core.dll" deploy\bin\
+        copy "%Qt5_Dir%\bin\Qt5Gui.dll" deploy\bin\
+        copy "%Qt5_Dir%\bin\Qt5Widgets.dll" deploy\bin\
+        copy "%Qt5_Dir%\bin\Qt5OpenGL.dll" deploy\bin\
+        copy "%Qt5_Dir%\bin\Qt5Svg.dll" deploy\bin\
+        copy "%Qt5_Dir%\bin\Qt5PrintSupport.dll" deploy\bin\
+        copy "%Qt5_Dir%\plugins\platforms\qwindows.dll" deploy\plugins\platforms\
+      shell: cmd
+      env:
+        Qt5_Dir: ${{ env.Qt5_Dir }}
+        
+    - name: Upload release build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: IDS_DEStruct-release
+        path: deploy/

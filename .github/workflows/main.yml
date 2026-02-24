@@ -43,7 +43,7 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw81
-          tools: 'tools_mingw,8.1.0'
+          tools: 'tools_mingw'
           cache: true
 
       - name: Garantir MinGW toolchain (aqt)
@@ -59,7 +59,16 @@ jobs:
 
           if (-not (Test-Path $gppPath)) {
             Write-Host "MinGW toolchain nao encontrado. Instalando via aqt..."
-            python -m aqt install-tool windows desktop tools_mingw 8.1.0 --outputdir $qtBase
+            Write-Host "Listando variantes disponiveis de tools_mingw..."
+            $variants = python -m aqt list-tool windows desktop tools_mingw
+            $variant = ($variants | Where-Object { $_ -match '^mingw' } | Select-Object -First 1)
+            if (-not $variant) {
+              Write-Host "Nao foi possivel detectar variante do tools_mingw."
+              Write-Host $variants
+              throw "tools_mingw sem variantes disponiveis"
+            }
+            Write-Host "Usando variante: $variant"
+            python -m aqt install-tool windows desktop tools_mingw $variant --outputdir $qtBase
           }
 
           if (-not (Test-Path $gppPath)) {

@@ -86,12 +86,12 @@ jobs:
           
           # Criar arquivo de teste
           $testCode = @"
-#include <iostream>
-int main() {
-  std::cout << "Hello World" << std::endl;
-  return 0;
-}
-"@
+          #include <iostream>
+          int main() {
+            std::cout << "Hello World" << std::endl;
+            return 0;
+          }
+          "@
           
           Set-Content -Path "test.cpp" -Value $testCode
           Write-Host "test.cpp criado"
@@ -129,12 +129,12 @@ int main() {
           Write-Host "Testando Qt includes..."
           
           $qtTestCode = @"
-#include <QCoreApplication>
-int main(int argc, char *argv[]) {
-  QCoreApplication app(argc, argv);
-  return 0;
-}
-"@
+          #include <QCoreApplication>
+          int main(int argc, char *argv[]) {
+            QCoreApplication app(argc, argv);
+            return 0;
+          }
+          "@
           
           Set-Content -Path "test_qt.cpp" -Value $qtTestCode
           

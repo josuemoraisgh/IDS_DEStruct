@@ -129,12 +129,7 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   connect( pbConcDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
   connect( actionExit, SIGNAL(triggered()), this, SLOT(close())); 
 
-<<<<<<< HEAD
   for(qint32 i=0;i < QThread::idealThreadCount();i++)
-=======
-  const qint32 thCount = qMax<qint32>(1, QThread::idealThreadCount());
-  for(qint32 i=0;i < thCount;i++)
->>>>>>> bcf8c73011796c97b08bc3c2f20bb19dd2babe0d
   {      
     ags->append(new DEStruct());
     connect( ags->at(i), SIGNAL(signal_DES_SetStatus(const volatile qint64 &,const QVector<qreal> *,const QList<QVector<qreal> > *,const QList<QVector<qreal> > *,const QVector<Cromossomo> *)), this, SLOT( slot_MW_SetStatus(const volatile qint64 &,const QVector<qreal> *,const QList<QVector<qreal> > *,const QList<QVector<qreal> > *,const QVector<Cromossomo> *)),Qt::DirectConnection);

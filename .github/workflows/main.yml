@@ -229,6 +229,11 @@ jobs:
           }
           Write-Host "Testando Qt includes..."
           
+          $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
+          if (-not $qtRoot) {
+            throw "Qt5_Dir/Qt5_DIR não definido pelo install-qt-action"
+          }
+
           $qtTestCode = @"
           #include <QCoreApplication>
           int main(int argc, char *argv[]) {
@@ -238,17 +243,19 @@ jobs:
           "@
           
           Set-Content -Path "test_qt.cpp" -Value $qtTestCode
-          
-          $qtPath = "D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64"
+
+          $qtPath = $qtRoot
           $compileArgs = @(
             "-I$qtPath\include",
             "-I$qtPath\include\QtCore",
+            "-L$qtPath\lib",
+            "-lQt5Core",
             "-o", "test_qt.exe",
             "test_qt.cpp"
           )
           
           Write-Host "Compilando teste Qt..."
-          $output = & g++ @compileArgs 2>&1
+          $output = & $qtGppPath @compileArgs 2>&1
           $exitCode = $LASTEXITCODE
           
           if ($exitCode -ne 0) {

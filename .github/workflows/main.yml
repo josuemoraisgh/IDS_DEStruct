@@ -285,13 +285,15 @@ jobs:
           Write-Host "Qt: $env:Qt5_DIR"
           Write-Host "qmake: $(Get-Command qmake -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
           
-          # Passar QWT_LOCATION via linha de comando do qmake
-          $parentDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
+          # Passar QWT_LOCATION via linha de comando do qmake (com caminho absoluto)
+          $sourceDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
+          $qwtPath = Join-Path $sourceDir "qwt"
           $qmakeExe = (Get-Command qmake).Source
           
-          Write-Host "Rodando: $qmakeExe ..\IDS_DEStruct.pro CONFIG+=release QWT_LOCATION=$parentDir/qwt"
+          Write-Host "Qwt path: $qwtPath"
+          Write-Host "Rodando: $qmakeExe ..\IDS_DEStruct.pro CONFIG+=release QWT_LOCATION=$qwtPath"
           
-          & $qmakeExe "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt" > qmake.log 2>&1
+          & $qmakeExe "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$qwtPath" > qmake.log 2>&1
           $qmakeExit = $LASTEXITCODE
           
           Write-Host "`n--- QMake Output ---"
@@ -312,6 +314,19 @@ jobs:
             throw "qmake não gerou Makefile"
           }
           Write-Host "✔ qmake concluído - Makefile gerado"
+
+      - name: Verificar biblioteca Qwt
+        shell: pwsh
+        working-directory: build
+        run: |
+          Write-Host "Verificando biblioteca Qwt..."
+          Write-Host "Conteúdo de ../qwt/lib:"
+          Get-ChildItem -Path "../qwt/lib" -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "  $($_.Name) - $($_.Length) bytes"
+          }
+          
+          Write-Host "`nConteúdo de Makefile.Release (procurando por -lqwt):"
+          Select-String -Path "Makefile.Release" -Pattern "lqwt|QWT" | Write-Host
 
       - name: Compilar com mingw32-make
         shell: pwsh

@@ -131,9 +131,20 @@ jobs:
         working-directory: build
         run: |
           Write-Host "Compilando com mingw32-make..."
-          mingw32-make -f Makefile.Release
+          Write-Host "Conteúdo do Makefile.Release (primeiras 50 linhas):"
+          Get-Content Makefile.Release -TotalCount 50 | Write-Host
+          
+          Write-Host "`n--- Iniciando compilação ---"
+          # Capturar stderr e stdout juntos
+          & mingw32-make -f Makefile.Release 2>&1 | Tee-Object -Variable buildOutput
+          
+          Write-Host "`n--- Output da compilação (últimas 30 linhas) ---"
+          $buildOutput | Select-Object -Last 30 | Write-Host
           
           if ($LASTEXITCODE -ne 0) {
+            Write-Host "`n❌ ERRO DE COMPILAÇÃO DETECTADO!"
+            Write-Host "Output completo:"
+            Write-Host $buildOutput
             throw "mingw32-make falhou com código: $LASTEXITCODE"
           }
           Write-Host "✔ Compilação concluída"

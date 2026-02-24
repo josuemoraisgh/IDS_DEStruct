@@ -73,6 +73,35 @@ jobs:
           Write-Host "Conteúdo de qwt/lib:"
           Get-ChildItem -Path "qwt/lib" | Select-Object Name
 
+      - name: Testar compilador g++
+        shell: pwsh
+        run: |
+          Write-Host "Testando compilador g++..."
+          Write-Host "g++ version:"
+          g++ --version | Write-Host
+          
+          # Criar arquivo de teste
+          $testCode = @"
+          #include <iostream>
+          int main() {
+            std::cout << "Hello World" << std::endl;
+            return 0;
+          }
+          "@
+          
+          Set-Content -Path "test.cpp" -Value $testCode
+          
+          Write-Host "`nTestando compilação simples..."
+          g++ -o test.exe test.cpp 2>&1
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Falha na compilação simples!"
+            throw "Compilador g++ não funciona"
+          }
+          
+          Write-Host "✔ Compilador g++ funciona"
+          Remove-Item test.cpp, test.exe -Force
+
       - name: Ajustar IDS_DEStruct.pro para CI
         shell: pwsh
         run: |
@@ -119,33 +148,101 @@ jobs:
           
           # Passar QWT_LOCATION via linha de comando do qmake
           $parentDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
-          qmake "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt"
+          qmake "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt" 2>&1 | Tee-Object -FilePath "qmake.log"
+          
+          Write-Host "`n--- QMake Output (últimas 30 linhas) ---"
+          Get-Content "qmake.log" | Select-Object -Last 30 | Write-Host
           
           if ($LASTEXITCODE -ne 0) {
             throw "qmake falhou com código: $LASTEXITCODE"
           }
           Write-Host "✔ qmake concluído"
 
+      - name: Verificar arquivos gerados pelo uic
+        shell: pwsh
+        working-directory: build
+        run: |
+          Write-Host "Verificando arquivos gerados..."
+          
+          $uiFiles = @(
+            "ui/release/ui_imainwindow.h",
+            "ui/release/ui_icarregar.h",
+            "ui/release/ui_dialogMaxMin.h",
+            "ui/release/ui_dialogConfig.h",
+            "ui/release/ui_dialogDecimacao.h"
+          )
+          
+          foreach ($file in $uiFiles) {
+            if (Test-Path $file) {
+              $size = (Get-Item $file).Length
+              Write-Host "✔ $file ($size bytes)"
+              
+              # Verificar se tem conteúdo válido
+              $content = Get-Content $file -TotalCount 5
+              Write-Host "  Primeiras linhas:"
+              $content | Write-Host
+            } else {
+              Write-Host "❌ ARQUIVO NÃO ENCONTRADO: $file"
+            }
+          }
+
+      - name: Compilar apenas main.cpp com verbose
+        shell: pwsh
+        working-directory: build
+        run: |
+          Write-Host "Tentando compilar main.cpp isoladamente com máximo verbosity..."
+          
+          # Ler o Makefile para encontrar o comando de compilação de main.cpp
+          $makefile = Get-Content "Makefile.Release" -Raw
+          
+          # Procurar a linha que compila main.cpp
+          $mainCppLine = $makefile | Select-String -Pattern "obj/release/main\.o" | Select-Object -First 1
+          Write-Host "Linha do Makefile para main.cpp:"
+          Write-Host $mainCppLine
+          
+          # Tentar compilar manualmente com stderr redirecionado
+          Write-Host "`n--- Tentativa de compilação manual ---"
+          $compileCmd = "g++ -c -fno-keep-inline-dllexport -O2 -std=gnu++11 -Wall -Wextra -fexceptions -mthreads -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_DLL -DQWT_DLL -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_SVG_LIB -DQT_PRINTSUPPORT_LIB -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../IDS_DEStruct -I. -I../qwt/src -I../../Qt/5.15.2/mingw81_64/include -I../../Qt/5.15.2/mingw81_64/include/QtCore -I../../Qt/5.15.2/mingw81_64/include/QtGui -I../../Qt/5.15.2/mingw81_64/include/QtWidgets -Imoc/release -Iui/release ../main.cpp -o obj/release/main.o 2>&1"
+          
+          Invoke-Expression $compileCmd | Tee-Object -FilePath "main_compile.log"
+          
+          $exitCode = $LASTEXITCODE
+          Write-Host "`nExit code: $exitCode"
+          
+          if ($exitCode -ne 0) {
+            Write-Host "❌ Compilação de main.cpp falhou"
+            Write-Host "`n--- Log da compilação ---"
+            Get-Content "main_compile.log" | Write-Host
+          }
+
       - name: Compilar com mingw32-make
         shell: pwsh
         working-directory: build
         run: |
           Write-Host "Compilando com mingw32-make..."
-          Write-Host "Conteúdo do Makefile.Release (primeiras 50 linhas):"
-          Get-Content Makefile.Release -TotalCount 50 | Write-Host
           
-          Write-Host "`n--- Iniciando compilação ---"
-          # Capturar stderr e stdout juntos
-          & mingw32-make -f Makefile.Release 2>&1 | Tee-Object -Variable buildOutput
+          # Criar arquivo de log
+          $logFile = "build.log"
           
-          Write-Host "`n--- Output da compilação (últimas 30 linhas) ---"
-          $buildOutput | Select-Object -Last 30 | Write-Host
+          Write-Host "`n--- Iniciando compilação (output será salvo em $logFile) ---"
+          # Executar make e redirecionar tudo para um arquivo
+          mingw32-make -f Makefile.Release 2>&1 | Tee-Object -FilePath $logFile
           
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "`n❌ ERRO DE COMPILAÇÃO DETECTADO!"
-            Write-Host "Output completo:"
-            Write-Host $buildOutput
-            throw "mingw32-make falhou com código: $LASTEXITCODE"
+          $exitCode = $LASTEXITCODE
+          
+          # Ler o arquivo de log e exibir
+          Write-Host "`n--- FULL LOG FILE CONTENT ---"
+          Get-Content $logFile | Write-Host
+          
+          Write-Host "`n--- Procurando por erros ---"
+          $errors = Get-Content $logFile | Select-String -Pattern "error:|undefined reference|cannot find" -Context 2,2
+          if ($errors) {
+            Write-Host "Erros encontrados:"
+            $errors | Write-Host
+          }
+          
+          if ($exitCode -ne 0) {
+            throw "mingw32-make falhou com código: $exitCode"
           }
           Write-Host "✔ Compilação concluída"
 

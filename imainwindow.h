@@ -8,12 +8,6 @@
 #include <qmainwindow.h>
 #include <QMouseEvent>
 #include <QVector>
-#include <QAtomicInteger>
-#include <QtScript/QtScript>
-
-#ifndef QT_NO_SCRIPTTOOLS
-#include <Qtscripttools/QScriptEngineDebugger>
-#endif
 
 #include <xmatriz.h>
 #include <qwt_plot.h>
@@ -75,7 +69,7 @@ class ICalc : public DummyBase
         void slot_MW_FName(const QString &fileName);
         void slot_MW_IniciarFinalizar();
         void slot_MW_PararContinuar();
-        void slot_MW_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest);
+        void slot_MW_SetStatus(const volatile qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest);
         void slot_MW_Desenha();
         void slot_MW_EscreveEquacao();
         void slot_MW_Finalizar();
@@ -87,7 +81,6 @@ class ICalc : public DummyBase
         void slot_MW_changeVerSaida(const int &idSaida);
 
     private Q_SLOTS:
-        //void moved(const QPoint &);
         void moved1(const QPoint &);
         void enableZoomMode(bool);
     private:
@@ -130,10 +123,9 @@ class ICalc : public DummyBase
         QwtPlotCurve /*MW_crv_Best,*MW_crv_Media,*/*MW_crv_R,*MW_crv_E,*MW_crv_C;
         bool connectA (const QObject* sender, const char * slot);
         bool connectAG (const QObject* sender, const char * slot);
-        QAtomicInt isThClose;
+        bool volatile isThClose;
         QStringList MW_strList;
-        QAtomicInteger<qint64> MW_iteracoes;
-        //void ini_MW_qwtPlot();
+        qint64 volatile MW_iteracoes;
         void ini_MW_qwtPlot1();
         void ini_MW_interface();
         void Iniciar();

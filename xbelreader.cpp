@@ -38,7 +38,7 @@
 **
 ****************************************************************************/
 
-#include <QtGui>
+#include <QtWidgets>
 #include <QStyle>
 #include <QTreeWidget>
 #include "xbelreader.h"
@@ -49,11 +49,11 @@ XbelReader::XbelReader(QTreeWidget *treeWidget)
 {
     QStyle *style = treeWidget->style();
 
-    folderIcon.addPixmap(style->standardPixmap(QStyle::SP_DirClosedIcon),
+    folderIcon.addPixmap(style->standardIcon(QStyle::SP_DirClosedIcon).pixmap(16, 16),
                          QIcon::Normal, QIcon::Off);
-    folderIcon.addPixmap(style->standardPixmap(QStyle::SP_DirOpenIcon),
+    folderIcon.addPixmap(style->standardIcon(QStyle::SP_DirOpenIcon).pixmap(16, 16),
                          QIcon::Normal, QIcon::On);
-    bookmarkIcon.addPixmap(style->standardPixmap(QStyle::SP_FileIcon));
+    bookmarkIcon.addPixmap(style->standardIcon(QStyle::SP_FileIcon).pixmap(16, 16));
 }
 //! [0]
 
@@ -129,7 +129,7 @@ void XbelReader::readFolder(QTreeWidgetItem *item)
 
     QTreeWidgetItem *folder = createChildItem(item);
     bool folded = (xml.attributes().value("folded") != "no");
-    treeWidget->setItemExpanded(folder, !folded);
+    folder->setExpanded(!folded);
 
     while (xml.readNextStartElement()) {
         if (xml.name() == "title")

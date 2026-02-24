@@ -38,13 +38,9 @@
  **
  ****************************************************************************/
 
- #include <QtGui>
  #include <QtWidgets>
  #include <QPushButton>
  #include <QComboBox>
- #include <QStyleOption>
- #include <QStyleOptionButton>
-
  #include "norwegianwoodstyle.h"
 
  void NorwegianWoodStyle::polish(QPalette &palette)
@@ -72,8 +68,8 @@
      setTexture(palette, QPalette::Mid, midImage);
      setTexture(palette, QPalette::Window, backgroundImage);
 
-     QBrush brush = palette.background();
-     brush.setColor(brush.color().dark());
+     QBrush brush = palette.window();
+     brush.setColor(brush.color().darker());
 
      palette.setBrush(QPalette::Disabled, QPalette::WindowText, brush);
      palette.setBrush(QPalette::Disabled, QPalette::Text, brush);
@@ -105,9 +101,9 @@
      case PM_ComboBoxFrameWidth:
          return 8;
      case PM_ScrollBarExtent:
-         return QCommonStyle::pixelMetric(metric, option, widget) + 4;
+         return QProxyStyle::pixelMetric(metric, option, widget) + 4;
      default:
-         return QCommonStyle::pixelMetric(metric, option, widget);
+         return QProxyStyle::pixelMetric(metric, option, widget);
      }
  }
 
@@ -121,7 +117,7 @@
      case SH_EtchDisabledText:
          return int(true);
      default:
-         return QCommonStyle::styleHint(hint, option, widget, returnData);
+         return QProxyStyle::styleHint(hint, option, widget, returnData);
      }
  }
 
@@ -151,7 +147,7 @@
                      qstyleoption_cast<const QStyleOptionButton *>(option);
              if (buttonOption
                      && (buttonOption->features & QStyleOptionButton::Flat)) {
-                 brush = option->palette.background();
+                 brush = option->palette.window();
                  darker = (option->state & (State_Sunken | State_On));
              } else {
                  if (option->state & (State_Sunken | State_On)) {
@@ -213,7 +209,7 @@
              painter->setPen(bottomPen);
              painter->drawPath(roundRect);
 
-             painter->setPen(option->palette.foreground().color());
+             painter->setPen(option->palette.windowText().color());
              painter->setClipping(false);
              painter->drawPath(roundRect);
 
@@ -221,7 +217,7 @@
          }
          break;
      default:
-         QCommonStyle::drawPrimitive(element, option, painter, widget);
+         QProxyStyle::drawPrimitive(element, option, painter, widget);
      }
  }
 
@@ -246,11 +242,11 @@
                      }
                  }
              }
-             QCommonStyle::drawControl(element, &myButtonOption, painter, widget);
+             QProxyStyle::drawControl(element, &myButtonOption, painter, widget);
          }
          break;
      default:
-         QCommonStyle::drawControl(element, option, painter, widget);
+         QProxyStyle::drawControl(element, option, painter, widget);
      }
  }
 

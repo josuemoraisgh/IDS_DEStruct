@@ -1,0 +1,45 @@
+Fazer uma unica função do tipo "va_arg d[]" conforme exemplo abaixo:
+Ver http://www.cplusplus.com/reference/cstdarg/va_start/
+
+const JMathVar<T> operator()(va_arg d[]); //Faz todas as operações com quantas matrizes desejar
+
+O primeiro termo é uma string que:
+          - delimita quantos termos terá pela frente
+          - especifica os tipos destes termos,
+          - Caso o termo for uma matriz o tipo dele será sempre um endereço.
+Sendo assim é possivel uma expressão com as seguintes caracteristicas:
+
+          "%M1(:,%2)*=%M3(%4,%5)+%M6(%7,%8)*%f9*%M10(:,:)^%f11"
+
+Onde os seguintes TIPOs podem ser utilizados:
+
+  [sem tipo] ou E[Extract] = Retorna uma outra matriz com parte do conteudo da matriz chamada conforme uma metrica.
+    Ex.: "%M1(:,%2)" ou "E%M1(:,%2)"
+    Quando a letra "E" estiver precedida de um "=" a alteração é feita na matriz chamada e seu endereço é retornado.
+    Ex.: "E=%M1(:,%2)"
+  F[Fill]    = Retorna uma outra matriz preenchida conforme uma metrica e retorna o endereço da mesma.
+    O "Fill" é usado apenas se for necessário uma metrica dispondo dos indexes de linha e coluna.
+    Para atribuir apenas um valor para toda a matriz, basta usar o "=".
+    Ex.: "F(%M1(:,%2)*=3*(i-3)^2+3*(j-3)^2" onde i é o index da linha e j o index da coluna.
+    Quando a letra "F" estiver precedida de um "=" a alteração é feita na matriz chamada e seu endereço é retornado.
+    Ex.: "F=(%M1(:,%2)*=3*(i-3)^2+3*(j-3)^2"
+  S[Swap]    = Retorna uma matriz com elementos da 1º matriz chamada trocados com o da 2º conforme metrica informada.
+    Ex.: "S(4*%M1(:,%2)^3,3*%M2(%2,:)^2)"
+    Quando a letra "S" estiver precedida de um "=" a alteração é feita nas duas matrizez chamada e
+    o endereço da primeira matriz é retornado.
+    Ex.: "S=(4*%M1(:,%2)^3,3*%M1(%2,:)^2)"
+  A[Append]  = Retorna uma matriz com elementos adicionados em relação a matriz chamada deslocando a matriz em uma dada região.
+    Ex.: "A(%M1(:,%3),3*M2(:,%3)^2)"
+    Quando a letra "A" estiver precedida de um "=" a alteração é feita na matriz chamada e seu endereço é retornado.
+    Ex.: "A=(%M1(:,%3),3*M2(:,%3)^2)"
+  R[Repalce] ou C[Copy] = Retorna uma matriz com uma certa região alterada em relação a matriz chamda
+    sendo a informação retirada dela ou de outra matriz. A diferença do Replace comparado ao Copy é que
+    no Replace se o tamanho da alteração for maior que o tamanho existente ele aumenta a matriz informada
+    e no Copy os tamanhos tem que serem igual ou uma mensgem de erro será retornada.
+    Ex.: "R(%M1(%2,%3)*=3*%M4(%5,%6)^2)" ou "C(%M1(%2,%3)*=3*%M4(%5,%6)^2)"
+    Quando a letra "R" ou a "C" estiver precedida de um "=" a alteração é feita na matriz chamada e seu endereço é retornado.
+    Ex.: "R=(%M1(%2,%3)*=3*%M4(%5,%6)^2)" ou "C=(%M1(%2,%3)*=3*%M4(%5,%6)^2)"
+  D[Delete]  = Deleta removendo uma dada região conforme uma metrica.
+    Ex.: "D%M1(:,%2)"
+    Quando a letra "D" estiver precedida de um "=" a alteração é feita na matriz chamada e seu endereço é retornado.
+    Ex.: "D=%M1(:,%2)"

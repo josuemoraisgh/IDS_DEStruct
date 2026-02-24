@@ -1,6 +1,5 @@
 #include <qlabel.h>
-#include <QtGui>
-#include <QStyleFactory>
+#include <QtWidgets>
 #include "designerworkaround.h"
 //////////////////////////////////////////////////////////////////////////////////
 namespace

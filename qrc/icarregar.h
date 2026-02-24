@@ -11,9 +11,6 @@
 #include <QtCore>
 
 #include <QtCore/QObject>
-#include <QtScript/QScriptClass>
-#include <QtScript/QScriptEngine>
-#include <QtScript/QScriptString>
 
 #include "ui_icarregar.h"
 #include "agstruct.h"
@@ -22,7 +19,7 @@
 #define CARREGAR
 struct Carregar{
     QString str;
-    QVector<QVector<qreal> > valores; //É um vetor de pontos de operação
+    QVector<QVector<qreal> > valores; //ï¿½ um vetor de pontos de operaï¿½ï¿½o
 };
 #endif //Fim CARREGAR
 

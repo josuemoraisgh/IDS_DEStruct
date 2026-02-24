@@ -4,25 +4,17 @@
 #include <QVector>
 #include <QString>
 #include <QThread>
-#include <QAtomicInteger>
-
+#include <QSemaphore>
+#include <QWaitCondition>
+#include <QMutex>
+#include <QReadWriteLock>
 
 #include <QtCore/QObject>
-#include <QtScript/QScriptClass>
-#include <QtScript/QScriptString>
-
-#include <QtScript/QtScript>
-#ifndef QT_NO_SCRIPTTOOLS
-#include <Qtscripttools/QScriptEngineDebugger>
-#endif
-
-#include <QtScript/QScriptClassPropertyIterator>
-#include <QtScript/QScriptEngine>
 
 #include "mtrand.h"
 #include "xtipodados.h"
 
-#define TAMPIPELINE 3
+#define TAMPIPELINE 4
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 class QTextStream;
@@ -52,8 +44,8 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     static QList<QList<QVector<Cromossomo> > > DES_BufferSR;
     static QList<QVector<qint32 > > DES_idChange;
-    static QAtomicInt DES_index[TAMPIPELINE];
-    static QAtomicInteger<qint64> tamArquivo;//,DES_iteracoes;
+    static volatile qint32 DES_index[TAMPIPELINE];
+    static volatile qint64 tamArquivo;//,DES_iteracoes;
     static QString DES_fileName;
     static QList<qint32> DES_cVariaveis;
     static QList<QVector<Cromossomo > > DES_crMut;
@@ -72,19 +64,15 @@ public:
     void DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const;
     void DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const;
     void DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVar<qreal> &vlrsMedido,const bool &isValidacao=false,const bool &isLinearCoef=true) const;
-    void DES_CalcVlrsEstimado(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,JMathVar<qreal> &vlrsEstimado,qint32 &tamNum,qint32 &tamDen,JMathVar<qreal> *vlrsDenominador = nullptr) const;
-    void DES_SuperResp(Cromossomo &crResult, QVector<Cromossomo> &vetorResult) const;
-    void DES_MinimizarLevMarq(Cromossomo &cr) const;
+    void DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,const JMathVar<qreal> &vlrsMedido,JMathVar<qreal> &vlrsResiduo,JMathVar<qreal> &vlrsEstimado) const;
     ////////////////////////////////////////////////////////////////////////////
-    void DES_calAptidao(Cromossomo &cr,const qint32 &tamTestErro=1) const;
-    void DES_MontaSaida(const Cromossomo &cr, QVector<qreal> &vplotar, QVector<qreal> &resid) const;
+    void DES_calAptidao(Cromossomo &cr, const quint32 &tamErro=1) const;
+    void DES_MontaSaida(Cromossomo &cr, QVector<qreal> &vplotar, QVector<qreal> &resid) const;
     ////////////////////////////////////////////////////////////////////////////
     void DES_removeTermo(Cromossomo &cr,const qint32 &indexTermo) const;
     void DES_removeRegress(Cromossomo &cr,const qint32 &indRegress) const;
     ////////////////////////////////////////////////////////////////////////////
     void run();
-    ////////////////////////////////////////////////////////////////////////////
-    inline void DES_isOk(const Cromossomo &cr,const QString &str1) const;
     ////////////////////////////////////////////////////////////////////////////
     static qint16 DES_modo_Oper_TH()
     {
@@ -99,7 +87,7 @@ signals:
     void signal_DES_closed();
     void signal_DES_Finalizado();
     void signal_DES_Parado();
-    void signal_DES_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest) const;
+    void signal_DES_SetStatus(const volatile qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest) const;
     void signal_DES_Desenha() const;
     void signal_DES_Finalizar() const;
     void signal_DES_Status(const quint16 index) const;
@@ -114,20 +102,13 @@ private slots:
 private:
     //QWaitCondition waitSync;
     XMatriz<qreal> *DES_vlrRegressores;
-    QAtomicInt DES_isEquacaoEscrita;
-    QAtomicInt DES_isStatusSetado;
+    volatile bool DES_isEquacaoEscrita,DES_isStatusSetado;
     void DES_Carregar();
     void DES_AlgDiffEvol();
     const JMathVar<qreal> MultMatrizResiduo(Cromossomo &cr,JMathVar<qreal> &VetResiduo, const JMathVar<qreal> &matrizRegress, const JMathVar<qreal> &vetorCoefic, const JMathVar<qreal> &vetorMedido, const QVector<QVector<qreal> > &matResiduo) const;
-    void DES_CalcJacob(JMathVar<qreal> &matJacob,const XVetor<qreal> &coefic,const Cromossomo &cr) const;
-    void DES_CalcHessi(JMathVar<qreal> &matHessi,const JMathVar<qreal> &matJacob) const;
-    void DES_CalcGrad(JMathVar<qreal> &matGrad,const JMathVar<qreal> &matJacob,const XVetor<qreal> &residuos) const;
-    void DES_CalcGL(qreal &res,const XVetor<qreal> &hlm,const JMathVar<qreal> &gradiente,const qreal &paramAmortecimento,const qint32 &nArgs) const;
-    static QAtomicInt DES_TH_size;
-    static QAtomicInt DES_countSR;//,DES_countPipe;
+    static volatile qint16 DES_TH_size,DES_countSR;//,DES_countPipe;
     qint32 DES_TH_id;
     bool DES_idParada_Th[TAMPIPELINE];
-    //SRLevMarq *DES_LM;
 };
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////

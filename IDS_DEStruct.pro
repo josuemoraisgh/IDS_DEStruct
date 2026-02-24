@@ -1,14 +1,10 @@
 #################################################################
 # IDS_DEStruct - Differential Evolution Optimization
 #################################################################
-QT += core gui widgets opengl svg script
-
-# ScriptTools module removed - not available in Qt 5.15.2
+QT += core gui widgets opengl svg printsupport
 
 CONFIG += qt warn_on thread c++11
 TEMPLATE = app
-
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 #################################################################
 # Target Configuration
@@ -68,7 +64,6 @@ SOURCES += \
     xvetor.cpp \
     xmatriz.cpp \
     norwegianwoodstyle.cpp \
-    srlevmarq.cpp \
     designerworkaround.cpp
 
 HEADERS += \
@@ -82,7 +77,6 @@ HEADERS += \
     xtipodados.h \
     mtrand.h \
     norwegianwoodstyle.h \
-    srlevmarq.h \
     designerworkaround.h
 
 FORMS += \

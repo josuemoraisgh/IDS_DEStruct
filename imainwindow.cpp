@@ -1,6 +1,5 @@
 #include "imainwindow.h"
 #include "icarregar.h"
-#include "srlevmarq.h"
 #include "xbelreader.h"
 #include "xmlreaderwriter.h"
 #include "xtipodados.h"
@@ -8,9 +7,9 @@
 
 #include <QtCore>
 #include <QtGui>
-#include <algorithm>
+#include <QtWidgets>
 #include <QApplication>
-#include <QDesktopWidget>
+#include <QScreen>
 #include <QApplication>
 #include <QFileDialog>
 #include <QCoreApplication>
@@ -19,9 +18,10 @@
 #include <QString>
 #include <QMessageBox>
 #include <QMetaType>
-#include <QtConcurrent/QtConcurrentMap>
-#include <QtConcurrent/QtConcurrentRun>
+//#include <QtConcurrentMap>
+//#include <QtConcurrentRun>
 #include <limits>
+#include <algorithm>
 #include <qwt_plot.h>
 #include <qwt_plot_canvas.h>
 #include <qwt_plot_grid.h>
@@ -34,17 +34,6 @@ void crCopy(Cromossomo &cr1,const Cromossomo &cr2);
 using namespace std;
 Q_DECLARE_METATYPE(QVector<qreal> )
 Q_DECLARE_METATYPE(QList<QVector<qreal> > )
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-static void MW_LogLifecycle(const QString &msg)
-{
-    QFile f(QDir::currentPath() + "/lifecycle_debug.log");
-    if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
-    {
-        QTextStream out(&f);
-        out << QDateTime::currentDateTime().toString(Qt::ISODate) << " " << msg << "\n";
-    }
-}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 inline void reCopy(QVector<qreal > &cr1,const QVector<qreal > &cr2)
@@ -62,7 +51,7 @@ inline void reCopy(QList<QVector<qreal > > &cr1,const QList<QVector<qreal > > &c
     qint32 id;
     const qint32 count1=cr1.size(),count2=cr2.size();
     if(count1<count2) cr1 += QVector<QVector<qreal > >(count2-count1).toList();
-    else while(cr1.size()>count2) cr1.removeLast();
+    else for(id=count2;id<count1;id++) cr1.removeAt(id);
     for(id=0;id<count2;id++) reCopy(cr1[id],cr2.at(id));
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,7 +66,7 @@ class Zoomer: public QwtPlotZoomer
 {
 public:
     Zoomer(int xAxis, int yAxis, QWidget *canvas):
-        QwtPlotZoomer(xAxis, yAxis, canvas)
+        QwtPlotZoomer(xAxis, yAxis, (QwtPlotCanvas *) canvas)
     {
         setTrackerMode(QwtPicker::AlwaysOff);
         setRubberBand(QwtPicker::NoRubberBand);
@@ -122,28 +111,28 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   //ini_MW_qwtPlot();
   ini_MW_qwtPlot1();
   //////////////////////////////////////////////////////////////////////////////
-  //Conexões - Sintaxe moderna de signals/slots (Qt 5+)
-  connect(CheckBox1, &QCheckBox::stateChanged, this, &ICalc::slot_MW_changeCheckBox1);
-  connect(CheckBox2, &QCheckBox::stateChanged, this, &ICalc::slot_MW_changeCheckBox2);
-  connect(styleComboBox, QOverload<int>::of(&QComboBox::activated), this, &ICalc::slot_MW_changeStyle);
-  connect(saidaComboBox, QOverload<int>::of(&QComboBox::activated), this, &ICalc::slot_MW_changeVerSaida);
-  connect(actionIni, &QAction::triggered, this, &ICalc::slot_MW_IniciarFinalizar);
-  connect(actionParar, &QAction::triggered, this, &ICalc::slot_MW_PararContinuar);
-  connect(actionCarDados, &QAction::triggered, this, &ICalc::slot_MW_CarDados);
-  connect(cr, QOverload<int>::of(&QDialog::finished), this, &ICalc::slot_MW_CarDadosExit);
-  connect(cr, &ICarregar::signal_UL_SalvarArquivo, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
-  connect(cr, &ICarregar::signal_UL_FName, this, &ICalc::slot_MW_FName, Qt::DirectConnection);
-  connect(actionConfig, &QAction::triggered, dialogConfig, &QDialog::open);
-  connect(pbSalvarDadosTxT, &QPushButton::clicked, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
-  connect(pbSalvarDados, &QPushButton::clicked, this, &ICalc::slot_MW_saveAsConfig, Qt::DirectConnection);
-  connect(pbOpenDados, &QPushButton::clicked, this, &ICalc::slot_MW_openConfig, Qt::DirectConnection);
-  connect(pbConcDados, &QPushButton::clicked, this, &ICalc::slot_MW_SalvarArquivo, Qt::DirectConnection);
-  connect(actionExit, &QAction::triggered, this, &ICalc::close); 
+  //Conex�es 
+  connect(CheckBox1, SIGNAL(stateChanged(int)),this, SLOT(slot_MW_changeCheckBox1(int)));
+  connect(CheckBox2, SIGNAL(stateChanged(int)),this, SLOT(slot_MW_changeCheckBox2(int)));
+  connect(styleComboBox, SIGNAL(activated (int)),this, SLOT(slot_MW_changeStyle(int)));
+  connect(saidaComboBox, SIGNAL(activated (int)),this, SLOT(slot_MW_changeVerSaida(int)));
+  connect( actionIni, SIGNAL( triggered() ), this, SLOT( slot_MW_IniciarFinalizar() ) );
+  connect( actionParar, SIGNAL( triggered() ), this, SLOT( slot_MW_PararContinuar() ) );
+  connect( actionCarDados, SIGNAL( triggered() ), this, SLOT( slot_MW_CarDados() ) );
+  connect( cr, SIGNAL( finished ( int )), this, SLOT( slot_MW_CarDadosExit() ) );  
+  connect( cr,  SIGNAL( signal_UL_SalvarArquivo() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
+  connect( cr,  SIGNAL( signal_UL_FName(const QString &)), this, SLOT( slot_MW_FName(const QString &)),Qt::DirectConnection);
+  connect( actionConfig, SIGNAL(triggered()), dialogConfig, SLOT(open()));
+  connect( pbSalvarDadosTxT,  SIGNAL( clicked() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
+  connect( pbSalvarDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_saveAsConfig()),Qt::DirectConnection);
+  connect( pbOpenDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_openConfig()),Qt::DirectConnection);
+  connect( pbConcDados,  SIGNAL( clicked() ), this, SLOT(slot_MW_SalvarArquivo()),Qt::DirectConnection);
+  connect( actionExit, SIGNAL(triggered()), this, SLOT(close())); 
 
-  for(qint32 i=0;i < 1/*QThread::idealThreadCount()*/;i++)
+  for(qint32 i=0;i < QThread::idealThreadCount();i++)
   {      
     ags->append(new DEStruct());
-    connect(ags->at(i), &DEStruct::signal_DES_SetStatus, this, &ICalc::slot_MW_SetStatus, Qt::DirectConnection);
+    connect( ags->at(i), SIGNAL(signal_DES_SetStatus(const volatile qint64 &,const QVector<qreal> *,const QList<QVector<qreal> > *,const QList<QVector<qreal> > *,const QVector<Cromossomo> *)), this, SLOT( slot_MW_SetStatus(const volatile qint64 &,const QVector<qreal> *,const QList<QVector<qreal> > *,const QList<QVector<qreal> > *,const QVector<Cromossomo> *)),Qt::DirectConnection);
     connect( ags->at(i), SIGNAL(signal_DES_closed()), this, SLOT( slot_MW_closed()),Qt::QueuedConnection);
     connect( ags->at(i), SIGNAL(signal_DES_Parado()), cr, SLOT( slot_UL_Parado()),Qt::QueuedConnection);
     connect( ags->at(i), SIGNAL(signal_DES_Parado()), this, SLOT( slot_MW_Parado()),Qt::QueuedConnection);
@@ -157,7 +146,7 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
     connect( ags->at(i), SIGNAL(signal_DES_Status(const quint16 &)), cr, SLOT( slot_UL_Status(const quint16 &)),Qt::QueuedConnection);
     connect( ags->at(i), SIGNAL(signal_DES_Tam()), cr, SLOT(slot_UL_Tam()),Qt::QueuedConnection);
   }
-  isThClose.storeRelaxed(0);
+  isThClose = false;
   connect( this, SIGNAL(signal_MW_Estado(const quint16 &)), ags->at(0), SLOT(slot_DES_Estado(const quint16 &)),Qt::QueuedConnection);
   connect( cr,  SIGNAL(signal_UL_Estado(const quint16 &)), ags->at(0), SLOT(slot_DES_Estado(const quint16 &)),Qt::QueuedConnection);
   //////////////////////////////////////////////////////////////////////////////
@@ -170,47 +159,20 @@ ICalc::ICalc( QWidget* parent): DummyBase(parent)
   enableZoomMode(false);
   //showInfo();
   QRect r = geometry();
-  r.moveCenter(QApplication::desktop()->availableGeometry().center());
+  r.moveCenter(QGuiApplication::primaryScreen()->availableGeometry().center());
   setGeometry(r);
-  MW_LogLifecycle("ICalc initialized");
-  connect(qApp, &QCoreApplication::aboutToQuit, this, [](){ MW_LogLifecycle("aboutToQuit"); });
 }
 ////////////////////////////////////////////////////////////////////////////
 ICalc::~ICalc()
 {
-    // Liberar recursos alocados dinamicamente
-    if (ags) {
-        for (int i = 0; i < ags->size(); ++i) {
-            if (ags->at(i)) {
-                delete ags->at(i);
-            }
-        }
-        delete ags;
-        ags = nullptr;
-    }
-    
-    if (cr) {
-        delete cr;
-        cr = nullptr;
-    }
-    
-    if (xmlRW) {
-        delete xmlRW;
-        xmlRW = nullptr;
-    }
-    
-    if (dialogConfig) {
-        delete dialogConfig;
-        dialogConfig = nullptr;
-    }
+
 }
 ////////////////////////////////////////////////////////////////////////////
 //Fecha a tela apenas se as threads ja foram fechadas, sen�o manda fecha-las e aguarda
 void ICalc::closeEvent(QCloseEvent *event)
 {
     bool isOk;
-    MW_LogLifecycle(QString("closeEvent isThClose=%1 mode=%2").arg(isThClose.loadAcquire()).arg(DEStruct::DES_modo_Oper_TH()));
-    if(isThClose.loadAcquire()) event->accept();
+    if(isThClose) event->accept();
     else
     {
         isOk = DEStruct::DES_modo_Oper_TH() == 1;       
@@ -224,8 +186,7 @@ void ICalc::closeEvent(QCloseEvent *event)
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_closed()
 {
-    MW_LogLifecycle("slot_MW_closed");
-    isThClose.storeRelaxed(1);
+    isThClose = true;
     QMainWindow::close();
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -236,14 +197,16 @@ void ICalc::slot_MW_changeStyle(const int &changeStyle)
     {
         CheckBox1->setDisabled(false);
         CheckBox2->setDisabled(false);
-        qwtPlot1->setAxisTitle(QwtPlot::yLeft, "Saidas");
+        qwtPlot1->setAxisTitle(QwtPlot::yLeft, tr("Saidas"));
+        qwtPlot1->setAxisTitle(QwtPlot::xBottom, tr("Amostras"));
         MW_crv_R->attach(qwtPlot1);
-        MW_crv_C->setTitle("Estimado");
+        MW_crv_C->setTitle(tr("Estimado"));
     }
     else
     {
-        qwtPlot1->setAxisTitle(QwtPlot::yLeft, "Residuos");
-        MW_crv_C->setTitle("Distribui��o dos Residuos");
+        qwtPlot1->setAxisTitle(QwtPlot::yLeft, tr("Quantidade de Residuos"));
+        qwtPlot1->setAxisTitle(QwtPlot::xBottom, tr("Valores dos Residuos"));
+        MW_crv_C->setTitle(tr("Distribui��o dos Residuos"));
         MW_crv_R->detach();
         CheckBox1->setDisabled(true);
         CheckBox2->setDisabled(true);
@@ -340,7 +303,7 @@ void ICalc::slot_MW_IniciarFinalizar()
         DEStruct::DES_Adj.Dados.isElitismo = 2;//Come�a do zero
         if(DEStruct::DES_Adj.Dados.qtdadeVarAnte==DEStruct::DES_Adj.Dados.variaveis.valores.numLinhas())
         {
-            if(!(QMessageBox::question(this, tr("Limpar pontos"),tr("Deseja manter os pontos do Elitismo?"),tr("&Yes"), tr("&No"),QString::null, 0, 1 ) ))
+            if(!(QMessageBox::question(this, tr("Limpar pontos"),tr("Deseja manter os pontos do Elitismo?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes))
                 DEStruct::DES_Adj.Dados.isElitismo = 1;//Conserva os eleitos anteriormente
         }
         else DEStruct::DES_Adj.Dados.qtdadeVarAnte=DEStruct::DES_Adj.Dados.variaveis.valores.numLinhas();
@@ -372,7 +335,7 @@ void ICalc::Iniciar()
     str.append(QString("Cl:= ")+QString::number(MW_iteracoes)+QString("; Tempo: ")+DEStruct::DES_Adj.segundos.toString("hh:mm:ss.zzz")+QString("ms\n"));
     for(i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
     {
-        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decima��o = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
+        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(tr(", Decima��o = "))+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
         else str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString("; "));
     }
     textEdit->append(str);
@@ -394,9 +357,8 @@ void ICalc::Iniciar()
         for(j=0;j<qtSaidas;j++)
         {
             DEStruct::DES_BufferSR[k][j] = QVector<Cromossomo >(10);
-            const qint32 decimacao = qMax<qint32>(1, DEStruct::DES_Adj.decimacao.at(j));
-            DEStruct::DES_vcalc[k][j] = QVector<qreal>(tamDados/decimacao);
-            DEStruct::DES_residuos[k][j] = QVector<qreal>(tamDados/decimacao);
+            DEStruct::DES_vcalc[k][j] = QVector<qreal>(tamDados/DEStruct::DES_Adj.decimacao.at(j));
+            DEStruct::DES_residuos[k][j] = QVector<qreal>(tamDados/DEStruct::DES_Adj.decimacao.at(j));
         }
     }
     ////////////////////////////////////////////////////////////////////////////
@@ -437,12 +399,10 @@ void ICalc::slot_MW_PararContinuar()
         actionParar->setText(QString("Parar"));
         actionIni->setEnabled(false);    
         MW_tempo = QDateTime::currentDateTime();
-        // O DE usa 3 individuos distintos (count0,count1,count2), portanto tamPop minimo 3.
-        DEStruct::DES_Adj.Dados.tamPop = qMax<qint32>(3, LEN->text().toInt());
+        DEStruct::DES_Adj.Dados.tamPop = LEN->text().toInt();
         ////////////////////////////////////////////////////////////////////////////
         if((DEStruct::DES_Adj.Dados.iElitismo==0)||(DEStruct::DES_Adj.Dados.iElitismo!=LEEL->text().toInt()))
             DEStruct::DES_Adj.Dados.iElitismo = LEEL->text().toInt() ? LEEL->text().toInt() : 5;//iElitismo
-        DEStruct::DES_Adj.Dados.iElitismo = qMin(DEStruct::DES_Adj.Dados.iElitismo, DEStruct::DES_Adj.Dados.tamPop);
         ////////////////////////////////////////////////////////////////////////////
         //Verifica se cada saida esta com a quantiadade correta de cromossomos.
         if((!DEStruct::DES_Adj.isCriado)||(DEStruct::DES_Adj.Pop.at(0).size()<DEStruct::DES_Adj.Dados.tamPop))
@@ -457,7 +417,7 @@ void ICalc::slot_MW_PararContinuar()
             {
                 for(qint32 k=0;k<qtSaidas;k++)
                 {
-                    qSort(DEStruct::DES_Adj.Pop[k].begin(),DEStruct::DES_Adj.Pop[k].end(),CmpMaiorCrApt);
+                    std::sort(DEStruct::DES_Adj.Pop[k].begin(),DEStruct::DES_Adj.Pop[k].end(),CmpMaiorCrApt);
                     if(DEStruct::DES_Adj.Pop.at(k).size()<DEStruct::DES_Adj.Dados.tamPop) DEStruct::DES_Adj.Pop[k] += QVector<Cromossomo >(DEStruct::DES_Adj.Dados.tamPop-DEStruct::DES_Adj.Pop.at(k).size());
                 }
             }
@@ -491,9 +451,13 @@ void ICalc::slot_MW_CarDadosExit()
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_SalvarArquivo()
 {
+    //////////////////////////////////////////////////////////////////////////////////
+    //JStrSet jst;
+    //////////////////////////////////////////////////////////////////////////////////
     const qreal step = (DEStruct::DES_Adj.Dados.timeFinal - DEStruct::DES_Adj.Dados.timeInicial)/DEStruct::DES_Adj.Dados.variaveis.valores.numColunas();
     const QString fileName = QFileDialog::getSaveFileName(cr,tr("Salvar Dados"), QDir::currentPath() , tr("Arquivo de Dados (*.txt)"));
     qint32 i;
+    //JMathVar<qreal> matAux;
     qreal *valor,time=DEStruct::DES_Adj.Dados.timeInicial;
     QFile file(fileName);
     if (file.open(QFile::WriteOnly | QFile::Truncate))
@@ -506,6 +470,7 @@ void ICalc::slot_MW_SalvarArquivo()
         {
             if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) stream << DEStruct::DES_Adj.Dados.variaveis.nome.at(i) << "(" << DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i) << "," << DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i) << "," << DEStruct::DES_Adj.decimacao.at(i) <<  ") ";
             else stream << DEStruct::DES_Adj.Dados.variaveis.nome.at(i) << "(" << DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i) << "," << DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i) << ") ";
+            //matAux.replace(DEStruct::DES_Adj.Dados.variaveis.valores,jst.set("(%1,:)=(%1,0:%2:%3)").argInt(i).argInt(DEStruct::DES_Adj.decimacao.at(0)).argInt(DEStruct::DES_Adj.Dados.variaveis.valores.numColunas()));
         }
         stream << "\r\n" << time << "  ";
         const qint32 count = DEStruct::DES_Adj.Dados.variaveis.valores.numLinhas();
@@ -524,22 +489,20 @@ void ICalc::slot_MW_SalvarArquivo()
     }
 }
 ////////////////////////////////////////////////////////////////////////////
-void ICalc::slot_MW_SetStatus(qint64 iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest)
+void ICalc::slot_MW_SetStatus(const volatile qint64 &iteracoes,const QVector<qreal> *somaEr,const QList<QVector<qreal> > *resObtido,const QList<QVector<qreal> > *residuo,const QVector<Cromossomo> *crBest)
 {    
-    MW_LogLifecycle(QString("slot_MW_SetStatus iter=%1").arg(iteracoes));
-    QWriteLocker locker(&DEStruct::LerDados);
-    MW_iteracoes.storeRelaxed(iteracoes);
+    DEStruct::LerDados.lockForWrite();
+    MW_iteracoes = iteracoes;
     reCopy(MW_resObtido,*resObtido);
     reCopy(MW_residuo,*residuo);
     reCopy(MW_somaEr,*somaEr);
-    if(MW_crBest.size()!=crBest->size()) MW_crBest.resize(crBest->size());
-    std::copy(crBest->begin(), crBest->end(), MW_crBest.begin());
+    std::copy(crBest->begin(),crBest->end(),MW_crBest.begin());
     emit signal_MW_StatusSetado();
+    DEStruct::LerDados.unlock();
 }
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_EscreveEquacao()
 {
-    MW_LogLifecycle("slot_MW_EscreveEquacao");
     qint64 iteracoes;
     bool isFeito=false;
     QVector<qreal> somaEr;
@@ -552,27 +515,22 @@ void ICalc::slot_MW_EscreveEquacao()
     iteracoes = MW_iteracoes;
     reCopy(somaEr,MW_somaEr);
     crBest.resize(MW_crBest.size());
-    qCopy(MW_crBest.begin(),MW_crBest.end(),crBest.begin());
+    std::copy(MW_crBest.begin(),MW_crBest.end(),crBest.begin());
     DEStruct::LerDados.unlock();
 
     str.append(QString("Cl:= ")+QString::number(iteracoes)+QString("; Tempo: ")+QString::number(MW_tempo.secsTo(QDateTime::currentDateTime()))+"s \n");
     //+dt.toString("hh:mm:ss.zzz")+QString("ms\n"));
     for(i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
     {
-        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(", Decima��o = ")+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
+        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(tr(", Decima��o = "))+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
         else str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString("; "));
     }
-    const qint32 qtSaidas = qMin<qint32>(DEStruct::DES_Adj.Dados.variaveis.qtSaidas, crBest.size());
-    for(idSaida=0;idSaida<qtSaidas;idSaida++)
+    for(idSaida=0;idSaida<DEStruct::DES_Adj.Dados.variaveis.qtSaidas;idSaida++)
     {
-        varAux = 0.0;
         numColuna  = DEStruct::DES_Adj.Dados.variaveis.valores.numColunas()-crBest.at(idSaida).maiorAtraso;
-        isFeito = false;
-        strErr = "";
         strNum = "";strDen = "";strErrNum = "";strErrDen = "";strRegress = "";
         for(countRegress=0;countRegress<crBest.at(idSaida).regress.size();countRegress++) //Varre todos os termos para aquele cromossomo
         {
-            if(countRegress>=crBest.at(idSaida).vlrsCoefic.size()) break;
             idCoefic = crBest.at(idSaida).vlrsCoefic.at(countRegress);
             if(crBest.at(idSaida).regress.at(countRegress).at(0).vTermo.tTermo1.reg)
             {
@@ -610,7 +568,7 @@ void ICalc::slot_MW_EscreveEquacao()
 
                     }
                 }
-                if(!strRegress.isEmpty()) strRegress.remove(strRegress.size()-1,1);
+                strRegress.remove(strRegress.size()-1,1);
                 if(idCoefic)
                 {
                     if(crBest.at(idSaida).regress.at(countRegress).at(0).vTermo.tTermo1.nd)
@@ -667,11 +625,10 @@ void ICalc::slot_MW_EscreveEquacao()
             varAux += aux*aux;
         }
         jn  = crBest.at(idSaida).erro;//DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida);
-        jnM = (idSaida<somaEr.size() && DEStruct::DES_Adj.Dados.tamPop>0) ? (somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop)) : 0.0;
-        if((numColuna>2)&&(varAux>0.0)&&(jn>=0.0)) rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
-        else rsme = 0.0;
+        jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
+        rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
         str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
-        if(strNum.size()) str.append(QString("\n%1(k) = (("+strNum+strErr+")/("+strDen+"));\nERR:=("+strErrNum+")/("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
+        if(strNum.size()) str.append(QString("\n%1(k) = (("+strNum+")/("+strDen+"))"+strErr+";\nERR:=("+strErrNum+")/("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
     }
     str.append(QString("\n"));
     CheckBox1->setChecked(true);
@@ -682,7 +639,6 @@ void ICalc::slot_MW_EscreveEquacao()
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::slot_MW_Desenha()
 {
-    MW_LogLifecycle("slot_MW_Desenha");
     QList<QVector<qreal> > resObtido;
     QVector<Cromossomo> crBest;
     QList<QVector<qreal> > residuos;
@@ -694,25 +650,17 @@ void ICalc::slot_MW_Desenha()
     reCopy(resObtido,MW_resObtido);
     reCopy(residuos,MW_residuo);
     crBest.resize(MW_crBest.size());
-    qCopy(MW_crBest.begin(),MW_crBest.end(),crBest.begin());
+    std::copy(MW_crBest.begin(),MW_crBest.end(),crBest.begin());
     DEStruct::LerDados.unlock();
 
-    if((MW_SaidaUsada<0)||(MW_SaidaUsada>=resObtido.size())||(MW_SaidaUsada>=crBest.size())||(MW_SaidaUsada>=residuos.size()))
-        return;
     numColuna=resObtido.at(MW_SaidaUsada).size();
-    if(numColuna<=0) return;
     time.clear();
     if(!MW_changeStyle)
     {
         for(i=crBest.at(MW_SaidaUsada).maiorAtraso;i<numColuna;i++)
         {
             time.append(i);
-            const qint32 dec = qMax<qint32>(1,DEStruct::DES_Adj.decimacao.at(MW_SaidaUsada));
-            const qint32 idxCol = i*dec;
-            if(idxCol<DEStruct::DES_Adj.Dados.variaveis.valores.numColunas())
-                medida.append(DEStruct::DES_Adj.Dados.variaveis.valores.at(MW_SaidaUsada,idxCol));
-            else
-                medida.append(0.0);
+            medida.append(DEStruct::DES_Adj.Dados.variaveis.valores.at(MW_SaidaUsada,i*DEStruct::DES_Adj.decimacao.at(MW_SaidaUsada)));
         }
         MW_crv_C->setSamples(time,resObtido.at(MW_SaidaUsada));
         MW_crv_R->setSamples(time,medida);
@@ -720,8 +668,7 @@ void ICalc::slot_MW_Desenha()
     else
     {
         residuo+=residuos[MW_SaidaUsada].mid(residuos[MW_SaidaUsada].size()/2,residuos[MW_SaidaUsada].size()-(residuos[MW_SaidaUsada].size()/2));
-        if(residuo.isEmpty()) return;
-        qSort(residuo.begin(),residuo.end(),qLess<qreal>());
+        std::sort(residuo.begin(),residuo.end(),std::less<qreal>());
         auxReal1 = residuo.last()>(-residuo.first())?residuo.last()/25:(-residuo.first())/25;
         auxReal2 = (residuo.last()>(-residuo.first())?(-residuo.last()):residuo.first())-(auxReal1/2);
         time.append(auxReal2);
@@ -781,19 +728,18 @@ void ICalc::slot_MW_changeCheckBox2(int st)
 void ICalc::ini_MW_interface()
 {
     dialogConfig = new QDialog(this);
-    Ui::DialogConfig uiConfig;
-    uiConfig.setupUi(dialogConfig);
+    (new Ui::DialogConfig())->setupUi(dialogConfig);
     mainToolbar = this->findChild<QToolBar *>("toolBar");
-    actionExit =  this->findChild<QAction *>("actionExit");
-    actionIni =  this->findChild<QAction *>( "actionIni");
-    actionParar =  this->findChild<QAction *>( "actionParar");
-    actionCarDados =  this->findChild<QAction *>( "actionCarDados");
-    actionConfig =  this->findChild<QAction *>( "actionConfig");
-    actionZoom =  this->findChild<QAction *>( "actionZoom");
-    pbSalvarDadosTxT =  this->findChild<QPushButton *>("pb_SArquivo");
-    pbSalvarDados =  this->findChild<QPushButton *>("pb_DC_Salvar");
-    pbOpenDados =  this->findChild<QPushButton *>("pb_DC_Carregar");
-    pbConcDados =  this->findChild<QPushButton *>("pb_DC_Concatenar");
+    actionExit = this->findChild<QAction *>("actionExit");
+    actionIni = this->findChild<QAction *>("actionIni");
+    actionParar = this->findChild<QAction *>("actionParar");
+    actionCarDados = this->findChild<QAction *>("actionCarDados");
+    actionConfig = this->findChild<QAction *>("actionConfig");
+    actionZoom = this->findChild<QAction *>("actionZoom");
+    pbSalvarDadosTxT = dialogConfig->findChild<QPushButton *>("pb_SArquivo");
+    pbSalvarDados = dialogConfig->findChild<QPushButton *>("pb_DC_Salvar");
+    pbOpenDados = dialogConfig->findChild<QPushButton *>("pb_DC_Carregar");
+    pbConcDados = dialogConfig->findChild<QPushButton *>("pb_DC_Concatenar");
     //////////////////////////////////////////////////////////////////////////////
     actionZoom->setText("Zoom");
     //actionZoom->setIcon(QIcon(zoom_xpm));
@@ -872,7 +818,7 @@ void ICalc::ini_MW_interface()
     LEEM->setSizePolicy(sizePolicy3);
     LEEM->setMaximumSize(QSize(40, 16777215));
     LEEM->setContextMenuPolicy(Qt::NoContextMenu);
-    LEEM->setValidator(new QDoubleValidator (0.0,1e9,6,this));
+    LEEM->setValidator(new QDoubleValidator (0.9,0.999,3,this));
     mainToolbar->addWidget(LEEM);
     //////////////////////////////////////////////////////////////////////////////
     LENC = new QLabel(" NCy:= ",this);
@@ -884,7 +830,7 @@ void ICalc::ini_MW_interface()
     LEENC->setSizePolicy(sizePolicy3);
     LEENC->setMaximumSize(QSize(40, 16777215));
     LEENC->setContextMenuPolicy(Qt::NoContextMenu);
-    LEENC->setValidator(new QIntValidator (1,1000000,this));
+    LEENC->setValidator(new QDoubleValidator (0.9,0.999,3,this));
     mainToolbar->addWidget(LEENC);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();
@@ -935,84 +881,6 @@ void ICalc::enableZoomMode(bool on)
     qwtPlot1->setAxisAutoScale(QwtPlot::xBottom);
     //showInfo();
 }
-/*////////////////////////////////////////////////////////////////////////////
-void ICalc::ini_MW_qwtPlot()
-{
-    //qwtPlot
-    qwtPlot->setAutoReplot(false);
-    qwtPlot->setCanvasBackground(QColor(Qt::darkBlue));
-
-    MW_panner = new QwtPlotPanner(qwtPlot->canvas());
-    MW_panner->setMouseButton(Qt::MidButton);
-
-    MW_zoomer[0] = new Zoomer( QwtPlot::xBottom, QwtPlot::yLeft,
-        qwtPlot->canvas());
-    MW_zoomer[0]->setRubberBand(QwtPicker::RectRubberBand);
-    MW_zoomer[0]->setRubberBandPen(QColor(Qt::green));
-    MW_zoomer[0]->setTrackerMode(QwtPicker::ActiveOnly);
-    MW_zoomer[0]->setTrackerPen(QColor(Qt::white));
-
-    MW_zoomer[1] = new Zoomer(QwtPlot::xTop, QwtPlot::yRight,
-         qwtPlot->canvas());
-
-    MW_picker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
-        QwtPlotPicker::CrossRubberBand, QwtPicker::AlwaysOn,
-        qwtPlot->canvas());
-
-    MW_picker->setRubberBandPen(QColor(Qt::green));
-    MW_picker->setRubberBand(QwtPicker::CrossRubberBand);
-    MW_picker->setTrackerPen(QColor(Qt::white));
-    connect(MW_picker, SIGNAL(moved(const QPoint &)),SLOT(moved(const QPoint &)));
-    //connect(MW_picker, SIGNAL(selected(const QPolygon &)),SLOT(selected(const QPolygon &)));
-    // legend
-    QwtLegend *legend = new QwtLegend;
-    legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
-    qwtPlot->insertLegend(legend, QwtPlot::TopLegend);
-    // grid
-    QwtPlotGrid *grid = new QwtPlotGrid;
-    grid->enableXMin(true);
-    grid->setMajPen(QPen(Qt::white, 0, Qt::DotLine));
-    grid->setMinPen(QPen(Qt::gray, 0 , Qt::DotLine));
-    grid->attach(qwtPlot);
-    // Axes2
-    qwtPlot->enableAxis(QwtPlot::yLeft);
-    qwtPlot->setAxisTitle(QwtPlot::xBottom, "Gera��es");
-    qwtPlot->setAxisTitle(QwtPlot::yLeft, "Aptid�es");
-    qwtPlot->setAxisMaxMajor(QwtPlot::xBottom, 6);
-    qwtPlot->setAxisMaxMinor(QwtPlot::xBottom, 10);
-    // Best QWP2
-    MW_crv_Best = new QwtPlotCurve("Melhor");
-    #if QT_VERSION >= 0x040000
-    MW_crv_Best->setRenderHint(QwtPlotItem::RenderAntialiased);
-    #endif
-    MW_crv_Best->setPen(QPen(Qt::green,5));
-    MW_crv_Best->setYAxis(QwtPlot::yLeft);
-    MW_crv_Best->setStyle(QwtPlotCurve::Dots);
-    MW_crv_Best->attach(qwtPlot);
-    // Media QWP2
-    MW_crv_Media = new QwtPlotCurve("Media");
-    #if QT_VERSION >= 0x040000
-    MW_crv_Media->setRenderHint(QwtPlotItem::RenderAntialiased);
-    #endif
-    MW_crv_Media->setPen(QPen(Qt::red,5));
-    MW_crv_Media->setYAxis(QwtPlot::yLeft);
-    MW_crv_Media->setStyle(QwtPlotCurve::Dots);
-    MW_crv_Media->attach(qwtPlot);
-    // marker
-    MW_mrk = new QwtPlotMarker();
-    MW_mrk->setValue(0.0, 0.0);
-    MW_mrk->setLineStyle(QwtPlotMarker::VLine);
-    MW_mrk->setLabelAlignment(Qt::AlignRight | Qt::AlignBottom);
-    MW_mrk->setLinePen(QPen(Qt::green, 0, Qt::DashDotLine));
-    MW_mrk->attach(qwtPlot);
-}
-////////////////////////////////////////////////////////////////////////////
-void ICalc::moved(const QPoint &pos)
-{
-    qwtPlot->invTransform(QwtPlot::xBottom, pos.x());
-    qwtPlot->invTransform(QwtPlot::yLeft, pos.y());
-    qwtPlot->invTransform(QwtPlot::yRight, pos.y());
-}*/
 ////////////////////////////////////////////////////////////////////////////
 void ICalc::ini_MW_qwtPlot1()
 {
@@ -1061,18 +929,14 @@ void ICalc::ini_MW_qwtPlot1()
     qwtPlot1->setAxisMaxMinor(QwtPlot::xBottom, 10);
     // Real QWP2
     MW_crv_R = new QwtPlotCurve("Medido");
-    #if QT_VERSION >= 0x040000
     MW_crv_R->setRenderHint(QwtPlotItem::RenderAntialiased);
-    #endif
     MW_crv_R->setPen(QPen(Qt::darkBlue,1));
     MW_crv_R->setYAxis(QwtPlot::yLeft);
     MW_crv_R->setStyle(QwtPlotCurve::Lines);
     MW_crv_R->attach(qwtPlot1);
     // Calculado QWP2
     MW_crv_C = new QwtPlotCurve("Estimado");
-    #if QT_VERSION >= 0x040000
     MW_crv_C->setRenderHint(QwtPlotItem::RenderAntialiased);
-    #endif
     MW_crv_C->setPen(QPen(Qt::red,1));
     MW_crv_C->setYAxis(QwtPlot::yLeft);
     MW_crv_C->setStyle(QwtPlotCurve::Lines);

@@ -41,12 +41,12 @@
  #ifndef NORWEGIANWOODSTYLE_H
  #define NORWEGIANWOODSTYLE_H
 
- #include <QCommonStyle>
+ #include <QProxyStyle>
  #include <QPalette>
 
  class QPainterPath;
 
- class NorwegianWoodStyle : public QCommonStyle
+ class NorwegianWoodStyle : public QProxyStyle
  {
      Q_OBJECT
 

@@ -11,9 +11,6 @@
 #include <QtCore>
 
 #include <QtCore/QObject>
-#include <QtScript/QScriptClass>
-#include <QtScript/QScriptEngine>
-#include <QtScript/QScriptString>
 
 #include "ui_icarregar.h"
 #include "ui_dialogMaxMin.h"
@@ -69,7 +66,7 @@ class ICarregar : public DICarregar
         QList<qint32> UL_cVariaveis;
         QString UL_fileName;
         QStringList UL_CabecalhoList;
-        QStringListModel *UL_slm = nullptr;
+        QStringListModel *UL_slm;
         QStatusBar *LVStBar1;
 
         QGroupBox *dmmgb;

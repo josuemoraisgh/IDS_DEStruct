@@ -1,7 +1,7 @@
 #ifndef XVETOR_H
 #define XVETOR_H
 
-#include <QGlobal.h>
+#include <QtGlobal>
 #include <QDebug>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +14,7 @@ class XMatriz;
 template<typename T>
 class XVetor : public QVector<T>
 {
-public:
+public:  
     XVetor():QVector<T>(){}
     XVetor(const qint32 &size):QVector<T>(size){}
     XVetor(const qint32 &size,const T &valor):QVector<T>(size,valor){}
@@ -27,11 +27,11 @@ public:
     void Copy(const qint32 &posIni, const qint32 &stepLinha,const T *begin, const T *end, const qint32 &step);
 
     qreal ProdEsc(const XVetor<T> &vet);
-    XVetor<T> ProdVet(const XVetor<T> &vet);
-    XVetor<T> operator*(const qreal &val);
-    XVetor<T> operator*(const XVetor<T> &vet);
-    XMatriz<T> operator*(const XMatriz<T> &mat);
-    XMatriz<T> Trans();
+    XVetor<T> &ProdVet(const XVetor<T> &vet);
+    XVetor<T> &operator*(const qreal &val);
+    XVetor<T> &operator*(const XVetor<T> &vet);
+    XMatriz<T> &operator*(const XMatriz<T> &mat);
+    XMatriz<T> &Trans();
     XVetor<T> &operator=(const XVetor<T> &v);
     T soma();
     T normal();
@@ -68,17 +68,16 @@ T XVetor<T>::normal()
     return sqrt(norma);
 }
 //////////////////////////////////////////////////////////////////////////////////////////
-//Altera os termos (posicao de inicio, tamanho, Endereco do inicio do outro vetor , passo para ser dado no outro vetor);
+//Altera os termos (posi�ao de inicio, tamanho, Endere�o do inicio do outro vetor , passo para ser dado no outro vetor);
 template<typename T>
 void XVetor<T>::Copy(const qint32 &posIni, const qint32 &stepLinha,const T *begin, const T *end, const qint32 &step)
 {
-    if((begin!=NULL)&&(end!=NULL)&&(posIni>=0)&&(posIni<this->size())&&(stepLinha>0)&&(step>0))
+    if((begin!=NULL)&&(end!=NULL)&&(this->size()>=0)&&(posIni<this->size()))
     {
-        qint32 dest = posIni;
+        T *dest = this->data() + posIni;
         while (begin < end)
         {
-            if(dest >= this->size()) break;
-            (*this)[dest] = *begin;
+            *dest = *begin;
             dest+=stepLinha;
             begin+=step;
         }
@@ -91,15 +90,19 @@ void XVetor<T>::Copy(const qint32 &posIni, const qint32 &stepLinha,const T *begi
 template<typename T>/*C1[L1 L2 L3 ..] C2[L1 L2 L3 ..] C3[L1 L2 L3 ..] C4[L1 L2 L3 ..] C..*/
 void XVetor<T>::insereElementos(const qint32 &posicao,const T *begin, const T *end, const qint32 &step)
 {
-    if((begin!=NULL)&&(end!=NULL)&&(posicao>=0)&&(posicao<=this->size())&&(step>0))
+    if((this->data()!=NULL)&&(begin!=NULL)&&(end!=NULL)&&(posicao>=0)&&(posicao<=this->size()))
     {
-        qint32 pos = posicao;
-        while (begin < end)
-        {
-            ((QVector<T> *) this)->insert(pos, *begin);
-            begin += step;
-            ++pos;
-        }
+        const qint32 tam=(end-begin);
+
+        ((QVector<T> *) this)->resize(this->size() + tam);
+        //if(this->capacity()>=MAXRESERVE)this->reserve(MAXRESERVE);
+        T *i = this->data() + this->size() -1;//Final do vetor
+        T *b = this->data() + tam + posicao -1;//Inicio do vetor
+
+        while(b<i){*i = *(i-tam);i--;}
+        i = this->data() + posicao;
+        while (begin < end) {*i++ = *begin;begin+=step;}
+        //this->squeeze();
     }
 #ifdef _DEBUG
     else qDebug() << "Func:XVetor<T>::insereElementos-falhou";
@@ -109,7 +112,12 @@ void XVetor<T>::insereElementos(const qint32 &posicao,const T *begin, const T *e
 template <typename T>
 XVetor<T> &XVetor<T>::operator=(const XVetor<T> &v)
 {
-    ((QVector<T> *) this)->operator=(v);
+    this->resize(v.size());
+    T *i = this->data() + this->size();//Final do vetor
+    T *b = this->data();//Inicio do vetor
+    T const *c = v.constBegin();
+    for(;b<i;b++,c++) *b = *c;
+    //*((QVector<T> *) this) = (QVector<T>) v;
     return *this;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -124,62 +132,55 @@ qreal XVetor<T>::ProdEsc(const XVetor<T> &vet)
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-XVetor<T> XVetor<T>::ProdVet(const XVetor<T> &vet)
+XVetor<T> &XVetor<T>::ProdVet(const XVetor<T> &vet)
 {
-    XVetor<T> vetRes(this->size());
+    XVetor<T> *vetRes = new XVetor<T>(this->size());
     //Multiplica os vetores
     for (qint32 i = 0; i < this->size() && i < vet.size(); i++)
-    {
-        const qint32 thisI1 = (i + 1) % this->size();
-        const qint32 thisI2 = (i + 2) % this->size();
-        const qint32 vetI1 = (i + 1) % vet.size();
-        const qint32 vetI2 = (i + 2) % vet.size();
-        vetRes[i] = this->at(thisI1) * vet.at(vetI2) - this->at(thisI2) * vet.at(vetI1);
-    }
-    return vetRes;
+        (*vetRes)[i] = this->at((i+1)%this->size()) * vet.at((i+2)%vet.size())-this->at((i-1)<0?this->size()-(i-1):(i-1)) * vet.at((i+2)<0?vet.size()-(i+2):(i+2));
+    return *vetRes;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-XVetor<T> XVetor<T>::operator*(const qreal &val)
+XVetor<T> &XVetor<T>::operator*(const qreal &val)
 {
-    XVetor<T> vetRes(this->size());
-    //Multiplica o vetor por uma constante
+    XVetor<T> *vetRes = new XVetor<T>(this->size());
+    //Multiplica o vetore por uma constante
     for (qint32 i = 0; i < this->size(); i++)
-        vetRes[i] = this->at(i) * val;
-    return vetRes;
+        (*vetRes)[i] = this->at(i) * val;
+    return *vetRes;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-XVetor<T> XVetor<T>::operator*(const XVetor<T> &vet)
+XVetor<T> &XVetor<T>::operator*(const XVetor<T> &vet)
 {
-    XVetor<T> vetRes(this->size());
+    XVetor<T> *vetRes = new XVetor<T>(this->size());
     //Multiplica os vetores
     for (int i = 0; i < this->size() && i < vet.size(); i++)
-        vetRes[i] = this->at(i) * vet.at(i);
-    return vetRes;
+        (*vetRes)[i] = this->at(i) * vet.at(i);
+    return *vetRes;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 //<1, M1> = <1, M2> * <M2,M1>
 template <typename T>
-XMatriz<T> XVetor<T>::operator*(const XMatriz<T> &mat)
+XMatriz<T> &XVetor<T>::operator*(const XMatriz<T> &mat)
 {
-    XMatriz<T> result(1,mat.numColunas());
+    XMatriz<T> *result = new XMatriz<T>(1,this->size());
     for (int coluna = 0; coluna < mat.numColunas(); ++coluna)
     {
         T sum(0.0f);
-        for (int aux = 0; aux < this->size() && aux < mat.numLinhas(); ++aux) sum += this->at(aux) * mat.item(aux,coluna);
-        result(0,coluna) = sum;
+        for (int aux = 0; aux < this->size(); ++aux) sum += this->at(aux) * mat.item(aux,coluna);
+        (*result)[1][coluna] = sum;
     }
-    return result;
+    return *result;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
-XMatriz<T> XVetor<T>::Trans()
+XMatriz<T> &XVetor<T>::Trans()
 {
-    XMatriz<T> result(this->size(),1);
-    *((QVector<T> *) &result) = *((QVector<T> *) this);
-    return result;
+    XMatriz<T> *result = new XMatriz<T>(this->size(),1);
+    *((QVector<T> *) result) = *((QVector<T> *) this);
+    return *result;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 #endif // XVETOR
-

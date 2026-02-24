@@ -2,10 +2,9 @@
 #define XTIPODADOS_H
 
 #include <QtCore/QObject>
-#include <QtScript/QScriptClass>
-#include <QtScript/QScriptString>
 #include <QReadWriteLock>
 #include <QTimer>
+#include <QDateTime>
 #include <algorithm>
 #include "xmatriz.h"
 #include "xvetor.h"
@@ -17,11 +16,6 @@
 #define VARIAVEL    11
 #define MASKREG     ((1<<REGRESS)-1)
 ////////////////////////////////////////////////////////////////////////////
-//#ifndef METAXVETOR
-//#define METAXVETOR
-//Q_DECLARE_METATYPE(XVetor<qreal> )
-//Q_DECLARE_METATYPE(XMatriz<qreal> )
-//#endif  //METAXVETOR
 
 #ifndef TTERM1
 #define TTERM1
@@ -32,7 +26,7 @@ struct tTerm1
     quint32 reg    : REGRESS;
     quint32 nd     : NUMDENOM; //1 Numerador, 0 Denominador
 };
-//Q_DECLARE_METATYPE(tTerm1 )
+
 #endif //TTERM1
 
 #ifndef TTERM2
@@ -42,7 +36,7 @@ struct tTerm2
     quint32 idVar   : ATRASOS+VARIAVEL;
     quint32 idReg   : NUMDENOM+REGRESS;
 };
-//Q_DECLARE_METATYPE(tTerm2 )
+
 #endif //TTERM2
 
 #ifndef TERMO
@@ -52,7 +46,7 @@ union Termo{
     tTerm1  tTermo1;
     tTerm2  tTermo2;
 };
-//Q_DECLARE_METATYPE(Termo )
+
 #endif //TERMO
 
 #ifndef COMPTERMO
@@ -70,7 +64,7 @@ public:
         expoente=termo.expoente;
     }
 };
-//Q_DECLARE_METATYPE(compTermo )
+
 #endif //compTermo
 
 #ifndef CROMOSSOMO
@@ -78,14 +72,16 @@ public:
 class Cromossomo
 {
 public:
+    qreal erro,
+          aptidao;                //Aptid�o calculada pelo m�todo BIC
+    qint32 idSaida,               //Indentificador da saida para este cromossomo
+           maiorAtraso;
+    JMathVar<qreal> err,vlrsCoefic;
+    QVector<QVector<compTermo > > regress;
+    //QVector<QVector<compTermo > > regressResid;
     Cromossomo(){erro=0.0f;aptidao=0.0f;idSaida=0;maiorAtraso=0;vlrsCoefic.clear();err.clear();regress.clear();}
-    Cromossomo(const Cromossomo &cr) {*this = cr;}
-    
-    // Operador de atribuição com verificação de auto-atribuição
     void operator=(const Cromossomo &cr)
     {
-        if(this == &cr) return; // Previne auto-atribuição
-        
         erro=cr.erro;
         aptidao=cr.aptidao;
         idSaida=cr.idSaida;
@@ -101,21 +97,7 @@ public:
             std::copy(cr.regress[i].begin(),cr.regress[i].end(),regress[i].begin());
         }
     }
-    
-    // Membros públicos mantidos para compatibilidade com código existente
-    // TODO: Refatorar para tornar privados e adicionar getters/setters
-    qreal erro;
-    qreal aptidao;                //Aptidão calculada pelo método BIC
-    qint32 idSaida;               //Indentificador da saida para este cromossomo
-    qint32 maiorAtraso;
-    JMathVar<qreal> err;
-    JMathVar<qreal> vlrsCoefic;
-    QVector<QVector<compTermo > > regress;
-    // Aliases para compatibilidade com código legacy (srlevmarq.cpp)
-    JMathVar<qreal> coefic() const { return vlrsCoefic; }
-    QVector<qint32> regressores() const { return QVector<qint32>(); }
-    QVector<compTermo> termos() const { return QVector<compTermo>(); }
-    //QVector<QVector<compTermo > > regressResid;
+    Cromossomo(const Cromossomo &cr) {*this = cr;}
 };
 #endif //CROMOSSOMO
 

@@ -1,7 +1,9 @@
 #include <QProgressBar>
 #include <QtCore>
 #include <QTimer>
+#include <QRegularExpression>
 #include <math.h>
+#include <algorithm>
 #include "icarregar.h"
 #include "destruct.h"
 #include "xtipodados.h"
@@ -13,20 +15,18 @@ ICarregar::ICarregar(QWidget* parent)
 {
     setupUi(this);
     UL_IndexVar = 0;
-    UL_slm = nullptr;
     //////////////////////////////////////////////////////////////////////////////
     //Inicializa o dialog Max Min
     dialogMaxMin = new QDialog(this);
     //dialogDecimacao = new QDialog(this);
-    Ui::DialogMaxMin uiMaxMin;
-    uiMaxMin.setupUi(dialogMaxMin);
+    (new Ui::DialogMaxMin())->setupUi(dialogMaxMin);
     //(new Ui::DialogDecimacao())->setupUi(dialogDecimacao);
-    dmmComboBox     = dialogMaxMin->findChild<QComboBox *>("comboBox"   );
-    dmmLineEditMax  = dialogMaxMin->findChild<QLineEdit *>("lineEditMax");
+    dmmComboBox     = dialogMaxMin->findChild<QComboBox *>( "comboBox"   );
+    dmmLineEditMax  = dialogMaxMin->findChild<QLineEdit *>( "lineEditMax");
     dmmLineEditMin  = dialogMaxMin->findChild<QLineEdit *>( "lineEditMin");
     dmmLineEditDECI = dialogMaxMin->findChild<QLineEdit *>( "lineEditDelta");
     //////////////////////////////////////////////////////////////////////////////
-    //dmmComboBox1    = dialogMaxMin->findChild<QComboBox *>(dialogMaxMin, "comboBox"   );
+    //dmmComboBox1    = qFindChild<QComboBox *>(dialogMaxMin, "comboBox"   );
     dmmTal10        = dialogMaxMin->findChild<QLabel *>( "labelTal10");
     dmmTal20        = dialogMaxMin->findChild<QLabel *>( "labelTal20");
     dmmgb           = dialogMaxMin->findChild<QGroupBox *>( "groupBox");
@@ -40,16 +40,7 @@ ICarregar::ICarregar(QWidget* parent)
 ////////////////////////////////////////////////////////////////////////////
 ICarregar::~ICarregar()
 {
-    // Liberar recursos alocados dinamicamente
-    if (dialogMaxMin) {
-        delete dialogMaxMin;
-        dialogMaxMin = nullptr;
-    }
-    
-    if (UL_slm) {
-        delete UL_slm;
-        UL_slm = nullptr;
-    }
+
 }
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -57,10 +48,8 @@ void ICarregar::slot_UL_ChangeCombo(int indexVar)
 {
     if((indexVar< DEStruct::DES_Adj.Dados.variaveis.qtSaidas)&&(DEStruct::DES_Adj.decimacao.size()>indexVar))
         DEStruct::DES_Adj.decimacao[indexVar] = dmmLineEditDECI->text().toDouble();
-    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmaior.size()))
-        DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
-    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmenor.size()))
-        DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
+    DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
+    DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=indexVar;
     dmmLineEditMax->setText(QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(UL_IndexVar)));
     dmmLineEditMin->setText(QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(UL_IndexVar)));
@@ -91,10 +80,8 @@ void ICarregar::slot_UL_ChangeFim(int)
 {
     if((UL_IndexVar<DEStruct::DES_Adj.Dados.variaveis.qtSaidas)&&(DEStruct::DES_Adj.decimacao.size()>UL_IndexVar))
         DEStruct::DES_Adj.decimacao[UL_IndexVar] = dmmLineEditDECI->text().toDouble();
-    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmaior.size()))
-        DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
-    if((UL_IndexVar >= 0) && (UL_IndexVar < DEStruct::DES_Adj.Dados.variaveis.Vmenor.size()))
-        DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
+    DEStruct::DES_Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
+    DEStruct::DES_Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=0;
     //Manda normalizar os dados
     emit signal_UL_Estado(5);//Manda o comando multi-thread para normalizar
@@ -143,11 +130,11 @@ void ICarregar::ativar(const bool &atv)
             for(i=0;i < LVEntradas->selectionModel()->selectedIndexes().size();i++)
                 UL_cVariaveis.append(LVEntradas->selectionModel()->selectedIndexes().at(i).row());
             //Como a sele��o pode ter sido feita fora da ordem ent�o � ordenado a lista.
-            qSort(UL_cVariaveis.begin(),UL_cVariaveis.end(),qLess<int>());           
+            std::sort(UL_cVariaveis.begin(),UL_cVariaveis.end(),std::less<int>());           
             //Seleciona a variavel dependente (saida).
             DEStruct::DES_Adj.Dados.variaveis.qtSaidas = LVSaida->selectionModel()->selectedIndexes().size();
             for(i=0;i < LVSaida->selectionModel()->selectedIndexes().size();i++)
-                UL_cVariaveis.insert(i,LVSaida->selectionModel()->selectedIndexes().at(0).row());
+                UL_cVariaveis.insert(i,LVSaida->selectionModel()->selectedIndexes().at(i).row());
             DEStruct::DES_Adj.Dados.timeInicial = LETIni->text().toDouble()*pow(10.0,CBTIni->currentIndex()*(-3));
             DEStruct::DES_Adj.Dados.timeFinal = LETFim->text().toDouble()*pow(10.0,CBTFim->currentIndex()*(-3));
             //Inicializando selecionando o arquivo
@@ -178,21 +165,21 @@ void ICarregar::slot_UL_Status(const quint16 &std)
         case 0:
             //Carrega o arquivo de banco de dados.
             //Captura os dados selecionandos e registrar os maiores e menores valores para cada variavel, os quais ser�o usados para a normaliza��o.
-            LVStBar->setText(QObject::trUtf8("Carregando arquivo de banco de dados..."));
+            LVStBar->setText(QObject::tr("Carregando arquivo de banco de dados..."));
             DIC_pb->setValue(1);
             LVStBar->repaint();
             break;
 
         case 1:
             //Cada thread roda por vez em ordem concatenando os dados
-            LVStBar->setText(QObject::trUtf8("Concatenando dados das threads do arquivo..."));
+            LVStBar->setText(QObject::tr("Concatenando dados das threads do arquivo..."));
             DIC_pb->setValue(2);
             LVStBar->repaint();
             break;
 
         case 2:
             //As threads rodam para desnormalizar os dados antigos se for concatenar.
-            LVStBar->setText(QObject::trUtf8("Desnormalizar dados antigos..."));
+            LVStBar->setText(QObject::tr("Desnormalizar dados antigos..."));
             DIC_pb->setValue(3);
             LVStBar->repaint();
             break;
@@ -206,7 +193,7 @@ void ICarregar::slot_UL_Status(const quint16 &std)
                 dmmTal10->setText(" < "+QString::number(((qreal) DEStruct::DES_Adj.talDecim.at(0))/10.));
                 dmmTal20->setText(QString::number(((qreal) DEStruct::DES_Adj.talDecim.at(0))/20.)+" < ");
                 //dialogDecimacao->show();
-                LVStBar->setText(QObject::trUtf8("Decima��o..."));
+                LVStBar->setText(QObject::tr("Decimacao..."));
             }
             //Normalizar os dados (0 � 1) e trunca-os para duas casas decimais (considerando erro de 1%).
             for(qint32 i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
@@ -217,7 +204,7 @@ void ICarregar::slot_UL_Status(const quint16 &std)
             dmmLineEditMax->setText(QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(0)));
             dmmLineEditMin->setText(QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(0)));
             dialogMaxMin->show();
-            LVStBar->setText(QObject::trUtf8("Normalizando e truncando os Dados..."));
+            LVStBar->setText(QObject::tr("Normalizando e truncando os Dados..."));
             DIC_pb->setValue(4);
             LVStBar->repaint();
             break;
@@ -225,7 +212,7 @@ void ICarregar::slot_UL_Status(const quint16 &std)
             //Salvando o dados em arquivo
             if(CBSalvar->isChecked())
             {
-                LVStBar->setText(QObject::trUtf8("Salvando os dados em arquivo..."));
+                LVStBar->setText(QObject::tr("Salvando os dados em arquivo..."));
                 DIC_pb->setValue(5);
                 LVStBar->repaint();
                 emit signal_UL_SalvarArquivo();
@@ -236,7 +223,7 @@ void ICarregar::slot_UL_Status(const quint16 &std)
         case 5:
             //Fechando a tela
             dmmComboBox->clear();
-            LVStBar->setText(QObject::trUtf8("Fechando a tela..."));
+            LVStBar->setText(QObject::tr("Fechando a tela..."));
             LVStBar->repaint();            
             BConcatenar->setEnabled(true);
             BCancel->setEnabled(true);
@@ -270,7 +257,7 @@ void ICarregar::slot_UL_Caminho()
 ////////////////////////////////////////////////////////////////////////////
 void ICarregar::slot_UL_Indicar(const QString &fileName)
 {
-    qint64 tam;
+    quint64 tam;
     bool isok= false,confere = false;
     QString line;
     QStringList strList;
@@ -285,10 +272,9 @@ void ICarregar::slot_UL_Indicar(const QString &fileName)
             if (!line.isNull())
             {
                 UL_CabecalhoList.clear();
-                strList = line.split(QRegExp("(\\s+)"));
+                strList = line.split(QRegularExpression("(\\s+)"));
                 if(strList.size()?strList.first().isEmpty():false) strList.removeFirst();
                 UL_CabecalhoList.append(strList);
-                if (UL_slm) delete UL_slm;
                 UL_slm = new QStringListModel(UL_CabecalhoList);
                 LVEntradas->setSelectionMode(QAbstractItemView::MultiSelection);
                 LVSaida->setSelectionMode(QAbstractItemView::MultiSelection);
@@ -300,32 +286,39 @@ void ICarregar::slot_UL_Indicar(const QString &fileName)
             line = stream.readLine();
             if (!line.isNull())
             {
-                LETIni->setText(line.split(QString(QChar(32)),QString::SkipEmptyParts).at(0));
+                LETIni->setText(line.split(QString(QChar(32)),Qt::SkipEmptyParts).at(0));
                 CBTIni->setCurrentIndex(0);
             }
             tam = file.size();
-            Q_UNUSED(tam);
-            // Leitura robusta: evita underflow/seek invalido em arquivos pequenos.
-            while(!stream.atEnd())
+            do
+            {
+                tam-=50;
+                confere=stream.seek(tam);
+                stream.readLine();
+                line = stream.readLine();
+            }
+            while(stream.atEnd()||line.size()<=7||!confere);
+            if(!line.isNull()&&line.size()>7)
+            {
+                line.split(QString(QChar(32)),Qt::SkipEmptyParts).at(0).toFloat(&confere);
+                if(confere) LETFim->setText(line.split(QString(QChar(32)),Qt::SkipEmptyParts).at(0));
+            }
+            do
             {
                 line = stream.readLine();
-                if(!line.isNull()&&line.size()>0)
+                if(!line.isNull()&&line.size()>7)
                 {
-                    const QStringList campos = line.split(QString(QChar(32)),QString::SkipEmptyParts);
-                    if(campos.size())
-                    {
-                        campos.at(0).toFloat(&confere);
-                        if(confere) LETFim->setText(campos.at(0));
-                    }
+                    line.split(QString(QChar(32)),Qt::SkipEmptyParts).at(0).toFloat(&confere);
+                    if(confere) LETFim->setText(line.split(QString(QChar(32)),Qt::SkipEmptyParts).at(0));
                 }
             }
+            while(!stream.atEnd());
             file.close();
             CBTFim->setCurrentIndex(0);
         }
     }
     if(!isok)
     {
-        if (UL_slm) delete UL_slm;
         UL_slm = new QStringListModel();
         LVEntradas->setModel(UL_slm);
         LVSaida->setModel(UL_slm);

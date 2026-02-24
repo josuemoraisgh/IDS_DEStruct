@@ -43,7 +43,33 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw81
+          tools: 'tools_mingw,mingw81_64'
           cache: true
+
+      - name: Garantir MinGW toolchain (aqt)
+        shell: pwsh
+        run: |
+          $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
+          if (-not $qtRoot) {
+            throw "Qt5_Dir/Qt5_DIR não definido pelo install-qt-action"
+          }
+          $qtBase = Split-Path -Parent (Split-Path -Parent $qtRoot)
+          $mingwToolBin = Join-Path $qtBase "Tools\mingw810_64\bin"
+          $gppPath = Join-Path $mingwToolBin "g++.exe"
+
+          if (-not (Test-Path $gppPath)) {
+            Write-Host "MinGW toolchain nao encontrado. Instalando via aqt..."
+            python -m aqt install-tool windows desktop tools_mingw 8.1.0 --outputdir $qtBase
+          }
+
+          if (-not (Test-Path $gppPath)) {
+            Write-Host "Falha ao encontrar g++.exe em $mingwToolBin"
+            if (Test-Path (Join-Path $qtBase "Tools")) {
+              Get-ChildItem -Path (Join-Path $qtBase "Tools") -Directory | Select-Object Name | Write-Host
+            }
+            throw "MinGW toolchain nao instalado"
+          }
+          Write-Host "✔ MinGW toolchain OK: $mingwToolBin"
 
       - name: Configurar variáveis de ambiente do MinGW do Qt
         shell: pwsh
@@ -58,12 +84,17 @@ jobs:
           $qtBin = Join-Path $qtRoot "bin"
           $toolsRoot = Join-Path $qtBase "Tools"
 
+          $toolsMingwBin = Join-Path $toolsRoot "mingw810_64\bin"
+
           $gppPath = Join-Path $qtBin "g++.exe"
           $makePath = Join-Path $qtBin "mingw32-make.exe"
 
           if (-not (Test-Path $gppPath) -or -not (Test-Path $makePath)) {
             Write-Host "g++/mingw32-make não encontrados em $qtBin. Procurando em $toolsRoot..."
-            if (Test-Path $toolsRoot) {
+            if (Test-Path $toolsMingwBin) {
+              $gppPath = Join-Path $toolsMingwBin "g++.exe"
+              $makePath = Join-Path $toolsMingwBin "mingw32-make.exe"
+            } elseif (Test-Path $toolsRoot) {
               $gppFound = Get-ChildItem -Path $toolsRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
               $makeFound = Get-ChildItem -Path $toolsRoot -Filter "mingw32-make.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
               if ($gppFound) { $gppPath = $gppFound.FullName }

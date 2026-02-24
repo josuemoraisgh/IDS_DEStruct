@@ -287,15 +287,31 @@ jobs:
           
           # Passar QWT_LOCATION via linha de comando do qmake
           $parentDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
-          qmake "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt" 2>&1 | Tee-Object -FilePath "qmake.log"
+          $qmakeExe = (Get-Command qmake).Source
           
-          Write-Host "`n--- QMake Output (últimas 30 linhas) ---"
-          Get-Content "qmake.log" | Select-Object -Last 30 | Write-Host
+          Write-Host "Rodando: $qmakeExe ..\IDS_DEStruct.pro CONFIG+=release QWT_LOCATION=$parentDir/qwt"
           
-          if ($LASTEXITCODE -ne 0) {
-            throw "qmake falhou com código: $LASTEXITCODE"
+          & $qmakeExe "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt" > qmake.log 2>&1
+          $qmakeExit = $LASTEXITCODE
+          
+          Write-Host "`n--- QMake Output ---"
+          if (Test-Path "qmake.log") {
+            Get-Content "qmake.log" | Write-Host
+          } else {
+            Write-Host "(nenhum log gerado)"
           }
-          Write-Host "✔ qmake concluído"
+          
+          if ($qmakeExit -ne 0) {
+            throw "qmake falhou com código: $qmakeExit"
+          }
+          
+          # Verificar se Makefile foi gerado
+          if (-not (Test-Path "Makefile")) {
+            Write-Host "Conteúdo do diretório build:"
+            Get-ChildItem -Recurse | Select-Object FullName | Write-Host
+            throw "qmake não gerou Makefile"
+          }
+          Write-Host "✔ qmake concluído - Makefile gerado"
 
       - name: Verificar arquivos gerados pelo uic
         shell: pwsh

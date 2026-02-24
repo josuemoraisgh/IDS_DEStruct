@@ -54,24 +54,46 @@ jobs:
           if (-not $qtRoot) {
             throw "Qt5_Dir/Qt5_DIR não definido pelo install-qt-action"
           }
-          $mingwPath = Join-Path $qtRoot "bin"
-          
-          if (Test-Path $mingwPath) {
-            Write-Host "✔ Caminho MinGW encontrado: $mingwPath"
-            
-            # Adicionar ao PATH (PowerShell)
-            $env:PATH = "$mingwPath;$env:PATH"
-            
-            # Adicionar ao GITHUB_PATH para passos subsequentes
-            Add-Content -Path $env:GITHUB_PATH -Value $mingwPath
-            
-            Write-Host "✔ MinGW adicionado ao PATH"
-            Write-Host "`nVerificando ferramentas:"
-            Write-Host "g++: $(Get-Command g++ | Select-Object -ExpandProperty Source)"
-            Write-Host "mingw32-make: $(Get-Command mingw32-make | Select-Object -ExpandProperty Source)"
-          } else {
-            throw "Caminho MinGW não encontrado: $mingwPath"
+          $qtBase = Split-Path -Parent (Split-Path -Parent $qtRoot)
+          $qtBin = Join-Path $qtRoot "bin"
+          $toolsRoot = Join-Path $qtBase "Tools"
+
+          $gppPath = Join-Path $qtBin "g++.exe"
+          $makePath = Join-Path $qtBin "mingw32-make.exe"
+
+          if (-not (Test-Path $gppPath) -or -not (Test-Path $makePath)) {
+            Write-Host "g++/mingw32-make não encontrados em $qtBin. Procurando em $toolsRoot..."
+            if (Test-Path $toolsRoot) {
+              $gppFound = Get-ChildItem -Path $toolsRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              $makeFound = Get-ChildItem -Path $toolsRoot -Filter "mingw32-make.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($gppFound) { $gppPath = $gppFound.FullName }
+              if ($makeFound) { $makePath = $makeFound.FullName }
+            }
           }
+
+          if (-not (Test-Path $gppPath)) {
+            throw "g++ não encontrado (Qt bin ou Tools)."
+          }
+          if (-not (Test-Path $makePath)) {
+            throw "mingw32-make não encontrado (Qt bin ou Tools)."
+          }
+
+          $mingwBin = Split-Path -Parent $gppPath
+          Write-Host "✔ MinGW encontrado: $mingwBin"
+
+          # Adicionar ao PATH (PowerShell)
+          $env:PATH = "$mingwBin;$env:PATH"
+
+          # Adicionar ao GITHUB_PATH para passos subsequentes
+          Add-Content -Path $env:GITHUB_PATH -Value $mingwBin
+
+          # Exportar caminhos para outros passos
+          "QT_GPP_PATH=$gppPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_MINGW_MAKE=$makePath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+          Write-Host "✔ MinGW adicionado ao PATH"
+          Write-Host "g++: $gppPath"
+          Write-Host "mingw32-make: $makePath"
 
       - name: Validar versão
         shell: pwsh
@@ -106,12 +128,11 @@ jobs:
         run: |
           Write-Host "Testando compilador g++..."
           
-          # Encontrar o g++ correto do Qt
-          $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
-          if (-not $qtRoot) {
-            throw "Qt5_Dir/Qt5_DIR não definido pelo install-qt-action"
+          # Usar g++ encontrado na etapa anterior
+          $qtGppPath = $env:QT_GPP_PATH
+          if (-not $qtGppPath) {
+            throw "QT_GPP_PATH não definido"
           }
-          $qtGppPath = Join-Path (Join-Path $qtRoot "bin") "g++.exe"
           
           if (Test-Path $qtGppPath) {
             Write-Host "✔ Encontrado g++ do Qt: $qtGppPath"

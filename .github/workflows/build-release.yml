@@ -1,10 +1,24 @@
 name: Build and Create Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão/Tag (ex.: v1.0.0, v2.0.0-RC1)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Marcar como pré-release?'
+        required: false
+        default: false
+        type: boolean
+      notes:
+        description: 'Notas da release (opcional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -96,47 +110,43 @@ jobs:
         powershell -Command "& {Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory('release', 'IDS_DEStruct-release.zip')}"
       shell: powershell
       
-    - name: Get version from tag
-      id: tag_version
-      run: |
-        $version = "${{ github.ref }}".Replace("refs/tags/", "")
-        echo "version=$version" >> $env:GITHUB_OUTPUT
-      shell: powershell
-      
     - name: Create Release
       uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
       with:
+        tag_name: ${{ github.event.inputs.version }}
+        name: Release ${{ github.event.inputs.version }}
         files: |
           IDS_DEStruct-release.7z
           IDS_DEStruct-release.zip
         body: |
-          # Release ${{ steps.tag_version.outputs.version }}
+          # ${{ github.event.inputs.version }}
           
-          ## Build Information
-          - **Build Date**: ${{ github.event.head_commit.timestamp }}
+          ${{ github.event.inputs.notes || '## Detalhes da Release\n\n- Build automático via GitHub Actions\n- Compilado com MSVC 2019 (x64)\n- Qt 5.15.2 + Qwt inclusos' }}
+          
+          ## Informações de Build
+          - **Data**: ${{ github.event.repository.updated_at }}
           - **Commit**: ${{ github.sha }}
-          - **Branch**: ${{ github.ref_name }}
+          - **Disparador**: Workflow dispatch manual
           
-          ## Contents
-          - IDS_DEStruct.exe (Main application)
-          - Qt runtime libraries (5.15.2)
-          - Qwt library binaries
-          - Platform plugins
+          ## Conteúdo
+          - IDS_DEStruct.exe (Executável principal)
+          - Qt 5.15.2 runtime libraries (Core, Gui, Widgets, OpenGL, Svg, PrintSupport)
+          - Bibliotecas Qwt (qwt.dll, qwtd.dll)
+          - Platform plugin (qwindows.dll)
           
-          ## Installation
-          1. Extract the archive
-          2. Run `bin/IDS_DEStruct.exe`
-          3. Ensure `lib/` and `plugins/` are in the same directory as the executable
+          ## Instalação
+          1. Extraia o arquivo (.7z ou .zip)
+          2. Execute `bin/IDS_DEStruct.exe`
+          3. As pastas `lib/` e `plugins/` devem estar no mesmo diretório do executável
           
-          ## Requirements
+          ## Requisitos
           - Windows 64-bit
-          - Visual C++ Runtime (included via Qt)
+          - C++ Runtime (já incluído via Qt)
           
-          ## Documentation
-          See `doc/LOGICA_EVOLUTIVA.md` for algorithm details
+          ## Documentação
+          Veja `doc/LOGICA_EVOLUTIVA.md` para detalhes algorítmicos
           
         draft: false
-        prerelease: false
+        prerelease: ${{ github.event.inputs.prerelease == 'true' }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

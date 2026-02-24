@@ -1,37 +1,54 @@
 # Como Criar uma Release com os Workflows
 
-## Opção 1: Linha de Comando (Recomendado)
+## Opção 1: GitHub Web UI (Recomendado - Mais Fácil)
 
-```bash
-# 1. Certifique-se de estar na branch main e sincronizado
-cd c:\SourceCode\IDS_DEStruct
-git checkout main
-git pull origin main
+1. Vá para: `https://github.com/josuemoraisgh/IDS_DEStruct/actions`
+2. Na esquerda, clique em **"Build and Create Release"**
+3. Clique no botão **"Run workflow"** (canto superior direito)
+4. Preencha os campos:
+   - **Versão/Tag** (obrigatório): `v1.0.0`, `v2.0.0-RC1`, etc
+   - **Marcar como pré-release?**: ✅ ou ❌ (padrão: ❌)
+   - **Notas da release** (opcional): Escreva o changelog ou deixe em branco
+5. Clique em **"Run workflow"**
 
-# 2. Criar a tag (versão)
-git tag v1.0.0 -m "First release with corrected ELS Extended equation"
-
-# 3. Fazer push da tag
-git push origin v1.0.0
-```
-
-**Resultado**: O GitHub acionará automaticamente o workflow `build-release.yml` que irá:
+**Resultado**: O GitHub acionará automaticamente o workflow que irá:
 - ✅ Compilar em Release
 - ✅ Empacotar com Qt libraries e Qwt
 - ✅ Criar arquivos 7z e ZIP
 - ✅ Publicar release automática no GitHub
 
-## Opção 2: GitHub Web UI
+## Opção 2: Linha de Comando (GitHub CLI)
 
-1. Ir para `https://github.com/josuemoraisgh/IDS_DEStruct/releases`
-2. Clicar em "Create a new release"
-3. Preencher:
-   - **Tag version**: `v1.0.0`
-   - **Release title**: `Release v1.0.0 - ELS Extended Corrected`
-   - **Description**: Descrever mudanças
-4. Clicar "Publish release"
+Se você tiver [GitHub CLI](https://cli.github.com/) instalado:
 
-**Resultado**: O workflow será acionado com os dados da release que você criou
+```bash
+gh workflow run build-release.yml \
+  -f version=v1.0.0 \
+  -f prerelease=false \
+  -f notes="Primeira release com equação ELS corrigida"
+```
+
+## Opção 3: Linha de Comando (Tradicional com Tags)
+
+Se preferir manter o controle de versão via tags Git:
+
+```bash
+# 1. Sincronizar com main
+cd c:\SourceCode\IDS_DEStruct
+git checkout main
+git pull origin main
+
+# 2. Criar a tag
+git tag v1.0.0 -m "Descrição da release"
+
+# 3. Fazer push
+git push origin v1.0.0
+
+# 4. Acompanhar em GitHub Actions
+# https://github.com/josuemoraisgh/IDS_DEStruct/actions
+```
+
+**Nota**: O workflow anterior também funcionava com tags, mas o novo usa `workflow_dispatch` que é mais intuitivo via UI.
 
 ## Verificar Status do Build
 

@@ -82,52 +82,67 @@ jobs:
           
           # Criar arquivo de teste
           $testCode = @"
-          #include <iostream>
-          int main() {
-            std::cout << "Hello World" << std::endl;
-            return 0;
-          }
-          "@
+#include <iostream>
+int main() {
+  std::cout << "Hello World" << std::endl;
+  return 0;
+}
+"@
           
           Set-Content -Path "test.cpp" -Value $testCode
           
           Write-Host "`nTestando compilação simples..."
-          g++ -o test.exe test.cpp 2>&1
           
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "❌ Falha na compilação simples!"
+          # Executar g++ e capturar stdout e stderr separadamente
+          $output = & g++ -o test.exe test.cpp 2>&1
+          $exitCode = $LASTEXITCODE
+          
+          if ($exitCode -ne 0) {
+            Write-Host "❌ Falha na compilação simples! Exit code: $exitCode"
+            Write-Host "Output:"
+            $output | Write-Host
             throw "Compilador g++ não funciona"
           }
           
           Write-Host "✔ Compilador g++ funciona"
-          Remove-Item test.cpp, test.exe -Force
+          Remove-Item test.cpp, test.exe -Force -ErrorAction SilentlyContinue
 
-      - name: Ajustar IDS_DEStruct.pro para CI
+      - name: Testar Qt includes
         shell: pwsh
         run: |
-          Write-Host "Ajustando IDS_DEStruct.pro..."
+          Write-Host "Testando Qt includes..."
           
-          $proFile = "IDS_DEStruct.pro"
-          $content = Get-Content $proFile -Raw
+          $qtTestCode = @"
+#include <QCoreApplication>
+int main(int argc, char *argv[]) {
+  QCoreApplication app(argc, argv);
+  return 0;
+}
+"@
           
-          # Remover referências a caminhos hardcoded
-          $content = $content -replace 'DIRETORIO\s*=\s*C:', '# DIRETORIO = C:'
-          $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
+          Set-Content -Path "test_qt.cpp" -Value $qtTestCode
           
-          # Comentar DESTDIR hardcoded
-          $content = $content -replace '^(\s*)DESTDIR\s*=\s*\$\$\{DIRETORIO1\}[^\r\n]+', '# $1DESTDIR = (comentado para CI)'
+          $qtPath = "D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64"
+          $compileArgs = @(
+            "-I$qtPath\include",
+            "-I$qtPath\include\QtCore",
+            "-o", "test_qt.exe",
+            "test_qt.cpp"
+          )
           
-          # Adicionar DESTDIR relativo no final se não existir
-          if ($content -notmatch 'DESTDIR\s*=\s*\$\$OUT_PWD') {
-            $content += "`n`n# ===== CI Configuration =====`n"
-            $content += "DESTDIR = `$`$OUT_PWD/release`n"
+          Write-Host "Compilando teste Qt..."
+          $output = & g++ @compileArgs 2>&1
+          $exitCode = $LASTEXITCODE
+          
+          if ($exitCode -ne 0) {
+            Write-Host "⚠️ Compilação Qt falhou! Exit code: $exitCode"
+            Write-Host "Output:"
+            $output | Write-Host
+          } else {
+            Write-Host "✔ Qt include funciona"
           }
           
-          Set-Content -Path $proFile -Value $content -NoNewline
-          
-          Write-Host "✔ IDS_DEStruct.pro ajustado"
-          Write-Host "`n--- Trecho relevante do .pro ---"
-          Get-Content $proFile | Select-String -Pattern "(QWT_LOCATION|DESTDIR|INCLUDEPATH.*qwt|LIBS.*qwt)" -Context 0,1
+          Remove-Item test_qt.cpp, test_qt.exe -Force -ErrorAction SilentlyContinue
 
       - name: Criar diretório de build
         shell: pwsh
@@ -190,29 +205,60 @@ jobs:
         shell: pwsh
         working-directory: build
         run: |
-          Write-Host "Tentando compilar main.cpp isoladamente com máximo verbosity..."
+          Write-Host "Tentando compilar main.cpp isoladamente..."
           
-          # Ler o Makefile para encontrar o comando de compilação de main.cpp
-          $makefile = Get-Content "Makefile.Release" -Raw
-          
-          # Procurar a linha que compila main.cpp
-          $mainCppLine = $makefile | Select-String -Pattern "obj/release/main\.o" | Select-Object -First 1
-          Write-Host "Linha do Makefile para main.cpp:"
-          Write-Host $mainCppLine
-          
-          # Tentar compilar manualmente com stderr redirecionado
+          # Compilar manualmente
           Write-Host "`n--- Tentativa de compilação manual ---"
-          $compileCmd = "g++ -c -fno-keep-inline-dllexport -O2 -std=gnu++11 -Wall -Wextra -fexceptions -mthreads -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_DLL -DQWT_DLL -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_SVG_LIB -DQT_PRINTSUPPORT_LIB -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../IDS_DEStruct -I. -I../qwt/src -I../../Qt/5.15.2/mingw81_64/include -I../../Qt/5.15.2/mingw81_64/include/QtCore -I../../Qt/5.15.2/mingw81_64/include/QtGui -I../../Qt/5.15.2/mingw81_64/include/QtWidgets -Imoc/release -Iui/release ../main.cpp -o obj/release/main.o 2>&1"
           
-          Invoke-Expression $compileCmd | Tee-Object -FilePath "main_compile.log"
+          $compileArgs = @(
+            "-c",
+            "-fno-keep-inline-dllexport",
+            "-O2",
+            "-std=gnu++11",
+            "-Wall",
+            "-Wextra",
+            "-fexceptions",
+            "-mthreads",
+            "-DUNICODE",
+            "-D_UNICODE",
+            "-DWIN32",
+            "-DMINGW_HAS_SECURE_API=1",
+            "-DQT_DLL",
+            "-DQWT_DLL",
+            "-DQT_NO_DEBUG",
+            "-DQT_OPENGL_LIB",
+            "-DQT_SVG_LIB",
+            "-DQT_PRINTSUPPORT_LIB",
+            "-DQT_WIDGETS_LIB",
+            "-DQT_GUI_LIB",
+            "-DQT_CORE_LIB",
+            "-DQT_NEEDS_QMAIN",
+            "-I../../IDS_DEStruct",
+            "-I.",
+            "-I../qwt/src",
+            "-I../../Qt/5.15.2/mingw81_64/include",
+            "-I../../Qt/5.15.2/mingw81_64/include/QtCore",
+            "-I../../Qt/5.15.2/mingw81_64/include/QtGui",
+            "-I../../Qt/5.15.2/mingw81_64/include/QtWidgets",
+            "-Imoc/release",
+            "-Iui/release",
+            "../main.cpp",
+            "-o",
+            "obj/release/main.o"
+          )
           
+          Write-Host "g++ $($compileArgs -join ' ')`n"
+          
+          $output = & g++ @compileArgs 2>&1
           $exitCode = $LASTEXITCODE
-          Write-Host "`nExit code: $exitCode"
           
           if ($exitCode -ne 0) {
-            Write-Host "❌ Compilação de main.cpp falhou"
-            Write-Host "`n--- Log da compilação ---"
-            Get-Content "main_compile.log" | Write-Host
+            Write-Host "❌ Compilação de main.cpp falhou (exit code: $exitCode)"
+            Write-Host "`n--- Erro de compilação ---"
+            $output | Write-Host
+            throw "Compilação de main.cpp falhou"
+          } else {
+            Write-Host "✔ main.cpp compilou com sucesso"
           }
 
       - name: Compilar com mingw32-make

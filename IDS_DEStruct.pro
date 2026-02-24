@@ -96,16 +96,20 @@ RESOURCES += qrc/images.qrc
 #################################################################
 win32 {
     RC_FILE = qrc/icon.rc
-    QMAKE_LFLAGS_RELEASE += /INCREMENTAL:NO
-    # Suppress deprecated warnings on MSVC
-    QMAKE_CXXFLAGS += /wd4996
+    
+    # MSVC-specific flags (not for MinGW)
+    win32-msvc {
+        QMAKE_LFLAGS_RELEASE += /INCREMENTAL:NO
+        # Suppress deprecated warnings on MSVC
+        QMAKE_CXXFLAGS += /wd4996
+    }
 }
 
 #################################################################
-# Strict Build Profile
+# Strict Build Profile (MSVC only)
 # Use with: qmake IDS_DEStruct.pro "CONFIG+=strict_build"
 #################################################################
-win32:contains(CONFIG, strict_build) {
+win32-msvc:contains(CONFIG, strict_build) {
     message(Strict build profile enabled: /W4 /WX /permissive-)
     QMAKE_CFLAGS_WARN_ON = /W4
     QMAKE_CXXFLAGS_WARN_ON = /W4

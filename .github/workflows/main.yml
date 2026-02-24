@@ -43,7 +43,7 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw81
-          tools: 'tools_mingw,mingw81_64'
+          tools: 'tools_mingw,8.1.0'
           cache: true
 
       - name: Garantir MinGW toolchain (aqt)

@@ -1,0 +1,677 @@
+﻿2026-02-24T15:29:01.3007148Z Current runner version: '2.331.0'
+2026-02-24T15:29:01.3033055Z ##[group]Runner Image Provisioner
+2026-02-24T15:29:01.3033915Z Hosted Compute Agent
+2026-02-24T15:29:01.3034425Z Version: 20260213.493
+2026-02-24T15:29:01.3034928Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+2026-02-24T15:29:01.3035594Z Build Date: 2026-02-13T00:28:41Z
+2026-02-24T15:29:01.3036156Z Worker ID: {9f08c7e5-91db-46eb-af54-e7e51f3421f9}
+2026-02-24T15:29:01.3036760Z Azure Region: westus
+2026-02-24T15:29:01.3037247Z ##[endgroup]
+2026-02-24T15:29:01.3038644Z ##[group]Operating System
+2026-02-24T15:29:01.3039233Z Microsoft Windows Server 2025
+2026-02-24T15:29:01.3039770Z 10.0.26100
+2026-02-24T15:29:01.3040197Z Datacenter
+2026-02-24T15:29:01.3040588Z ##[endgroup]
+2026-02-24T15:29:01.3041028Z ##[group]Runner Image
+2026-02-24T15:29:01.3041459Z Image: windows-2025
+2026-02-24T15:29:01.3041925Z Version: 20260217.31.1
+2026-02-24T15:29:01.3043206Z Included Software: https://github.com/actions/runner-images/blob/win25/20260217.31/images/windows/Windows2025-Readme.md
+2026-02-24T15:29:01.3044608Z Image Release: https://github.com/actions/runner-images/releases/tag/win25%2F20260217.31
+2026-02-24T15:29:01.3045624Z ##[endgroup]
+2026-02-24T15:29:01.3046613Z ##[group]GITHUB_TOKEN Permissions
+2026-02-24T15:29:01.3048939Z Contents: write
+2026-02-24T15:29:01.3049434Z Metadata: read
+2026-02-24T15:29:01.3049883Z ##[endgroup]
+2026-02-24T15:29:01.3052070Z Secret source: Actions
+2026-02-24T15:29:01.3052752Z Prepare workflow directory
+2026-02-24T15:29:01.3621041Z Prepare all required actions
+2026-02-24T15:29:01.3658582Z Getting action download info
+2026-02-24T15:29:01.8694416Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2026-02-24T15:29:01.9913336Z Download action repository 'jurplel/install-qt-action@v3' (SHA:b7840a6733f49e2a39c4355260d2375063d39b61)
+2026-02-24T15:29:04.8464740Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-02-24T15:29:05.0524349Z Download action repository 'softprops/action-gh-release@v2' (SHA:a06a81a03ee405af7f2048a818ed3f03bbf83c7b)
+2026-02-24T15:29:06.1591480Z Getting action download info
+2026-02-24T15:29:06.3850906Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-02-24T15:29:06.6198999Z Complete job name: Windows (MinGW + Qt5 + Qwt local)
+2026-02-24T15:29:06.7355104Z ##[group]Run actions/checkout@v4
+2026-02-24T15:29:06.7359656Z with:
+2026-02-24T15:29:06.7360308Z   fetch-depth: 0
+2026-02-24T15:29:06.7360580Z   repository: josuemoraisgh/IDS_DEStruct
+2026-02-24T15:29:06.7361043Z   token: ***
+2026-02-24T15:29:06.7361224Z   ssh-strict: true
+2026-02-24T15:29:06.7385011Z   ssh-user: git
+2026-02-24T15:29:06.7385223Z   persist-credentials: true
+2026-02-24T15:29:06.7385443Z   clean: true
+2026-02-24T15:29:06.7385620Z   sparse-checkout-cone-mode: true
+2026-02-24T15:29:06.7385846Z   fetch-tags: false
+2026-02-24T15:29:06.7386019Z   show-progress: true
+2026-02-24T15:29:06.7386206Z   lfs: false
+2026-02-24T15:29:06.7386357Z   submodules: false
+2026-02-24T15:29:06.7386530Z   set-safe-directory: true
+2026-02-24T15:29:06.7387089Z env:
+2026-02-24T15:29:06.7387233Z   VERSION: v1.0.1
+2026-02-24T15:29:06.7387396Z   QT_VERSION: 5.15.2
+2026-02-24T15:29:06.7387605Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:29:06.7387894Z ##[endgroup]
+2026-02-24T15:29:06.9031422Z Syncing repository: josuemoraisgh/IDS_DEStruct
+2026-02-24T15:29:06.9032704Z ##[group]Getting Git version info
+2026-02-24T15:29:06.9033073Z Working directory is 'D:\a\IDS_DEStruct\IDS_DEStruct'
+2026-02-24T15:29:07.0152758Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-02-24T15:29:07.3705444Z git version 2.53.0.windows.1
+2026-02-24T15:29:07.3762322Z ##[endgroup]
+2026-02-24T15:29:07.3783143Z Temporarily overriding HOME='D:\a\_temp\3f2ba269-f00c-410c-a5ed-350ca863c10b' before making global git config changes
+2026-02-24T15:29:07.3783900Z Adding repository directory to the temporary git global config as a safe directory
+2026-02-24T15:29:07.3795020Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\IDS_DEStruct\IDS_DEStruct
+2026-02-24T15:29:07.4358043Z Deleting the contents of 'D:\a\IDS_DEStruct\IDS_DEStruct'
+2026-02-24T15:29:07.4366999Z ##[group]Initializing the repository
+2026-02-24T15:29:07.4377755Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\IDS_DEStruct\IDS_DEStruct
+2026-02-24T15:29:07.5462390Z Initialized empty Git repository in D:/a/IDS_DEStruct/IDS_DEStruct/.git/
+2026-02-24T15:29:07.5512824Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/josuemoraisgh/IDS_DEStruct
+2026-02-24T15:29:07.6014996Z ##[endgroup]
+2026-02-24T15:29:07.6015424Z ##[group]Disabling automatic garbage collection
+2026-02-24T15:29:07.6026280Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-02-24T15:29:07.6329790Z ##[endgroup]
+2026-02-24T15:29:07.6330151Z ##[group]Setting up auth
+2026-02-24T15:29:07.6343887Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-02-24T15:29:07.6683268Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-02-24T15:29:09.0232272Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-02-24T15:29:09.0547238Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-02-24T15:29:09.6069067Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-02-24T15:29:09.6373520Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-02-24T15:29:10.1623579Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-02-24T15:29:10.1928817Z ##[endgroup]
+2026-02-24T15:29:10.1929269Z ##[group]Fetching the repository
+2026-02-24T15:29:10.1945339Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-02-24T15:29:12.1799675Z From https://github.com/josuemoraisgh/IDS_DEStruct
+2026-02-24T15:29:12.1800629Z  * [new branch]      copilot/fix-waiting-for-runner -> origin/copilot/fix-waiting-for-runner
+2026-02-24T15:29:12.1801814Z  * [new branch]      copilot/fix-workflow-for-release -> origin/copilot/fix-workflow-for-release
+2026-02-24T15:29:12.1802963Z  * [new branch]      copilot/update-workflow-trigger -> origin/copilot/update-workflow-trigger
+2026-02-24T15:29:12.1803806Z  * [new branch]      main       -> origin/main
+2026-02-24T15:29:12.2225196Z [command]"C:\Program Files\Git\bin\git.exe" branch --list --remote origin/main
+2026-02-24T15:29:12.2539011Z   origin/main
+2026-02-24T15:29:12.2596595Z [command]"C:\Program Files\Git\bin\git.exe" rev-parse refs/remotes/origin/main
+2026-02-24T15:29:12.2909791Z 12f398e198fb72b680de824517519c30697788cf
+2026-02-24T15:29:12.2957426Z ##[endgroup]
+2026-02-24T15:29:12.2957992Z ##[group]Determining the checkout info
+2026-02-24T15:29:12.2960941Z ##[endgroup]
+2026-02-24T15:29:12.2971854Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-02-24T15:29:12.3369397Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-02-24T15:29:12.3668490Z ##[group]Checking out the ref
+2026-02-24T15:29:12.3679519Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B main refs/remotes/origin/main
+2026-02-24T15:29:12.6594391Z Switched to a new branch 'main'
+2026-02-24T15:29:12.6615493Z branch 'main' set up to track 'origin/main'.
+2026-02-24T15:29:12.6677480Z ##[endgroup]
+2026-02-24T15:29:12.7199786Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-02-24T15:29:12.7485754Z 12f398e198fb72b680de824517519c30697788cf
+2026-02-24T15:29:12.7977057Z ##[group]Run jurplel/install-qt-action@v3
+2026-02-24T15:29:12.7977431Z with:
+2026-02-24T15:29:12.7977595Z   version: 5.15.2
+2026-02-24T15:29:12.7977753Z   host: windows
+2026-02-24T15:29:12.7977910Z   target: desktop
+2026-02-24T15:29:12.7978070Z   arch: win64_mingw81
+2026-02-24T15:29:12.7978233Z   cache: true
+2026-02-24T15:29:12.7978384Z   install-deps: true
+2026-02-24T15:29:12.7978584Z   cache-key-prefix: install-qt-action
+2026-02-24T15:29:12.7979148Z   setup-python: true
+2026-02-24T15:29:12.7979385Z   add-tools-to-path: true
+2026-02-24T15:29:12.7979573Z   set-env: true
+2026-02-24T15:29:12.7979729Z   no-qt-binaries: false
+2026-02-24T15:29:12.7979911Z   tools-only: false
+2026-02-24T15:29:12.7980102Z   aqtversion: ==3.1.*
+2026-02-24T15:29:12.7980277Z   py7zrversion: ==0.20.*
+2026-02-24T15:29:12.7980477Z   source: false
+2026-02-24T15:29:12.7980636Z   documentation: false
+2026-02-24T15:29:12.7980816Z   examples: false
+2026-02-24T15:29:12.7980963Z env:
+2026-02-24T15:29:12.7981123Z   VERSION: v1.0.1
+2026-02-24T15:29:12.7981302Z   QT_VERSION: 5.15.2
+2026-02-24T15:29:12.7981515Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:29:12.7981761Z ##[endgroup]
+2026-02-24T15:29:12.8221868Z ##[group]Run actions/setup-python@v5
+2026-02-24T15:29:12.8222095Z with:
+2026-02-24T15:29:12.8222259Z   python-version: 3.6.x - 3.11.x
+2026-02-24T15:29:12.8222467Z   check-latest: false
+2026-02-24T15:29:12.8222756Z   token: ***
+2026-02-24T15:29:12.8222917Z   update-environment: true
+2026-02-24T15:29:12.8223123Z   allow-prereleases: false
+2026-02-24T15:29:12.8223368Z   freethreaded: false
+2026-02-24T15:29:12.8223547Z env:
+2026-02-24T15:29:12.8223683Z   VERSION: v1.0.1
+2026-02-24T15:29:12.8223852Z   QT_VERSION: 5.15.2
+2026-02-24T15:29:12.8224058Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:29:12.8224306Z ##[endgroup]
+2026-02-24T15:29:13.0504519Z ##[group]Installed versions
+2026-02-24T15:29:13.0749884Z Successfully set up CPython (3.11.9)
+2026-02-24T15:29:13.0750867Z ##[endgroup]
+2026-02-24T15:29:13.1042279Z ##[group]Run jurplel/install-qt-action/action@v3
+2026-02-24T15:29:13.1042548Z with:
+2026-02-24T15:29:13.1042689Z   version: 5.15.2
+2026-02-24T15:29:13.1042834Z   host: windows
+2026-02-24T15:29:13.1042984Z   target: desktop
+2026-02-24T15:29:13.1043130Z   arch: win64_mingw81
+2026-02-24T15:29:13.1043300Z   install-deps: true
+2026-02-24T15:29:13.1043459Z   cache: true
+2026-02-24T15:29:13.1043628Z   cache-key-prefix: install-qt-action
+2026-02-24T15:29:13.1043854Z   add-tools-to-path: true
+2026-02-24T15:29:13.1044034Z   set-env: true
+2026-02-24T15:29:13.1044185Z   no-qt-binaries: false
+2026-02-24T15:29:13.1044356Z   tools-only: false
+2026-02-24T15:29:13.1044533Z   aqtversion: ==3.1.*
+2026-02-24T15:29:13.1044695Z   py7zrversion: ==0.20.*
+2026-02-24T15:29:13.1044867Z   source: false
+2026-02-24T15:29:13.1045017Z   documentation: false
+2026-02-24T15:29:13.1045189Z   examples: false
+2026-02-24T15:29:13.1045330Z env:
+2026-02-24T15:29:13.1045473Z   VERSION: v1.0.1
+2026-02-24T15:29:13.1045624Z   QT_VERSION: 5.15.2
+2026-02-24T15:29:13.1045827Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:29:13.1046170Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:29:13.1046605Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+2026-02-24T15:29:13.1047020Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:29:13.1047381Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:29:13.1047747Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:29:13.1048028Z ##[endgroup]
+2026-02-24T15:29:13.7052427Z ##[warning]Failed to restore: Cache service responded with 400
+2026-02-24T15:29:13.7053438Z Automatic cache miss, will cache this run
+2026-02-24T15:29:13.8086856Z Unexpected error attempting to determine if executable file exists 'C:\Users\runneradmin\AppData\Local\Microsoft\WindowsApps\python.EXE': Error: EACCES: permission denied, stat 'C:\Users\runneradmin\AppData\Local\Microsoft\WindowsApps\python.EXE'
+2026-02-24T15:29:13.8098507Z [command]C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe -m pip install setuptools wheel py7zr==0.20.*
+2026-02-24T15:29:24.7821787Z Requirement already satisfied: setuptools in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (65.5.0)
+2026-02-24T15:29:25.2994226Z Collecting wheel
+2026-02-24T15:29:25.5233093Z   Downloading wheel-0.46.3-py3-none-any.whl.metadata (2.4 kB)
+2026-02-24T15:29:25.6399106Z Collecting py7zr==0.20.*
+2026-02-24T15:29:25.6495821Z   Downloading py7zr-0.20.8-py3-none-any.whl.metadata (16 kB)
+2026-02-24T15:29:25.7503085Z Collecting texttable (from py7zr==0.20.*)
+2026-02-24T15:29:25.7573522Z   Downloading texttable-1.7.0-py2.py3-none-any.whl.metadata (9.8 kB)
+2026-02-24T15:29:26.0020222Z Collecting pycryptodomex>=3.16.0 (from py7zr==0.20.*)
+2026-02-24T15:29:26.0114582Z   Downloading pycryptodomex-3.23.0-cp37-abi3-win_amd64.whl.metadata (3.5 kB)
+2026-02-24T15:29:26.1814543Z Collecting pyzstd>=0.15.9 (from py7zr==0.20.*)
+2026-02-24T15:29:26.1941810Z   Downloading pyzstd-0.19.1-py3-none-any.whl.metadata (2.6 kB)
+2026-02-24T15:29:26.3427230Z Collecting pyppmd<1.2.0,>=1.1.0 (from py7zr==0.20.*)
+2026-02-24T15:29:26.3547855Z   Downloading pyppmd-1.1.1-cp311-cp311-win_amd64.whl.metadata (5.6 kB)
+2026-02-24T15:29:26.4538541Z Collecting pybcj<1.1.0,>=1.0.0 (from py7zr==0.20.*)
+2026-02-24T15:29:26.4600382Z   Downloading pybcj-1.0.7-cp311-cp311-win_amd64.whl.metadata (4.0 kB)
+2026-02-24T15:29:26.5028573Z Collecting multivolumefile>=0.2.3 (from py7zr==0.20.*)
+2026-02-24T15:29:26.5076498Z   Downloading multivolumefile-0.2.3-py3-none-any.whl.metadata (6.3 kB)
+2026-02-24T15:29:26.5822364Z Collecting inflate64<1.1.0,>=1.0.0 (from py7zr==0.20.*)
+2026-02-24T15:29:26.5885951Z   Downloading inflate64-1.0.4-cp311-cp311-win_amd64.whl.metadata (4.5 kB)
+2026-02-24T15:29:26.6563999Z Collecting brotli>=1.1.0 (from py7zr==0.20.*)
+2026-02-24T15:29:26.6623666Z   Downloading brotli-1.2.0-cp311-cp311-win_amd64.whl.metadata (6.3 kB)
+2026-02-24T15:29:26.7617006Z Collecting psutil (from py7zr==0.20.*)
+2026-02-24T15:29:26.7670445Z   Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl.metadata (22 kB)
+2026-02-24T15:29:26.8540861Z Collecting packaging>=24.0 (from wheel)
+2026-02-24T15:29:26.8598766Z   Downloading packaging-26.0-py3-none-any.whl.metadata (3.3 kB)
+2026-02-24T15:29:26.9619379Z Collecting backports-zstd>=1.0.0 (from pyzstd>=0.15.9->py7zr==0.20.*)
+2026-02-24T15:29:26.9711303Z   Downloading backports_zstd-1.3.0-cp311-cp311-win_amd64.whl.metadata (7.1 kB)
+2026-02-24T15:29:27.0239502Z Collecting typing-extensions>=4.13.2 (from pyzstd>=0.15.9->py7zr==0.20.*)
+2026-02-24T15:29:27.0287094Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+2026-02-24T15:29:27.0560720Z Downloading py7zr-0.20.8-py3-none-any.whl (67 kB)
+2026-02-24T15:29:27.0872472Z Downloading inflate64-1.0.4-cp311-cp311-win_amd64.whl (35 kB)
+2026-02-24T15:29:27.1204840Z Downloading pybcj-1.0.7-cp311-cp311-win_amd64.whl (24 kB)
+2026-02-24T15:29:27.1395789Z Downloading pyppmd-1.1.1-cp311-cp311-win_amd64.whl (46 kB)
+2026-02-24T15:29:27.1652291Z Downloading wheel-0.46.3-py3-none-any.whl (30 kB)
+2026-02-24T15:29:27.2106369Z Downloading brotli-1.2.0-cp311-cp311-win_amd64.whl (369 kB)
+2026-02-24T15:29:27.2619618Z Downloading multivolumefile-0.2.3-py3-none-any.whl (17 kB)
+2026-02-24T15:29:27.2932145Z Downloading packaging-26.0-py3-none-any.whl (74 kB)
+2026-02-24T15:29:27.3149073Z Downloading pycryptodomex-3.23.0-cp37-abi3-win_amd64.whl (1.8 MB)
+2026-02-24T15:29:27.3492149Z    ---------------------------------------- 1.8/1.8 MB 49.7 MB/s  0:00:00
+2026-02-24T15:29:27.3545828Z Downloading pyzstd-0.19.1-py3-none-any.whl (23 kB)
+2026-02-24T15:29:27.3776610Z Downloading backports_zstd-1.3.0-cp311-cp311-win_amd64.whl (313 kB)
+2026-02-24T15:29:27.4012487Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+2026-02-24T15:29:27.4195846Z Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl (137 kB)
+2026-02-24T15:29:27.4444459Z Downloading texttable-1.7.0-py2.py3-none-any.whl (10 kB)
+2026-02-24T15:29:27.5724880Z Installing collected packages: texttable, brotli, typing-extensions, pyppmd, pycryptodomex, pybcj, psutil, packaging, multivolumefile, inflate64, backports-zstd, wheel, pyzstd, py7zr
+2026-02-24T15:29:29.6418342Z 
+2026-02-24T15:29:29.6436674Z Successfully installed backports-zstd-1.3.0 brotli-1.2.0 inflate64-1.0.4 multivolumefile-0.2.3 packaging-26.0 psutil-7.2.2 py7zr-0.20.8 pybcj-1.0.7 pycryptodomex-3.23.0 pyppmd-1.1.1 pyzstd-0.19.1 texttable-1.7.0 typing-extensions-4.15.0 wheel-0.46.3
+2026-02-24T15:29:30.1812246Z Unexpected error attempting to determine if executable file exists 'C:\Users\runneradmin\AppData\Local\Microsoft\WindowsApps\python.EXE': Error: EACCES: permission denied, stat 'C:\Users\runneradmin\AppData\Local\Microsoft\WindowsApps\python.EXE'
+2026-02-24T15:29:30.1824469Z [command]C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe -m pip install aqtinstall==3.1.*
+2026-02-24T15:29:31.6356274Z Collecting aqtinstall==3.1.*
+2026-02-24T15:29:31.8544699Z   Downloading aqtinstall-3.1.21-py3-none-any.whl.metadata (11 kB)
+2026-02-24T15:29:31.8917510Z Collecting bs4 (from aqtinstall==3.1.*)
+2026-02-24T15:29:31.8966406Z   Downloading bs4-0.0.2-py2.py3-none-any.whl.metadata (411 bytes)
+2026-02-24T15:29:31.9313486Z Collecting defusedxml (from aqtinstall==3.1.*)
+2026-02-24T15:29:31.9362657Z   Downloading defusedxml-0.7.1-py2.py3-none-any.whl.metadata (32 kB)
+2026-02-24T15:29:32.0360758Z Collecting humanize (from aqtinstall==3.1.*)
+2026-02-24T15:29:32.0409529Z   Downloading humanize-4.15.0-py3-none-any.whl.metadata (7.8 kB)
+2026-02-24T15:29:32.0898363Z Collecting patch>=1.16 (from aqtinstall==3.1.*)
+2026-02-24T15:29:32.0956443Z   Downloading patch-1.16.zip (12 kB)
+2026-02-24T15:29:32.1299584Z   Installing build dependencies: started
+2026-02-24T15:29:35.0263823Z   Installing build dependencies: finished with status 'done'
+2026-02-24T15:29:35.0280239Z   Getting requirements to build wheel: started
+2026-02-24T15:29:35.6606551Z   Getting requirements to build wheel: finished with status 'done'
+2026-02-24T15:29:35.6636787Z   Preparing metadata (pyproject.toml): started
+2026-02-24T15:29:35.9735868Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-02-24T15:29:36.0100739Z Collecting py7zr>=0.22.0 (from aqtinstall==3.1.*)
+2026-02-24T15:29:36.0145631Z   Downloading py7zr-1.1.0-py3-none-any.whl.metadata (17 kB)
+2026-02-24T15:29:36.0751897Z Collecting requests>=2.31.0 (from aqtinstall==3.1.*)
+2026-02-24T15:29:36.0806505Z   Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+2026-02-24T15:29:36.1406315Z Collecting semantic-version (from aqtinstall==3.1.*)
+2026-02-24T15:29:36.1458172Z   Downloading semantic_version-2.10.0-py2.py3-none-any.whl.metadata (9.7 kB)
+2026-02-24T15:29:36.1713809Z Requirement already satisfied: texttable in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from aqtinstall==3.1.*) (1.7.0)
+2026-02-24T15:29:36.1726240Z Requirement already satisfied: pycryptodomex>=3.20.0 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (3.23.0)
+2026-02-24T15:29:36.1732301Z Requirement already satisfied: brotli>=1.2.0 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (1.2.0)
+2026-02-24T15:29:36.1738002Z Requirement already satisfied: psutil in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (7.2.2)
+2026-02-24T15:29:36.1744920Z Requirement already satisfied: backports.zstd>=1.0.0 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (1.3.0)
+2026-02-24T15:29:36.2593772Z Collecting pyppmd>=1.3.1 (from py7zr>=0.22.0->aqtinstall==3.1.*)
+2026-02-24T15:29:36.2654329Z   Downloading pyppmd-1.3.1-cp311-cp311-win_amd64.whl.metadata (5.6 kB)
+2026-02-24T15:29:36.2893934Z Requirement already satisfied: pybcj>=1.0.6 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (1.0.7)
+2026-02-24T15:29:36.2897545Z Requirement already satisfied: multivolumefile>=0.2.3 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (0.2.3)
+2026-02-24T15:29:36.2902188Z Requirement already satisfied: inflate64>=1.0.4 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from py7zr>=0.22.0->aqtinstall==3.1.*) (1.0.4)
+2026-02-24T15:29:36.4022837Z Collecting charset_normalizer<4,>=2 (from requests>=2.31.0->aqtinstall==3.1.*)
+2026-02-24T15:29:36.4074595Z   Downloading charset_normalizer-3.4.4-cp311-cp311-win_amd64.whl.metadata (38 kB)
+2026-02-24T15:29:36.4634262Z Collecting idna<4,>=2.5 (from requests>=2.31.0->aqtinstall==3.1.*)
+2026-02-24T15:29:36.4684710Z   Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+2026-02-24T15:29:36.5180638Z Collecting urllib3<3,>=1.21.1 (from requests>=2.31.0->aqtinstall==3.1.*)
+2026-02-24T15:29:36.5228665Z   Downloading urllib3-2.6.3-py3-none-any.whl.metadata (6.9 kB)
+2026-02-24T15:29:36.5756061Z Collecting certifi>=2017.4.17 (from requests>=2.31.0->aqtinstall==3.1.*)
+2026-02-24T15:29:36.5802164Z   Downloading certifi-2026.1.4-py3-none-any.whl.metadata (2.5 kB)
+2026-02-24T15:29:36.6304395Z Collecting beautifulsoup4 (from bs4->aqtinstall==3.1.*)
+2026-02-24T15:29:36.6349897Z   Downloading beautifulsoup4-4.14.3-py3-none-any.whl.metadata (3.8 kB)
+2026-02-24T15:29:36.6849818Z Collecting soupsieve>=1.6.1 (from beautifulsoup4->bs4->aqtinstall==3.1.*)
+2026-02-24T15:29:36.6893149Z   Downloading soupsieve-2.8.3-py3-none-any.whl.metadata (4.6 kB)
+2026-02-24T15:29:36.7069267Z Requirement already satisfied: typing-extensions>=4.0.0 in C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\site-packages (from beautifulsoup4->bs4->aqtinstall==3.1.*) (4.15.0)
+2026-02-24T15:29:36.7199757Z Downloading aqtinstall-3.1.21-py3-none-any.whl (59 kB)
+2026-02-24T15:29:36.7375105Z Downloading py7zr-1.1.0-py3-none-any.whl (71 kB)
+2026-02-24T15:29:36.7645960Z Downloading pyppmd-1.3.1-cp311-cp311-win_amd64.whl (46 kB)
+2026-02-24T15:29:36.7869951Z Downloading requests-2.32.5-py3-none-any.whl (64 kB)
+2026-02-24T15:29:36.8056193Z Downloading charset_normalizer-3.4.4-cp311-cp311-win_amd64.whl (106 kB)
+2026-02-24T15:29:36.8354972Z Downloading idna-3.11-py3-none-any.whl (71 kB)
+2026-02-24T15:29:36.8542736Z Downloading urllib3-2.6.3-py3-none-any.whl (131 kB)
+2026-02-24T15:29:36.8766318Z Downloading certifi-2026.1.4-py3-none-any.whl (152 kB)
+2026-02-24T15:29:36.8965427Z Downloading bs4-0.0.2-py2.py3-none-any.whl (1.2 kB)
+2026-02-24T15:29:36.9161999Z Downloading beautifulsoup4-4.14.3-py3-none-any.whl (107 kB)
+2026-02-24T15:29:36.9341877Z Downloading soupsieve-2.8.3-py3-none-any.whl (37 kB)
+2026-02-24T15:29:36.9523885Z Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+2026-02-24T15:29:36.9732907Z Downloading humanize-4.15.0-py3-none-any.whl (132 kB)
+2026-02-24T15:29:36.9968564Z Downloading semantic_version-2.10.0-py2.py3-none-any.whl (15 kB)
+2026-02-24T15:29:37.0531841Z Building wheels for collected packages: patch
+2026-02-24T15:29:37.0567342Z   Building wheel for patch (pyproject.toml): started
+2026-02-24T15:29:37.4016834Z   Building wheel for patch (pyproject.toml): finished with status 'done'
+2026-02-24T15:29:37.4037186Z   Created wheel for patch: filename=patch-1.16-py3-none-any.whl size=12424 sha256=9f2753da91e7f5a8992889e84255872aaee73c0d6ccd6846ee4396aa7ed4c5fd
+2026-02-24T15:29:37.4039115Z   Stored in directory: c:\users\runneradmin\appdata\local\pip\cache\wheels\cb\ee\c0\8b7da5d06750d049187f4672e1fd70fade43ec0d2ee5b5fcda
+2026-02-24T15:29:37.4069318Z Successfully built patch
+2026-02-24T15:29:37.4522395Z Installing collected packages: patch, urllib3, soupsieve, semantic-version, pyppmd, idna, humanize, defusedxml, charset_normalizer, certifi, requests, py7zr, beautifulsoup4, bs4, aqtinstall
+2026-02-24T15:29:37.7268714Z   Attempting uninstall: pyppmd
+2026-02-24T15:29:37.7297171Z     Found existing installation: pyppmd 1.1.1
+2026-02-24T15:29:37.7348617Z     Uninstalling pyppmd-1.1.1:
+2026-02-24T15:29:37.7385085Z       Successfully uninstalled pyppmd-1.1.1
+2026-02-24T15:29:38.2846055Z   Attempting uninstall: py7zr
+2026-02-24T15:29:38.2880213Z     Found existing installation: py7zr 0.20.8
+2026-02-24T15:29:38.2954677Z     Uninstalling py7zr-0.20.8:
+2026-02-24T15:29:38.2999622Z       Successfully uninstalled py7zr-0.20.8
+2026-02-24T15:29:38.7708446Z 
+2026-02-24T15:29:38.7730568Z Successfully installed aqtinstall-3.1.21 beautifulsoup4-4.14.3 bs4-0.0.2 certifi-2026.1.4 charset_normalizer-3.4.4 defusedxml-0.7.1 humanize-4.15.0 idna-3.11 patch-1.16 py7zr-1.1.0 pyppmd-1.3.1 requests-2.32.5 semantic-version-2.10.0 soupsieve-2.8.3 urllib3-2.6.3
+2026-02-24T15:29:39.1206976Z Unexpected error attempting to determine if executable file exists 'C:\Users\runneradmin\AppData\Local\Microsoft\WindowsApps\python.EXE': Error: EACCES: permission denied, stat 'C:\Users\runneradmin\AppData\Local\Microsoft\WindowsApps\python.EXE'
+2026-02-24T15:29:39.1216670Z [command]C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe -m aqt install-qt windows desktop 5.15.2 win64_mingw81 --outputdir D:\a\IDS_DEStruct/Qt
+2026-02-24T15:29:39.7018350Z INFO    : aqtinstall(aqt) v3.1.21 on Python 3.11.9 [CPython MSC v.1938 64 bit (AMD64)]
+2026-02-24T15:30:14.0615398Z INFO    : Downloading qtsvg...
+2026-02-24T15:30:14.0716287Z INFO    : Downloading qttranslations...
+2026-02-24T15:30:14.0776783Z INFO    : Downloading qtbase...
+2026-02-24T15:30:14.0780150Z INFO    : Downloading qtactiveqt...
+2026-02-24T15:30:15.0917686Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:15.1115489Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:15.1144029Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:15.1467655Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:16.0517920Z INFO    : Finished installation of qtsvg-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.06880730
+2026-02-24T15:30:16.4624686Z INFO    : Finished installation of qttranslations-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.47680200
+2026-02-24T15:30:16.9079310Z INFO    : Finished installation of qtactiveqt-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.92631510
+2026-02-24T15:30:17.0677160Z INFO    : Downloading qtdeclarative...
+2026-02-24T15:30:17.3719060Z INFO    : Downloading qtgraphicaleffects...
+2026-02-24T15:30:17.8314390Z INFO    : Downloading qtmultimedia...
+2026-02-24T15:30:17.9999926Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:18.2377958Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:18.7787669Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:18.9482607Z INFO    : Finished installation of qtgraphicaleffects-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.47979660
+2026-02-24T15:30:19.9664665Z INFO    : Downloading qtwinextras...
+2026-02-24T15:30:20.0316229Z INFO    : Finished installation of qtmultimedia-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.11618750
+2026-02-24T15:30:20.9750159Z INFO    : Finished installation of qtdeclarative-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 4.91562820
+2026-02-24T15:30:20.9874867Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:21.0626826Z INFO    : Downloading qttools...
+2026-02-24T15:30:21.7141250Z INFO    : Finished installation of qtbase-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 8.73285900
+2026-02-24T15:30:21.7194594Z INFO    : Finished installation of qtwinextras-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.76159550
+2026-02-24T15:30:22.0094185Z INFO    : Downloading qtsensors...
+2026-02-24T15:30:22.0823425Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:22.6265765Z INFO    : Downloading qtimageformats...
+2026-02-24T15:30:22.6312942Z INFO    : Downloading qtconnectivity...
+2026-02-24T15:30:22.9158026Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:23.5797687Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:23.6221823Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:23.8275791Z INFO    : Finished installation of qtsensors-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.82759300
+2026-02-24T15:30:24.5309114Z INFO    : Finished installation of qtconnectivity-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.80595100
+2026-02-24T15:30:24.6005155Z INFO    : Finished installation of qtimageformats-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.87244450
+2026-02-24T15:30:24.7336167Z INFO    : Downloading qtwebsockets...
+2026-02-24T15:30:25.5030760Z INFO    : Downloading qtwebchannel...
+2026-02-24T15:30:25.5909636Z INFO    : Downloading qtserialport...
+2026-02-24T15:30:25.7010828Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:25.7109355Z INFO    : Finished installation of qttools-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 5.66806270
+2026-02-24T15:30:26.4555063Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:26.5048848Z INFO    : Finished installation of qtwebsockets-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.67802640
+2026-02-24T15:30:26.6145015Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:26.6691937Z INFO    : Downloading qtxmlpatterns...
+2026-02-24T15:30:27.1560720Z INFO    : Finished installation of qtwebchannel-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.61594600
+2026-02-24T15:30:27.3577896Z INFO    : Finished installation of qtserialport-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.74822840
+2026-02-24T15:30:27.4790567Z INFO    : Downloading qtquickcontrols2...
+2026-02-24T15:30:27.5750253Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:28.0087740Z INFO    : Downloading qtlocation...
+2026-02-24T15:30:28.2565911Z INFO    : Downloading qtquickcontrols...
+2026-02-24T15:30:28.4362867Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:28.8118579Z INFO    : Finished installation of qtxmlpatterns-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.08972100
+2026-02-24T15:30:28.8751264Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:29.1647507Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:29.7104482Z INFO    : Downloading qtserialbus...
+2026-02-24T15:30:29.8922407Z INFO    : Finished installation of qtquickcontrols2-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.37914390
+2026-02-24T15:30:30.3873124Z INFO    : Finished installation of qtquickcontrols-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.02297690
+2026-02-24T15:30:30.4171191Z INFO    : Finished installation of qtlocation-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.25473920
+2026-02-24T15:30:30.6653077Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:30.8468143Z INFO    : Downloading qt3d...
+2026-02-24T15:30:31.3693431Z INFO    : Downloading qtremoteobjects...
+2026-02-24T15:30:31.3819464Z INFO    : Downloading qtgamepad...
+2026-02-24T15:30:31.4711977Z INFO    : Finished installation of qtserialbus-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.64843970
+2026-02-24T15:30:31.7180789Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:33.7052962Z INFO    : Finished installation of qt3d-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 3.80315520
+2026-02-24T15:30:34.5852551Z INFO    : Downloading d3dcompiler_47...
+2026-02-24T15:30:37.5216462Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:38.5564764Z INFO    : Finished installation of d3dcompiler_47-x64.7z in 4.83905740
+2026-02-24T15:30:39.4430388Z INFO    : Downloading opengl32sw...
+2026-02-24T15:30:40.2985013Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:41.7328812Z INFO    : Finished installation of opengl32sw-64-mesa_12_0_rc2.7z in 3.16844950
+2026-02-24T15:30:45.1661128Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:45.1661744Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:45.8576168Z INFO    : Finished installation of qtgamepad-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 15.45862090
+2026-02-24T15:30:46.0316125Z INFO    : Finished installation of qtremoteobjects-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 15.60313430
+2026-02-24T15:30:46.7861649Z INFO    : Downloading qtspeech...
+2026-02-24T15:30:46.9213382Z INFO    : Downloading x86_64...
+2026-02-24T15:30:47.7126345Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:47.8283674Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:30:48.3282139Z INFO    : Finished installation of qtspeech-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 2.46534980
+2026-02-24T15:30:48.6613190Z INFO    : Finished installation of x86_64-8.1.0-release-posix-seh-rt_v6-rev0-runtime.7z in 2.62241420
+2026-02-24T15:31:03.1440333Z INFO    : Downloading qtscxml...
+2026-02-24T15:31:29.0755045Z INFO    : Redirected: qt.mirror.constant.com
+2026-02-24T15:31:29.9154897Z INFO    : Finished installation of qtscxml-Windows-Windows_10-Mingw-Windows-Windows_10-X86_64.7z in 58.43714470
+2026-02-24T15:31:30.0161146Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\bin\qmake.exe
+2026-02-24T15:31:30.0359486Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DAnimation.pc
+2026-02-24T15:31:30.0366165Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DCore.pc
+2026-02-24T15:31:30.0371240Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DExtras.pc
+2026-02-24T15:31:30.0376074Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DInput.pc
+2026-02-24T15:31:30.0381555Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DLogic.pc
+2026-02-24T15:31:30.0386517Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DQuick.pc
+2026-02-24T15:31:30.0391509Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DQuickAnimation.pc
+2026-02-24T15:31:30.0396219Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DQuickExtras.pc
+2026-02-24T15:31:30.0401301Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DQuickInput.pc
+2026-02-24T15:31:30.0406158Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DQuickRender.pc
+2026-02-24T15:31:30.0410950Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DQuickScene2D.pc
+2026-02-24T15:31:30.0415534Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt53DRender.pc
+2026-02-24T15:31:30.0420685Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5AxBase.pc
+2026-02-24T15:31:30.0425213Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5AxContainer.pc
+2026-02-24T15:31:30.0430276Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5AxServer.pc
+2026-02-24T15:31:30.0435699Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Bluetooth.pc
+2026-02-24T15:31:30.0440865Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Concurrent.pc
+2026-02-24T15:31:30.0445116Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Core.pc
+2026-02-24T15:31:30.0450047Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5DBus.pc
+2026-02-24T15:31:30.0454568Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Designer.pc
+2026-02-24T15:31:30.0459517Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Gamepad.pc
+2026-02-24T15:31:30.0464069Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Gui.pc
+2026-02-24T15:31:30.0469254Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Help.pc
+2026-02-24T15:31:30.0474145Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Location.pc
+2026-02-24T15:31:30.0479675Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Multimedia.pc
+2026-02-24T15:31:30.0484455Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5MultimediaWidgets.pc
+2026-02-24T15:31:30.0489236Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Network.pc
+2026-02-24T15:31:30.0493809Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Nfc.pc
+2026-02-24T15:31:30.0500212Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5OpenGL.pc
+2026-02-24T15:31:30.0504778Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5OpenGLExtensions.pc
+2026-02-24T15:31:30.0509467Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Positioning.pc
+2026-02-24T15:31:30.0514438Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5PositioningQuick.pc
+2026-02-24T15:31:30.0519746Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5PrintSupport.pc
+2026-02-24T15:31:30.0524230Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Qml.pc
+2026-02-24T15:31:30.0529431Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5QmlModels.pc
+2026-02-24T15:31:30.0534216Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5QmlWorkerScript.pc
+2026-02-24T15:31:30.0540988Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Quick.pc
+2026-02-24T15:31:30.0546245Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5QuickControls2.pc
+2026-02-24T15:31:30.0550901Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5QuickTemplates2.pc
+2026-02-24T15:31:30.0556427Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5QuickTest.pc
+2026-02-24T15:31:30.0561736Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5QuickWidgets.pc
+2026-02-24T15:31:30.0566416Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5RemoteObjects.pc
+2026-02-24T15:31:30.0571226Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Scxml.pc
+2026-02-24T15:31:30.0575897Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Sensors.pc
+2026-02-24T15:31:30.0581521Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5SerialBus.pc
+2026-02-24T15:31:30.0585702Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5SerialPort.pc
+2026-02-24T15:31:30.0590370Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Sql.pc
+2026-02-24T15:31:30.0596452Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Svg.pc
+2026-02-24T15:31:30.0602239Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Test.pc
+2026-02-24T15:31:30.0606975Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5TextToSpeech.pc
+2026-02-24T15:31:30.0611779Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5UiTools.pc
+2026-02-24T15:31:30.0616648Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5WebChannel.pc
+2026-02-24T15:31:30.0622170Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5WebSockets.pc
+2026-02-24T15:31:30.0627029Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Widgets.pc
+2026-02-24T15:31:30.0631882Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5WinExtras.pc
+2026-02-24T15:31:30.0636879Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5Xml.pc
+2026-02-24T15:31:30.0643548Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\pkgconfig\Qt5XmlPatterns.pc
+2026-02-24T15:31:30.0656549Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\libEGL.prl
+2026-02-24T15:31:30.0662662Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\libGLESv2.prl
+2026-02-24T15:31:30.0668844Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DAnimation.prl
+2026-02-24T15:31:30.0673703Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DCore.prl
+2026-02-24T15:31:30.0679182Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DExtras.prl
+2026-02-24T15:31:30.0684220Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DInput.prl
+2026-02-24T15:31:30.0689443Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DLogic.prl
+2026-02-24T15:31:30.0694758Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DQuick.prl
+2026-02-24T15:31:30.0700595Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DQuickAnimation.prl
+2026-02-24T15:31:30.0705601Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DQuickExtras.prl
+2026-02-24T15:31:30.0710571Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DQuickInput.prl
+2026-02-24T15:31:30.0715542Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DQuickRender.prl
+2026-02-24T15:31:30.0721148Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DQuickScene2D.prl
+2026-02-24T15:31:30.0726137Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt53DRender.prl
+2026-02-24T15:31:30.0731340Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5AccessibilitySupport.prl
+2026-02-24T15:31:30.0736014Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5AxBase.prl
+2026-02-24T15:31:30.0742359Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5AxContainer.prl
+2026-02-24T15:31:30.0746847Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5AxServer.prl
+2026-02-24T15:31:30.0751856Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Bluetooth.prl
+2026-02-24T15:31:30.0756752Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Bootstrap.prl
+2026-02-24T15:31:30.0761890Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Concurrent.prl
+2026-02-24T15:31:30.0766610Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Core.prl
+2026-02-24T15:31:30.0771526Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5DBus.prl
+2026-02-24T15:31:30.0776540Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Designer.prl
+2026-02-24T15:31:30.0782787Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5DesignerComponents.prl
+2026-02-24T15:31:30.0787795Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5DeviceDiscoverySupport.prl
+2026-02-24T15:31:30.0792578Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5EdidSupport.prl
+2026-02-24T15:31:30.0798285Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5EglSupport.prl
+2026-02-24T15:31:30.0803256Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5EventDispatcherSupport.prl
+2026-02-24T15:31:30.0807992Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5FbSupport.prl
+2026-02-24T15:31:30.0813019Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5FontDatabaseSupport.prl
+2026-02-24T15:31:30.0818726Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Gamepad.prl
+2026-02-24T15:31:30.0823913Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Gui.prl
+2026-02-24T15:31:30.0828822Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Help.prl
+2026-02-24T15:31:30.0833883Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Location.prl
+2026-02-24T15:31:30.0839518Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Multimedia.prl
+2026-02-24T15:31:30.0843858Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5MultimediaQuick.prl
+2026-02-24T15:31:30.0848975Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5MultimediaWidgets.prl
+2026-02-24T15:31:30.0854147Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Network.prl
+2026-02-24T15:31:30.0860032Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Nfc.prl
+2026-02-24T15:31:30.0863866Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5OpenGL.prl
+2026-02-24T15:31:30.0868623Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5OpenGLExtensions.prl
+2026-02-24T15:31:30.0873364Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5PacketProtocol.prl
+2026-02-24T15:31:30.0879145Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5PlatformCompositorSupport.prl
+2026-02-24T15:31:30.0883996Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Positioning.prl
+2026-02-24T15:31:30.0888578Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5PositioningQuick.prl
+2026-02-24T15:31:30.0893316Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5PrintSupport.prl
+2026-02-24T15:31:30.0898299Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Qml.prl
+2026-02-24T15:31:30.0903416Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QmlDebug.prl
+2026-02-24T15:31:30.0908307Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QmlDevTools.prl
+2026-02-24T15:31:30.0913026Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QmlModels.prl
+2026-02-24T15:31:30.0918087Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QmlWorkerScript.prl
+2026-02-24T15:31:30.0922706Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Quick.prl
+2026-02-24T15:31:30.0927726Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QuickControls2.prl
+2026-02-24T15:31:30.0932564Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QuickParticles.prl
+2026-02-24T15:31:30.0938234Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QuickShapes.prl
+2026-02-24T15:31:30.0943396Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QuickTemplates2.prl
+2026-02-24T15:31:30.0947891Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QuickTest.prl
+2026-02-24T15:31:30.0952849Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5QuickWidgets.prl
+2026-02-24T15:31:30.0957394Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5RemoteObjects.prl
+2026-02-24T15:31:30.0962331Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Scxml.prl
+2026-02-24T15:31:30.0967391Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Sensors.prl
+2026-02-24T15:31:30.0972737Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5SerialBus.prl
+2026-02-24T15:31:30.0977930Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5SerialPort.prl
+2026-02-24T15:31:30.0982467Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Sql.prl
+2026-02-24T15:31:30.0986903Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Svg.prl
+2026-02-24T15:31:30.0991976Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Test.prl
+2026-02-24T15:31:30.0997876Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5TextToSpeech.prl
+2026-02-24T15:31:30.1002833Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5ThemeSupport.prl
+2026-02-24T15:31:30.1008067Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5UiTools.prl
+2026-02-24T15:31:30.1012571Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5VulkanSupport.prl
+2026-02-24T15:31:30.1018083Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5WebChannel.prl
+2026-02-24T15:31:30.1023560Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5WebSockets.prl
+2026-02-24T15:31:30.1028357Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Widgets.prl
+2026-02-24T15:31:30.1033980Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5WindowsUIAutomationSupport.prl
+2026-02-24T15:31:30.1039059Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5WinExtras.prl
+2026-02-24T15:31:30.1044041Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5Xml.prl
+2026-02-24T15:31:30.1048747Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\Qt5XmlPatterns.prl
+2026-02-24T15:31:30.1053768Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\qtfreetype.prl
+2026-02-24T15:31:30.1058797Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\qtlibpng.prl
+2026-02-24T15:31:30.1063621Z INFO    : Patching D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\lib\qtmain.prl
+2026-02-24T15:31:30.1071291Z INFO    : Finished installation
+2026-02-24T15:31:30.1071767Z INFO    : Time elapsed: 110.40518020 second
+2026-02-24T15:31:30.2591547Z [command]C:\Windows\System32\tar.exe --posix -z -cf cache.tgz --exclude cache.tgz -P -C D:/a/IDS_DEStruct/IDS_DEStruct --files-from manifest.txt
+2026-02-24T15:31:49.0202872Z ##[warning]Failed to save: <h2>Our services aren't available right now</h2><p>We're working to restore all services as soon as possible. Please check back soon.</p>0ZcSdaQAAAAATfzVMYuGJQ5v3wtTEWaA6UEFPRURHRTA1MTQARWRnZQ==
+2026-02-24T15:31:49.0314148Z Automatic cache saved with id -1
+2026-02-24T15:31:49.0667233Z ##[group]Run if ([string]::IsNullOrWhiteSpace($env:VERSION)) {
+2026-02-24T15:31:49.0667729Z [36;1mif ([string]::IsNullOrWhiteSpace($env:VERSION)) {[0m
+2026-02-24T15:31:49.0668069Z [36;1m  throw "Versão não informada"[0m
+2026-02-24T15:31:49.0668300Z [36;1m}[0m
+2026-02-24T15:31:49.0668496Z [36;1mWrite-Host "✔ Versão/Tag: $env:VERSION"[0m
+2026-02-24T15:31:49.1014963Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-02-24T15:31:49.1015442Z env:
+2026-02-24T15:31:49.1015658Z   VERSION: v1.0.1
+2026-02-24T15:31:49.1015909Z   QT_VERSION: 5.15.2
+2026-02-24T15:31:49.1016214Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:31:49.1017357Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:49.1018003Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+2026-02-24T15:31:49.1018633Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:49.1019249Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:49.1019800Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:49.1020282Z   Qt5_Dir: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64
+2026-02-24T15:31:49.1020737Z   QT_PLUGIN_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\plugins
+2026-02-24T15:31:49.1021259Z   QML2_IMPORT_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\qml
+2026-02-24T15:31:49.1021676Z ##[endgroup]
+2026-02-24T15:31:53.8387325Z ✔ Versão/Tag: v1.0.1
+2026-02-24T15:31:54.1810781Z ##[group]Run Write-Host "Verificando arquivos do projeto..."
+2026-02-24T15:31:54.1811362Z [36;1mWrite-Host "Verificando arquivos do projeto..."[0m
+2026-02-24T15:31:54.1811790Z [36;1mif (-not (Test-Path "IDS_DEStruct.pro")) {[0m
+2026-02-24T15:31:54.1812188Z [36;1m  throw "IDS_DEStruct.pro não encontrado"[0m
+2026-02-24T15:31:54.1812476Z [36;1m}[0m
+2026-02-24T15:31:54.1812705Z [36;1mif (-not (Test-Path "qwt")) {[0m
+2026-02-24T15:31:54.1813015Z [36;1m  throw "Pasta qwt/ não encontrada"[0m
+2026-02-24T15:31:54.1813322Z [36;1m}[0m
+2026-02-24T15:31:54.1813520Z [36;1mif (-not (Test-Path "qwt/lib")) {[0m
+2026-02-24T15:31:54.1813847Z [36;1m  throw "Pasta qwt/lib/ não encontrada"[0m
+2026-02-24T15:31:54.1814152Z [36;1m}[0m
+2026-02-24T15:31:54.1814387Z [36;1mif (-not (Test-Path "qwt/src")) {[0m
+2026-02-24T15:31:54.1814717Z [36;1m  throw "Pasta qwt/src/ não encontrada"[0m
+2026-02-24T15:31:54.1814988Z [36;1m}[0m
+2026-02-24T15:31:54.1815284Z [36;1mWrite-Host "✔ Estrutura do projeto OK"[0m
+2026-02-24T15:31:54.1815628Z [36;1mWrite-Host "Conteúdo de qwt/lib:"[0m
+2026-02-24T15:31:54.1816005Z [36;1mGet-ChildItem -Path "qwt/lib" | Select-Object Name[0m
+2026-02-24T15:31:54.1889086Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-02-24T15:31:54.1889479Z env:
+2026-02-24T15:31:54.1889662Z   VERSION: v1.0.1
+2026-02-24T15:31:54.1889901Z   QT_VERSION: 5.15.2
+2026-02-24T15:31:54.1890183Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:31:54.1890566Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.1891046Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+2026-02-24T15:31:54.1891505Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.1891971Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.1892390Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.1892799Z   Qt5_Dir: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64
+2026-02-24T15:31:54.1893180Z   QT_PLUGIN_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\plugins
+2026-02-24T15:31:54.1893573Z   QML2_IMPORT_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\qml
+2026-02-24T15:31:54.1893915Z ##[endgroup]
+2026-02-24T15:31:54.5394979Z Verificando arquivos do projeto...
+2026-02-24T15:31:54.5688937Z ✔ Estrutura do projeto OK
+2026-02-24T15:31:54.5694233Z Conteúdo de qwt/lib:
+2026-02-24T15:31:54.6083642Z 
+2026-02-24T15:31:54.6119654Z [32;1mName[0m
+2026-02-24T15:31:54.6120275Z [32;1m----[0m
+2026-02-24T15:31:54.6120629Z qwt.dll
+2026-02-24T15:31:54.6121785Z qwt.exp
+2026-02-24T15:31:54.6122377Z qwt.lib
+2026-02-24T15:31:54.6123404Z qwtd.dll
+2026-02-24T15:31:54.6123745Z qwtd.exp
+2026-02-24T15:31:54.6125257Z qwtd.ilk
+2026-02-24T15:31:54.6125605Z qwtd.lib
+2026-02-24T15:31:54.6125922Z qwtd.pdb
+2026-02-24T15:31:54.6127643Z 
+2026-02-24T15:31:54.6802459Z ##[group]Run Write-Host "Testando compilador g++..."
+2026-02-24T15:31:54.6802998Z [36;1mWrite-Host "Testando compilador g++..."[0m
+2026-02-24T15:31:54.6803313Z [36;1mWrite-Host "g++ version:"[0m
+2026-02-24T15:31:54.6803613Z [36;1mg++ --version | Write-Host[0m
+2026-02-24T15:31:54.6803913Z [36;1m[0m
+2026-02-24T15:31:54.6804107Z [36;1m# Criar arquivo de teste[0m
+2026-02-24T15:31:54.6804389Z [36;1m$testCode = @"[0m
+2026-02-24T15:31:54.6804621Z [36;1m#include <iostream>[0m
+2026-02-24T15:31:54.6804879Z [36;1mint main() {[0m
+2026-02-24T15:31:54.6805129Z [36;1m  std::cout << "Hello World" << std::endl;[0m
+2026-02-24T15:31:54.6805455Z [36;1m  return 0;[0m
+2026-02-24T15:31:54.6805654Z [36;1m}[0m
+2026-02-24T15:31:54.6805854Z [36;1m"@[0m
+2026-02-24T15:31:54.6806306Z [36;1m[0m
+2026-02-24T15:31:54.6806562Z [36;1mSet-Content -Path "test.cpp" -Value $testCode[0m
+2026-02-24T15:31:54.6806888Z [36;1m[0m
+2026-02-24T15:31:54.6807243Z [36;1mWrite-Host "`nTestando compilação simples..."[0m
+2026-02-24T15:31:54.6807540Z [36;1m[0m
+2026-02-24T15:31:54.6807834Z [36;1m# Executar g++ e capturar stdout e stderr separadamente[0m
+2026-02-24T15:31:54.6808224Z [36;1m$output = & g++ -o test.exe test.cpp 2>&1[0m
+2026-02-24T15:31:54.6808557Z [36;1m$exitCode = $LASTEXITCODE[0m
+2026-02-24T15:31:54.6808825Z [36;1m[0m
+2026-02-24T15:31:54.6809010Z [36;1mif ($exitCode -ne 0) {[0m
+2026-02-24T15:31:54.6809403Z [36;1m  Write-Host "❌ Falha na compilação simples! Exit code: $exitCode"[0m
+2026-02-24T15:31:54.6809804Z [36;1m  Write-Host "Output:"[0m
+2026-02-24T15:31:54.6810075Z [36;1m  $output | Write-Host[0m
+2026-02-24T15:31:54.6810339Z [36;1m  throw "Compilador g++ não funciona"[0m
+2026-02-24T15:31:54.6810634Z [36;1m}[0m
+2026-02-24T15:31:54.6810808Z [36;1m[0m
+2026-02-24T15:31:54.6811043Z [36;1mWrite-Host "✔ Compilador g++ funciona"[0m
+2026-02-24T15:31:54.6811475Z [36;1mRemove-Item test.cpp, test.exe -Force -ErrorAction SilentlyContinue[0m
+2026-02-24T15:31:54.6885040Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-02-24T15:31:54.6885444Z env:
+2026-02-24T15:31:54.6885660Z   VERSION: v1.0.1
+2026-02-24T15:31:54.6885875Z   QT_VERSION: 5.15.2
+2026-02-24T15:31:54.6886167Z   ZIP_NAME: IDS_DEStruct-v1.0.1-windows-x64.zip
+2026-02-24T15:31:54.6887032Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.6887528Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+2026-02-24T15:31:54.6887983Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.6888425Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.6888861Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+2026-02-24T15:31:54.6889217Z   Qt5_Dir: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64
+2026-02-24T15:31:54.6889600Z   QT_PLUGIN_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\plugins
+2026-02-24T15:31:54.6889993Z   QML2_IMPORT_PATH: D:\a\IDS_DEStruct\Qt\5.15.2\mingw81_64\qml
+2026-02-24T15:31:54.6890343Z ##[endgroup]
+2026-02-24T15:31:55.0024409Z Testando compilador g++...
+2026-02-24T15:31:55.0032701Z g++ version:
+2026-02-24T15:31:55.7189083Z g++.exe (x86_64-posix-seh-rev0, Built by MinGW-Builds project) 15.2.0
+2026-02-24T15:31:55.7195004Z Copyright (C) 2025 Free Software Foundation, Inc.
+2026-02-24T15:31:55.7199896Z This is free software; see the source for copying conditions.  There is NO
+2026-02-24T15:31:55.7204716Z warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+2026-02-24T15:31:55.7210042Z 
+2026-02-24T15:31:55.7678844Z 
+2026-02-24T15:31:55.7679318Z Testando compilação simples...
+2026-02-24T15:31:55.9450235Z ❌ Falha na compilação simples! Exit code: 1
+2026-02-24T15:31:55.9456087Z Output:
+2026-02-24T15:31:56.3014874Z [31;1mException: [0mD:\a\_temp\4a6b711e-1443-43b2-8e3b-8162c4546866.ps1:27[0m
+2026-02-24T15:31:56.3016255Z [31;1m[0m[36;1mLine |[0m
+2026-02-24T15:31:56.3019922Z [31;1m[0m[36;1m[36;1m  27 | [0m   [36;1mthrow "Compilador g++ não funciona"[0m
+2026-02-24T15:31:56.3021048Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+2026-02-24T15:31:56.3022197Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mCompilador g++ não funciona[0m
+2026-02-24T15:31:56.3567035Z ##[error]Process completed with exit code 1.
+2026-02-24T15:31:56.3839787Z Post job cleanup.
+2026-02-24T15:31:56.4014491Z Post job cleanup.
+2026-02-24T15:31:56.6454334Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-02-24T15:31:56.6731693Z git version 2.53.0.windows.1
+2026-02-24T15:31:56.6808556Z Temporarily overriding HOME='D:\a\_temp\64fe6093-fc9a-4a16-9842-51ade91df862' before making global git config changes
+2026-02-24T15:31:56.6809727Z Adding repository directory to the temporary git global config as a safe directory
+2026-02-24T15:31:56.6821510Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\IDS_DEStruct\IDS_DEStruct
+2026-02-24T15:31:56.7150104Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-02-24T15:31:56.7491760Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-02-24T15:31:57.3251898Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-02-24T15:31:57.3509254Z http.https://github.com/.extraheader
+2026-02-24T15:31:57.3557428Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-02-24T15:31:57.3865088Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-02-24T15:31:57.9147331Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-02-24T15:31:57.9456704Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-02-24T15:31:58.5145648Z Cleaning up orphan processes

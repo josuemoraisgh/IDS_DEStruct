@@ -86,7 +86,7 @@ jobs:
           $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
           
           # Garantir que QWT_LOCATION aponta para a pasta local
-          $content = $content -replace 'QWT_LOCATION\s*=\s*[^\r\n]+', 'QWT_LOCATION = $$PWD/qwt'
+          $content = $content -replace 'QWT_LOCATION\s*=\s*[^\r\n]+', 'QWT_LOCATION = `$`$PWD/qwt'
           
           # Comentar DESTDIR hardcoded
           $content = $content -replace '^(\s*)DESTDIR\s*=\s*\$\$\{DIRETORIO1\}[^\r\n]+', '# $1DESTDIR = (comentado para CI)'

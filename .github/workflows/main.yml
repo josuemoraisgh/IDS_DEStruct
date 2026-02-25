@@ -508,10 +508,11 @@ jobs:
           Write-Host "Executando windeployqt em: $exePath"
           Write-Host "Usando: $windeploy"
           
-          & $windeploy --release --no-translations --no-system-d3d-compiler --no-opengl-sw --dir "$exeDir" "$exePath"
+          & $windeploy --release --no-translations --no-system-d3d-compiler --no-opengl-sw --plugindir "$pluginPath" --dir "$exeDir" "$exePath"
+          $windeployExit = $LASTEXITCODE
           
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "⚠️ windeployqt retornou código: $LASTEXITCODE (continuando...)"
+          if ($windeployExit -ne 0) {
+            Write-Host "⚠️ windeployqt retornou código: $windeployExit (continuando...)"
             $platformDir = Join-Path $exeDir "platforms"
             $qwindowsDll = Join-Path $platformDir "qwindows.dll"
             if (-not (Test-Path $qwindowsDll)) {
@@ -519,6 +520,7 @@ jobs:
               New-Item -ItemType Directory -Path $platformDir -Force | Out-Null
               Copy-Item -Path (Join-Path $pluginPath "platforms\qwindows.dll") -Destination $platformDir -Force
             }
+            $global:LASTEXITCODE = 0
           } else {
             Write-Host "✔ windeployqt concluído"
           }

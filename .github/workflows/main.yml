@@ -495,13 +495,30 @@ jobs:
         run: |
           $exePath = "${{ steps.find-exe.outputs.exe_path }}"
           $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
+          if (-not $qtRoot) {
+            throw "Qt5_Dir/Qt5_DIR não definido"
+          }
+          $qtBin = Join-Path $qtRoot "bin"
+          $windeploy = Join-Path $qtBin "windeployqt.exe"
+          $pluginPath = Join-Path $qtRoot "plugins"
+          $env:QT_PLUGIN_PATH = $pluginPath
+          $env:PATH = "$qtBin;$env:PATH"
           
           Write-Host "Executando windeployqt em: $exePath"
+          Write-Host "Usando: $windeploy"
           
-          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$exePath"
+          & $windeploy --release --no-translations --no-system-d3d-compiler --no-opengl-sw --dir "$exeDir" "$exePath"
           
           if ($LASTEXITCODE -ne 0) {
             Write-Host "⚠️ windeployqt retornou código: $LASTEXITCODE (continuando...)"
+            $platformDir = Join-Path $exeDir "platforms"
+            $qwindowsDll = Join-Path $platformDir "qwindows.dll"
+            if (-not (Test-Path $qwindowsDll)) {
+              Write-Host "Plugin de plataforma não encontrado. Copiando manualmente..."
+              New-Item -ItemType Directory -Path $platformDir -Force | Out-Null
+              Copy-Item -Path (Join-Path $pluginPath "platforms\qwindows.dll") -Destination $platformDir -Force
+            }
           } else {
             Write-Host "✔ windeployqt concluído"
           }

@@ -279,6 +279,14 @@ jobs:
             throw "Arquivo $qwtProFile não encontrado"
           }
           
+          # PRIMEIRO: Limpar DLLs/libs MSVC antigas ANTES de compilar
+          # (o build coloca o output diretamente em qwt/lib/ via DESTDIR)
+          Write-Host "Limpando artefatos MSVC antigos de qwt/lib/..."
+          Get-ChildItem -Path "qwt/lib" -Include "*.dll","*.lib","*.exp","*.ilk","*.pdb" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "  Removendo: $($_.Name)"
+            Remove-Item -Path $_.FullName -Force
+          }
+          
           # Criar diretório para build do Qwt
           $qwtBuildDir = "qwt/build_mingw"
           if (Test-Path $qwtBuildDir) {
@@ -314,32 +322,34 @@ jobs:
           Write-Host "✔ Qwt compilada com sucesso"
           Pop-Location
           
-          # Copiar biblioteca MinGW para qwt/lib/ (substituindo a MSVC)
-          Write-Host "Atualizando qwt/lib/ com bibliotecas MinGW..."
-          
-          # Limpar DLLs/libs MSVC antigas
-          Get-ChildItem -Path "qwt/lib" -Include "*.dll","*.lib","*.exp","*.ilk","*.pdb" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
-          
-          # Copiar novos arquivos MinGW (DLL + import lib)
-          $buildLibDir = "qwt/build_mingw/lib"
-          if (Test-Path $buildLibDir) {
-            $newLibs = Get-ChildItem -Path $buildLibDir -Include "*.dll","*.a" -Recurse
-            foreach ($lib in $newLibs) {
-              Copy-Item -Path $lib.FullName -Destination "qwt/lib/" -Force
-              Write-Host "  Copiado: $($lib.Name) ($($lib.Length) bytes)"
-            }
-          } else {
-            Write-Host "⚠️ Diretório $buildLibDir não encontrado. Procurando em build_mingw/..."
-            $newLibs = Get-ChildItem -Path "qwt/build_mingw" -Include "*.dll","*.a" -Recurse
-            foreach ($lib in $newLibs) {
-              Copy-Item -Path $lib.FullName -Destination "qwt/lib/" -Force
-              Write-Host "  Copiado: $($lib.Name) ($($lib.Length) bytes)"
-            }
-          }
-          
+          # DESTDIR em src.pro = $${OUT_PWD}/../lib = qwt/lib/
+          # A DLL MinGW já foi colocada diretamente em qwt/lib/ pelo build
           Write-Host "`nConteúdo final de qwt/lib/:"
           Get-ChildItem -Path "qwt/lib" | ForEach-Object {
             Write-Host "  $($_.Name) - $($_.Length) bytes"
+          }
+          
+          # Verificar se qwt.dll existe
+          $qwtDll = Get-ChildItem -Path "qwt/lib" -Filter "qwt*.dll" -ErrorAction SilentlyContinue
+          if (-not $qwtDll) {
+            Write-Host "⚠️ qwt.dll não encontrada em qwt/lib/. Procurando em build_mingw/..."
+            $found = Get-ChildItem -Path "qwt/build_mingw" -Filter "qwt*.dll" -Recurse -ErrorAction SilentlyContinue
+            if ($found) {
+              foreach ($f in $found) {
+                Write-Host "  Encontrada: $($f.FullName)"
+                Copy-Item -Path $f.FullName -Destination "qwt/lib/" -Force
+                Write-Host "  Copiada para qwt/lib/"
+              }
+            } else {
+              # Listar tudo em build_mingw para diagnóstico
+              Write-Host "Conteúdo de qwt/build_mingw/:"
+              Get-ChildItem -Path "qwt/build_mingw" -Recurse -File | ForEach-Object {
+                Write-Host "  $($_.FullName) - $($_.Length) bytes"
+              }
+              throw "qwt.dll não foi gerada pelo build!"
+            }
+          } else {
+            Write-Host "✔ qwt.dll encontrada: $($qwtDll.Name) ($($qwtDll.Length) bytes)"
           }
 
       - name: Criar diretório de build
@@ -446,75 +456,215 @@ jobs:
           "exe_path=$exeFound" >> $env:GITHUB_OUTPUT
           "exe_dir=$exeDir" >> $env:GITHUB_OUTPUT
 
-      - name: Copiar DLLs do Qwt e MinGW runtime
+      - name: Empacotar dependências (Qt + Qwt + MinGW runtime)
         shell: pwsh
         run: |
-          $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
-          Write-Host "Copiando DLLs do Qwt (MinGW) para: $exeDir"
+          # ============================================================
+          # Deploy MANUAL de todas as dependências.
+          # NÃO usamos windeployqt porque ele é um app Qt que precisa
+          # carregar qwindows.dll para funcionar, mas a instalação via
+          # aqtinstall tem paths internos errados (aponta para o path
+          # original de build, não para o path no runner), causando
+          # falha "Unable to find platform plugin" de forma consistente.
+          # ============================================================
           
-          # Copiar apenas DLLs do Qwt (compiladas com MinGW)
-          $qwtDlls = Get-ChildItem -Path "qwt/lib" -Filter "*.dll" -ErrorAction SilentlyContinue
-          foreach ($dll in $qwtDlls) {
-            # Não copiar DLLs de debug
-            if ($dll.Name -notlike "*d.dll" -and $dll.Name -notlike "*_debug*") {
-              Copy-Item -Path $dll.FullName -Destination $exeDir -Force
-              Write-Host "  Copiado: $($dll.Name) ($($dll.Length) bytes)"
-            } else {
-              Write-Host "  Ignorado (debug): $($dll.Name)"
-            }
-          }
-          
-          # Copiar DLLs do MinGW runtime (libgcc, libstdc++, libwinpthread)
-          $mingwBin = Split-Path -Parent $env:QT_GPP_PATH
-          $runtimeDlls = @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")
-          foreach ($dllName in $runtimeDlls) {
-            $dllPath = Join-Path $mingwBin $dllName
-            if (Test-Path $dllPath) {
-              Copy-Item -Path $dllPath -Destination $exeDir -Force
-              Write-Host "  Copiado (runtime): $dllName"
-            } else {
-              Write-Host "  ⚠️ Não encontrado: $dllName em $mingwBin"
-            }
-          }
-          Write-Host "✔ DLLs copiadas"
-
-      - name: windeployqt (incluir DLLs do Qt)
-        shell: pwsh
-        run: |
           $exePath = "${{ steps.find-exe.outputs.exe_path }}"
           $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          
+          # --- Resolver paths do Qt ---
           $qtRoot = if ($env:Qt5_Dir) { $env:Qt5_Dir } elseif ($env:Qt5_DIR) { $env:Qt5_DIR } else { "" }
-          if (-not $qtRoot) {
-            throw "Qt5_Dir/Qt5_DIR não definido"
-          }
-          $qtBin = Join-Path $qtRoot "bin"
-          $windeploy = Join-Path $qtBin "windeployqt.exe"
-          $pluginPath = Join-Path $qtRoot "plugins"
-          $env:QT_PLUGIN_PATH = $pluginPath
-          $env:PATH = "$qtBin;$env:PATH"
+          if (-not $qtRoot) { throw "Qt5_Dir/Qt5_DIR não definido" }
           
-          Write-Host "Executando windeployqt em: $exePath"
-          Write-Host "Usando: $windeploy"
+          $qtBin     = Join-Path $qtRoot "bin"
+          $qtPlugins = Join-Path $qtRoot "plugins"
+          $mingwBin  = Split-Path -Parent $env:QT_GPP_PATH
           
-          & $windeploy --release --no-translations --no-system-d3d-compiler --no-opengl-sw --plugindir "$pluginPath" --dir "$exeDir" "$exePath"
-          $windeployExit = $LASTEXITCODE
+          Write-Host "=== Configuração ==="
+          Write-Host "  Qt root:    $qtRoot"
+          Write-Host "  Qt bin:     $qtBin"
+          Write-Host "  Qt plugins: $qtPlugins"
+          Write-Host "  MinGW bin:  $mingwBin"
+          Write-Host "  Exe dir:    $exeDir"
+          Write-Host ""
           
-          if ($windeployExit -ne 0) {
-            Write-Host "⚠️ windeployqt retornou código: $windeployExit (continuando...)"
-            $platformDir = Join-Path $exeDir "platforms"
-            $qwindowsDll = Join-Path $platformDir "qwindows.dll"
-            if (-not (Test-Path $qwindowsDll)) {
-              Write-Host "Plugin de plataforma não encontrado. Copiando manualmente..."
-              New-Item -ItemType Directory -Path $platformDir -Force | Out-Null
-              Copy-Item -Path (Join-Path $pluginPath "platforms\qwindows.dll") -Destination $platformDir -Force
+          # Verificar que os diretórios fonte existem
+          if (-not (Test-Path $qtBin))     { throw "Qt bin não encontrado: $qtBin" }
+          if (-not (Test-Path $qtPlugins)) { throw "Qt plugins não encontrado: $qtPlugins" }
+          if (-not (Test-Path $mingwBin))  { throw "MinGW bin não encontrado: $mingwBin" }
+          
+          $errorCount = 0
+          
+          # ========================================
+          # 1. DLLs do Qt (baseado em QT += no .pro)
+          # ========================================
+          Write-Host "=== 1. DLLs do Qt ==="
+          $qtDlls = @(
+            "Qt5Core.dll",
+            "Qt5Gui.dll",
+            "Qt5Widgets.dll",
+            "Qt5OpenGL.dll",
+            "Qt5Svg.dll",
+            "Qt5PrintSupport.dll"
+          )
+          foreach ($dllName in $qtDlls) {
+            $src = Join-Path $qtBin $dllName
+            if (Test-Path $src) {
+              Copy-Item -Path $src -Destination $exeDir -Force
+              $sz = [math]::Round((Get-Item $src).Length / 1KB)
+              Write-Host "  ✔ $dllName (${sz} KB)"
+            } else {
+              Write-Host "  ❌ NÃO ENCONTRADO: $src"
+              $errorCount++
             }
-            $global:LASTEXITCODE = 0
-          } else {
-            Write-Host "✔ windeployqt concluído"
           }
           
-          Write-Host "`nConteúdo do diretório do executável:"
-          Get-ChildItem -Path $exeDir | Select-Object Name, Length
+          # ==========================================
+          # 2. Plugins do Qt (platforms, imageformats, styles)
+          # ==========================================
+          Write-Host "`n=== 2. Plugins do Qt ==="
+          
+          # 2a. platforms/ (obrigatório - sem isso o app não inicia)
+          $platformDir = Join-Path $exeDir "platforms"
+          New-Item -ItemType Directory -Path $platformDir -Force | Out-Null
+          $qwindowsSrc = Join-Path $qtPlugins "platforms\qwindows.dll"
+          if (Test-Path $qwindowsSrc) {
+            Copy-Item -Path $qwindowsSrc -Destination $platformDir -Force
+            Write-Host "  ✔ platforms/qwindows.dll"
+          } else {
+            Write-Host "  ❌ platforms/qwindows.dll NÃO ENCONTRADO"
+            $errorCount++
+          }
+          
+          # 2b. imageformats/ (suporte a SVG, JPEG, ICO, etc.)
+          $imageSrcDir = Join-Path $qtPlugins "imageformats"
+          if (Test-Path $imageSrcDir) {
+            $imageDir = Join-Path $exeDir "imageformats"
+            New-Item -ItemType Directory -Path $imageDir -Force | Out-Null
+            Get-ChildItem -Path $imageSrcDir -Filter "*.dll" | Where-Object {
+              $_.Name -notlike "*d.dll" -and $_.Name -notlike "*_debug*"
+            } | ForEach-Object {
+              Copy-Item -Path $_.FullName -Destination $imageDir -Force
+              Write-Host "  ✔ imageformats/$($_.Name)"
+            }
+          }
+          
+          # 2c. styles/ (windowsvista style, etc.)
+          $stylesSrcDir = Join-Path $qtPlugins "styles"
+          if (Test-Path $stylesSrcDir) {
+            $stylesDir = Join-Path $exeDir "styles"
+            New-Item -ItemType Directory -Path $stylesDir -Force | Out-Null
+            Get-ChildItem -Path $stylesSrcDir -Filter "*.dll" | Where-Object {
+              $_.Name -notlike "*d.dll" -and $_.Name -notlike "*_debug*"
+            } | ForEach-Object {
+              Copy-Item -Path $_.FullName -Destination $stylesDir -Force
+              Write-Host "  ✔ styles/$($_.Name)"
+            }
+          }
+          
+          # 2d. iconengines/ (necessário para ícones SVG)
+          $iconSrcDir = Join-Path $qtPlugins "iconengines"
+          if (Test-Path $iconSrcDir) {
+            $iconDir = Join-Path $exeDir "iconengines"
+            New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
+            Get-ChildItem -Path $iconSrcDir -Filter "*.dll" | Where-Object {
+              $_.Name -notlike "*d.dll" -and $_.Name -notlike "*_debug*"
+            } | ForEach-Object {
+              Copy-Item -Path $_.FullName -Destination $iconDir -Force
+              Write-Host "  ✔ iconengines/$($_.Name)"
+            }
+          }
+          
+          # ==========================================
+          # 3. DLL do Qwt (compilada com MinGW)
+          # ==========================================
+          Write-Host "`n=== 3. DLL do Qwt ==="
+          $qwtCopied = $false
+          $qwtDlls = Get-ChildItem -Path "qwt/lib" -Filter "*.dll" -ErrorAction SilentlyContinue
+          foreach ($dll in $qwtDlls) {
+            if ($dll.Name -notlike "*d.dll" -and $dll.Name -notlike "*_debug*") {
+              Copy-Item -Path $dll.FullName -Destination $exeDir -Force
+              $sz = [math]::Round($dll.Length / 1KB)
+              Write-Host "  ✔ $($dll.Name) (${sz} KB)"
+              $qwtCopied = $true
+            }
+          }
+          if (-not $qwtCopied) {
+            Write-Host "  ❌ Nenhuma DLL do Qwt encontrada em qwt/lib/"
+            Write-Host "  Conteúdo de qwt/lib/:"
+            Get-ChildItem -Path "qwt/lib" -ErrorAction SilentlyContinue | ForEach-Object {
+              Write-Host "    $($_.Name) ($($_.Length) bytes)"
+            }
+            $errorCount++
+          }
+          
+          # ==========================================
+          # 4. MinGW runtime DLLs
+          # ==========================================
+          Write-Host "`n=== 4. MinGW runtime ==="
+          $runtimeDlls = @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")
+          foreach ($dllName in $runtimeDlls) {
+            $src = Join-Path $mingwBin $dllName
+            if (Test-Path $src) {
+              Copy-Item -Path $src -Destination $exeDir -Force
+              Write-Host "  ✔ $dllName"
+            } else {
+              Write-Host "  ❌ NÃO ENCONTRADO: $dllName em $mingwBin"
+              $errorCount++
+            }
+          }
+          
+          # ==========================================
+          # 5. Verificação final
+          # ==========================================
+          Write-Host "`n=== 5. Verificação final ==="
+          $requiredFiles = @(
+            "IDS_DEStruct.exe",
+            "Qt5Core.dll",
+            "Qt5Gui.dll",
+            "Qt5Widgets.dll",
+            "Qt5PrintSupport.dll",
+            "Qt5Svg.dll",
+            "platforms\qwindows.dll",
+            "libgcc_s_seh-1.dll",
+            "libstdc++-6.dll",
+            "libwinpthread-1.dll"
+          )
+          # Adicionar qwt*.dll dinamicamente
+          $qwtInDest = Get-ChildItem -Path $exeDir -Filter "qwt*.dll" -ErrorAction SilentlyContinue
+          if ($qwtInDest) {
+            $requiredFiles += $qwtInDest.Name
+          } else {
+            Write-Host "  ❌ qwt.dll ausente no destino!"
+            $errorCount++
+          }
+          
+          $allPresent = $true
+          foreach ($file in $requiredFiles) {
+            $fullPath = Join-Path $exeDir $file
+            if (Test-Path $fullPath) {
+              Write-Host "  ✔ $file"
+            } else {
+              Write-Host "  ❌ AUSENTE: $file"
+              $allPresent = $false
+              $errorCount++
+            }
+          }
+          
+          Write-Host "`n=== Inventário completo ==="
+          Get-ChildItem -Path $exeDir -Recurse -File | ForEach-Object {
+            $rel = $_.FullName.Substring($exeDir.Length + 1)
+            $sz = [math]::Round($_.Length / 1KB)
+            Write-Host "  $rel (${sz} KB)"
+          }
+          
+          if ($errorCount -gt 0) {
+            Write-Host "`n⚠️ $errorCount erro(s) encontrado(s) durante o empacotamento"
+            if (-not $allPresent) {
+              throw "Arquivos obrigatórios ausentes no pacote!"
+            }
+          } else {
+            Write-Host "`n✔ Todas as dependências empacotadas com sucesso"
+          }
 
       - name: Criar pacote ZIP
         shell: pwsh

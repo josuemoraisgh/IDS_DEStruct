@@ -1140,33 +1140,54 @@ JMathVar<T> JMathVar<T>::SistemaLinear(const JMathVar<T> &vet1,bool &isOK)
         if((JMV_numLinhas==1)&&(JMV_numColunas==1)&&(vet1.JMV_numLinhas==1)&&(vet1.JMV_numColunas==1)) result[0] = vet1.at(0)/this->at(0);
         else
         {
-            if(this->Det()>=10e-15)
+            //Implementando o Metodo de Gauss com pivoteamento parcial
+            for (k=0;k<n-1;k++)
             {
-                //Implementando o M�todo de Gauss transformando em uma matriz triangular superior
-                for (k=0;k<n-1;k++) //Varre todas as colunas com exce��o da ultima coluna da matriz e da coluna expandida
+                //Pivoteamento parcial: encontra a linha com o maior valor absoluto na coluna k
+                qint32 maxRow = k;
+                double maxVal = fabs(matAux.at(k,k));
+                for (i=k+1;i<n;i++)
                 {
-                    for (i=k+1;i<n;i++) //Varre todas a linhas das colunas em avalia��o
+                    double val = fabs(matAux.at(i,k));
+                    if(val > maxVal) { maxVal = val; maxRow = i; }
+                }
+                //Se o maior pivot e muito pequeno, a matriz e singular
+                if(maxVal < 1e-15) { isOK=false; break; }
+                //Troca as linhas se necessario
+                if(maxRow != k)
+                {
+                    for(j=0;j<n+1;j++)
                     {
-                        m=(matAux.at(i,k)/matAux.at(k,k)); //Multiplicadores
-                        for (j=0;j<n+1;j++) matAux(i,j)=matAux.at(i,j)-(m*matAux.at(k,j)); //Matriz com a transformada em Gauss
+                        double tmp = matAux.at(k,j);
+                        matAux(k,j) = matAux.at(maxRow,j);
+                        matAux(maxRow,j) = tmp;
                     }
                 }
-                //Resolvendo o sistema
+                //Eliminacao
+                for (i=k+1;i<n;i++)
+                {
+                    m=(matAux.at(i,k)/matAux.at(k,k)); //Multiplicadores
+                    for (j=0;j<n+1;j++) matAux(i,j)=matAux.at(i,j)-(m*matAux.at(k,j));
+                }
+            }
+            //Verifica o ultimo pivot
+            if(isOK && fabs(matAux.at(n-1,n-1)) < 1e-15) isOK=false;
+            //Resolvendo o sistema por substituicao reversa
+            if(isOK)
+            {
                 for (i=0;i<n;i++)
                 {
                     termo=0;
                     l=n-i;
                     for (j=l;j<n;j++) termo=termo+(result.at(j)*matAux.at(n-i-1,j));
                     result[n-i-1]=(matAux.at(n-1-i,n)-termo)/matAux.at(n-i-1,n-i-1);
-                    if(result.at(n-i-1)!=result.at(n-i-1))
+                    if(result.at(n-i-1)!=result.at(n-i-1) || result.at(n-i-1)>=1e199 || result.at(n-i-1)<=-1e199)
                     {
                         isOK=false;
                         break;
                     }
                 }
             }
-            else
-                isOK=false;
         }
     }
     else

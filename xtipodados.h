@@ -159,6 +159,7 @@ struct Config
     infAGS          Dados;
     quint8  isPararContinuarEnabled, //0 - Desabilitado; 1 - Parar; 2 - Continuar;
             isTipoExpo;              //0 - Expoente Real; 1 - Expoente Interio; 2 - Expoente Natural;
+    bool    isResiduo;               //true - inclui termos de residuo no modelo; false - desliga residuos
     quint32 qdadeCrSalvos,
             salvDadosCarre,
             numeroCiclos;

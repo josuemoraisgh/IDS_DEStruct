@@ -235,6 +235,7 @@ void ICalc::slot_MW_Parado()
         LEESE->setEnabled(true);
         polRacComboBox->setEnabled(true);
         intRealComboBox->setEnabled(true);
+        chkResiduo->setEnabled(true);
     }
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -248,6 +249,7 @@ void ICalc::slot_MW_Finalizado()
         LEESE->setEnabled(true);
         polRacComboBox->setEnabled(true);
         intRealComboBox->setEnabled(true);
+        chkResiduo->setEnabled(true);
     }
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -265,6 +267,7 @@ void ICalc::slot_MW_IniciarFinalizar()
         LEN->setEnabled(true);
         LEEL->setEnabled(true);
         LEEM->setEnabled(true);
+        chkResiduo->setEnabled(true);
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //DEStruct::DES_Adj.isCriado=false;
     }
@@ -391,11 +394,13 @@ void ICalc::slot_MW_PararContinuar()
         DEStruct::DES_Adj.serr = LEESE->text().toDouble();
         DEStruct::DES_Adj.isTipoExpo = intRealComboBox->currentIndex();
         DEStruct::DES_Adj.isRacional = (polRacComboBox->currentIndex()==0);
+        DEStruct::DES_Adj.isResiduo = chkResiduo->isChecked();
         LEEM->setEnabled(false);
         LEENC->setEnabled(false);
         LEESE->setEnabled(false);
         polRacComboBox->setEnabled(false);
         intRealComboBox->setEnabled(false);
+        chkResiduo->setEnabled(false);
         actionParar->setText(QString("Parar"));
         actionIni->setEnabled(false);    
         MW_tempo = QDateTime::currentDateTime();
@@ -529,7 +534,7 @@ void ICalc::slot_MW_EscreveEquacao()
     {
         numColuna  = DEStruct::DES_Adj.Dados.variaveis.valores.numColunas()-crBest.at(idSaida).maiorAtraso;
         strNum = "";strDen = "";strErrNum = "";strErrDen = "";strRegress = "";
-        for(countRegress=0;countRegress<crBest.at(idSaida).regress.size();countRegress++) //Varre todos os termos para aquele cromossomo
+        for(countRegress=0;countRegress<crBest.at(idSaida).regress.size()&&countRegress<crBest.at(idSaida).vlrsCoefic.size();countRegress++) //Varre todos os termos para aquele cromossomo
         {
             idCoefic = crBest.at(idSaida).vlrsCoefic.at(countRegress);
             if(crBest.at(idSaida).regress.at(countRegress).at(0).vTermo.tTermo1.reg)
@@ -624,7 +629,7 @@ void ICalc::slot_MW_EscreveEquacao()
             }
         }
         /////////////////////////////////////////////////////////////////
-        const qint32 tamErro = crBest.at(idSaida).vlrsCoefic.size()-crBest.at(idSaida).regress.size();
+        const qint32 tamErro = qMax(0, crBest.at(idSaida).vlrsCoefic.size()-crBest.at(idSaida).regress.size());
         for(countRegress=0;countRegress<tamErro;countRegress++)
         {
             idCoefic = crBest.at(idSaida).vlrsCoefic.at(crBest.at(idSaida).regress.size()+countRegress);
@@ -669,6 +674,7 @@ void ICalc::slot_MW_Desenha()
     std::copy(MW_crBest.begin(),MW_crBest.end(),crBest.begin());
     DEStruct::LerDados.unlock();
 
+    if(MW_SaidaUsada >= (quint32)resObtido.size() || MW_SaidaUsada >= (quint32)crBest.size()) return;
     numColuna=resObtido.at(MW_SaidaUsada).size();
     time.clear();
     if(!MW_changeStyle)
@@ -799,11 +805,11 @@ void ICalc::ini_MW_interface()
     mainToolbar->addWidget(LESE);
     //////////////////////////////////////////////////////////////////////////////
     LEESE = new QLineEdit("0.98",this);
-    LEESE->setObjectName(QString::fromUtf8("LEEL"));
+    LEESE->setObjectName(QString::fromUtf8("LEESE"));
     LEESE->setSizePolicy(sizePolicy3);
     LEESE->setMaximumSize(QSize(40, 16777215));
     LEESE->setContextMenuPolicy(Qt::NoContextMenu);
-    LEESE->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEESE->setValidator(new QDoubleValidator(0.5,0.999,3,this));
     mainToolbar->addWidget(LEESE);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();
@@ -832,9 +838,9 @@ void ICalc::ini_MW_interface()
     LEEM = new QLineEdit("0.001",this);
     LEEM->setObjectName(QString::fromUtf8("LEEM"));
     LEEM->setSizePolicy(sizePolicy3);
-    LEEM->setMaximumSize(QSize(40, 16777215));
+    LEEM->setMaximumSize(QSize(50, 16777215));
     LEEM->setContextMenuPolicy(Qt::NoContextMenu);
-    LEEM->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEEM->setValidator(new QDoubleValidator(0.0001,0.9999,4,this));
     mainToolbar->addWidget(LEEM);
     //////////////////////////////////////////////////////////////////////////////
     LENC = new QLabel(" NCy:= ",this);
@@ -844,10 +850,17 @@ void ICalc::ini_MW_interface()
     LEENC = new QLineEdit("100",this);
     LEENC->setObjectName(QString::fromUtf8("LEENC"));
     LEENC->setSizePolicy(sizePolicy3);
-    LEENC->setMaximumSize(QSize(40, 16777215));
+    LEENC->setMaximumSize(QSize(55, 16777215));
     LEENC->setContextMenuPolicy(Qt::NoContextMenu);
-    LEENC->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEENC->setValidator(new QIntValidator(1,100000,this));
     mainToolbar->addWidget(LEENC);
+    //////////////////////////////////////////////////////////////////////////////
+    mainToolbar->addSeparator();
+    chkResiduo = new QCheckBox;
+    chkResiduo->setText("Res");
+    chkResiduo->setToolTip(tr("Incluir termos de residuo (e(k-i)) no modelo"));
+    chkResiduo->setChecked(true);
+    mainToolbar->addWidget(chkResiduo);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();
     styleComboBox = new QComboBox;
@@ -1002,6 +1015,7 @@ void ICalc::slot_MW_openConfig()
         LEESE->setText(QString::number(DEStruct::DES_Adj.serr));
         intRealComboBox->setCurrentIndex(DEStruct::DES_Adj.isTipoExpo);
         polRacComboBox->setCurrentIndex(DEStruct::DES_Adj.isRacional?0:1);
+        chkResiduo->setChecked(DEStruct::DES_Adj.isResiduo);
         LEN->setText(QString::number(DEStruct::DES_Adj.Dados.tamPop));
         if(DEStruct::DES_Adj.isPararContinuarEnabled)
         {
@@ -1034,6 +1048,7 @@ void ICalc::slot_MW_saveAsConfig()
     DEStruct::DES_Adj.serr = LEESE->text().toDouble();
     DEStruct::DES_Adj.isTipoExpo = intRealComboBox->currentIndex();
     DEStruct::DES_Adj.isRacional = (polRacComboBox->currentIndex()==0);
+    DEStruct::DES_Adj.isResiduo = chkResiduo->isChecked();
     DEStruct::DES_Adj.isIniciaEnabled=actionIni->isEnabled();
     DEStruct::DES_Adj.salvarAutomati=true;
     DEStruct::DES_Adj.isPararContinuarEnabled = !actionParar->isEnabled()?0:actionParar->text()==QString("Parar")?1:2;

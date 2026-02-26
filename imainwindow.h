@@ -92,7 +92,7 @@ class ICalc : public DummyBase
         QwtPlotZoomer *MW_zoomer[2],*MW_zoomer1[2];
         QPushButton* pbSalvarDadosTxT,* pbSalvarDados,* pbOpenDados,* pbConcDados;
 
-        QCheckBox *CheckBox1,*CheckBox2;
+        QCheckBox *CheckBox1,*CheckBox2,*chkResiduo;
 
         QLabel *LN,*LEL,*LESE,*LEM,*LENC,*LEIR,*LDI,*LPI;
         QLineEdit *LEN,*LEEL,*LEESE,*LEEM,*LEENC,*LEDI,*LEPI;

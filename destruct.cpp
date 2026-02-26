@@ -125,6 +125,9 @@ inline bool CmpMaiorApt(const qint32 &countCr1, const qint32 &countCr2,const qin
     const Cromossomo cr1 = DEStruct::DES_Adj.Pop.at(idSaida).at(countCr1);
     const Cromossomo cr2 = DEStruct::DES_Adj.Pop.at(idSaida).at(countCr2);
     DEStruct::lock_DES_BufferSR.unlock();
+    //Protecao contra NaN: NaN vai para o final (pior aptidao)
+    const bool nan1 = (cr1.aptidao!=cr1.aptidao), nan2 = (cr2.aptidao!=cr2.aptidao);
+    if(nan1 || nan2) return (!nan1 && nan2); //NaN e sempre "pior" (maior)
     return(cr1.aptidao == cr2.aptidao ? cr1.erro < cr2.erro : cr1.aptidao < cr2.aptidao);
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -787,6 +790,7 @@ void DEStruct::run()
     bool isOk=false;
     while(DES_Adj.modeOper_TH)
     {
+      try {
         switch(DES_Adj.modeOper_TH)
         {
             case 0://Termina a Thread para fechar o programa
@@ -813,6 +817,13 @@ void DEStruct::run()
                 slot_DES_Normalizar();
                 break;
         }
+      } catch(const std::exception &ex) {
+          qCritical("DEStruct thread exception: %s", ex.what());
+          DES_Adj.modeOper_TH = 0; // encerra thread com seguranca
+      } catch(...) {
+          qCritical("DEStruct thread unknown exception");
+          DES_Adj.modeOper_TH = 0;
+      }
     }
     ////////////////////////////////////////////////////////////////////////////
     //Apenas uma thread roda para fechar a tela principal
@@ -1470,8 +1481,12 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
         for(atraso=0,estimado=vlrsEstimado.begin(),residuo=vlrsResiduo.begin(),medido=vlrsMedido.begin();medido < vlrsMedido.end();medido++,residuo++,estimado++,atraso++,denVal++)
         {
             for(i=0;i<tamErro;i++)
-                *estimado += vlrsCoefic.at(tamvlrsRegress+i)*((atraso-i)>=0?*(residuo-i):0);
-            *estimado /= *denVal;
+                *estimado += vlrsCoefic.at(tamvlrsRegress+i)*((atraso-i-1)>=0?*(residuo-i-1):0);
+            //Protecao contra divisao por zero no denominador (1+Rden*Cden)
+            if(fabs(*denVal) > 1e-15)
+                *estimado /= *denVal;
+            else
+                *estimado = (*estimado >= 0 ? 1e199 : -1e199);
             *residuo = *medido - *estimado;
         }
     }
@@ -1568,6 +1583,8 @@ void DEStruct::DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const
 void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
 {
     //////////////////////////////////////////////////////////////////////////////////
+    // Se isResiduo==false, desliga completamente os termos de residuo
+    const quint32 tamErroEfetivo = DES_Adj.isResiduo ? tamErro : 0;
     //////////////////////////////////////////////////////////////////////////////////
     bool isOk1,isOk2,isOk=false;
     JStrSet jst;
@@ -1578,7 +1595,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
                     vlrsEstimado,vlrsResiduo,vlrsMedido,
                     errNum,errDen,auxDen,
                     sigma1,sigma2,aux1,aux2,x,v;
-    qint32 i,tamNum=0,tamDen=0,count1=0,count2=0;
+    qint32 i,tamNum=0,tamDen=0,count1=0,count2=0,size=0;
     //////////////////////////////////////////////////////////////////////////////////
     cr.erro      = 9e99;
     cr.aptidao   = 9e99;
@@ -1600,6 +1617,8 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
         cr.regress.removeLast();
         cr.err.remove('C', cr.err.numColunas()-1);
     }
+    ////////////////////////////////////////////////////////////////////////////////
+    for(i=0;i<cr.regress.size();i++) size+=cr.regress.at(i).size();
     ////////////////////////////////////////////////////////////////////////////////
     //Separa em regressores do numerador e do denominador.
     for(tamNum=0,tamDen=0,i=0;i<cr.regress.size();i++) //Varre todos os termos para aquele cromossomo
@@ -1677,6 +1696,34 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
     do
     {
         ////////////////////////////////////////////////////////////////////////////////
+        //Atualiza o erro, a aptidao e os vlrsCoefic.
+        if(count1&&isOk&&(erroDepois<cr.erro))
+        {
+            cr.vlrsCoefic = vlrsCoefic; //Atualiza os coeficientes.
+            cr.erro       = erroDepois;
+            //BIC: k = numero de coeficientes lineares estimados dos dados
+            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
+            ////////////////////////////////////////////////////////////////////////////////
+            //Penaliza fortemente cromossomos que nao usam variavel de entrada (estimulo).
+            //Um bom modelo de identificacao precisa de pelo menos uma entrada.
+            {
+                bool temSaida = false, temEntrada = false;
+                const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
+                for(qint32 r=0; r<cr.regress.size() && (!temSaida || !temEntrada); r++)
+                    for(qint32 t=0; t<cr.regress.at(r).size() && (!temSaida || !temEntrada); t++)
+                    {
+                        if(cr.regress.at(r).at(t).vTermo.tTermo1.reg) // reg!=0 => nao e constante
+                        {
+                            quint32 v = cr.regress.at(r).at(t).vTermo.tTermo1.var;
+                            if(v <= qtS) temSaida = true;
+                            if(v >  qtS) temEntrada = true;
+                        }
+                    }
+                if(!temEntrada) cr.aptidao += 100.0 * qtdeAtrasos; // penalidade: sem entrada
+            }
+            ////////////////////////////////////////////////////////////////////////////////
+        }
+        ////////////////////////////////////////////////////////////////////////////////
         //Insere os termos do residuo no sistema
         for(i=0;(i<count1)&&(vlrsResiduo.numLinhas()>1);i++)
         {
@@ -1688,8 +1735,6 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
         ////////////////////////////////////////////////////////////////////////////////
         //Inicializa o count2
         count2 = 0;
-        isOk1 = false;
-        isOk2 = false;
         do
         {
             ////////////////////////////////////////////////////////////////////////////////
@@ -1711,61 +1756,51 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
                 DES_CalcVlrsEstRes(cr,vlrsRegress1,vlrsCoefic1,vlrsMedido,vlrsResiduo,vlrsEstimado);
                 var1 = cov(vlrsResiduo);
                 ////////////////////////////////////////////////////////////////////////////////
-                if(count2) // So compara apos a primeira iteracao (quando vlrsCoefic ja foi inicializado)
-                {
-                    isOk1 = compara(vlrsCoefic,vlrsCoefic1,1e-3);
-                    isOk2 = (var-var1)==0?true:(var-var1)>0?(var-var1)<1e-3:(var-var1)>-1e-3;
-                }
+                isOk1 = compara(vlrsCoefic,vlrsCoefic1,1e-3);
+                isOk2 = (var-var1)==0?true:(var-var1)>0?(var-var1)<1e-3:(var-var1)>-1e-3;
                 count2++;
                 ////////////////////////////////////////////////////////////////////////////////
             }
         }
         while(isOk&&(!(isOk1&&isOk2))&&count2<=20);
         ////////////////////////////////////////////////////////////////////////////////
-        //Calcula o erro APENAS se o sistema linear convergiu (isOk=true)
-        if(isOk)
-        {
-            erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o c�lculo do erro quadr�tico m�dio.
-        }
+        //Sincroniza vlrsCoefic com vlrsCoefic1: garante que os coeficientes armazenados
+        //correspondam exatamente ao erro (erroDepois) calculado a seguir.
+        if(isOk) vlrsCoefic = vlrsCoefic1;
         ////////////////////////////////////////////////////////////////////////////////
-        //Atualiza o erro, a aptid�o e os vlrsCoefic SE o erro melhorou.
-        //(Movido para APOS o calculo do erro, para nao desperdicar a ultima iteracao)
-        if(isOk&&(erroDepois<cr.erro))
-        {
-            cr.vlrsCoefic = vlrsCoefic1; //Usa vlrsCoefic1 que corresponde ao erroDepois calculado.
-            cr.erro       = erroDepois;
-            //BIC: k = numero de parametros ESTIMADOS dos dados (coeficientes lineares)
-            //     Variaveis, atrasos, expoentes e basisType sao fixos no cromossomo, nao contam.
-            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + vlrsCoefic1.size()*qLn(qtdeAtrasos);
-            ////////////////////////////////////////////////////////////////////////////////
-            //Penaliza fortemente cromossomos que nao usam variavel de saida (feedback)
-            //OU que nao usam variavel de entrada (estimulo).
-            //Um bom modelo de identificacao precisa de AMBOS: entrada e saida.
-            {
-                bool temSaida = false, temEntrada = false;
-                const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
-                for(qint32 r=0; r<cr.regress.size() && (!temSaida || !temEntrada); r++)
-                    for(qint32 t=0; t<cr.regress.at(r).size() && (!temSaida || !temEntrada); t++)
-                    {
-                        if(cr.regress.at(r).at(t).vTermo.tTermo1.reg) // reg!=0 => nao e constante
-                        {
-                            quint32 v = cr.regress.at(r).at(t).vTermo.tTermo1.var;
-                            if(v <= qtS) temSaida = true;
-                            if(v >  qtS) temEntrada = true;
-                        }
-                    }
-                if(!temSaida)   cr.aptidao += 10.0 * qtdeAtrasos; // penalidade: sem saida
-                if(!temEntrada) cr.aptidao += 10.0 * qtdeAtrasos; // penalidade: sem entrada
-            }
-            ////////////////////////////////////////////////////////////////////////////////
-        }
+        erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o c�lculo do erro quadr�tico m�dio.
+        //Protecao: se erroDepois for NaN ou Inf, invalida esta iteracao
+        if(erroDepois!=erroDepois || erroDepois>=1e199 || erroDepois<=-1e199) { isOk=false; erroDepois=9e99; }
         count1++;//Incrementa a variavel do tamanho do erro.
     }
-    while((quint32) count1 <= tamErro );
+    while((quint32) count1 <= tamErroEfetivo );
     ////////////////////////////////////////////////////////////////////////////////
-    //Elimina regressores com valor de coeficiente espurio. dentro da faixa de +-1e-5 ou acima da faixa +- 1e+5.
-    for(isOk=false,i=0;i<cr.regress.size();i++) //Varre todos os regressores para aquele cromossomo menos os do residuo final
-        if(cr.vlrsCoefic.at(i)!=0.0?((cr.vlrsCoefic.at(i)<=1e-3)&&(cr.vlrsCoefic.at(i)>=-1e-3))||(cr.vlrsCoefic.at(i)>=1e+3)||(cr.vlrsCoefic.at(i)<=-1e+3):false) {cr.regress.remove(i);cr.err.remove('C',i);isOk=true;}
+    //Atualiza final: garante que a ultima iteracao nao seja desperdicada.
+    if(isOk&&(erroDepois<cr.erro))
+    {
+        cr.vlrsCoefic = vlrsCoefic;
+        cr.erro       = erroDepois;
+        cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
+        {
+            bool temSaida = false, temEntrada = false;
+            const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
+            for(qint32 r=0; r<cr.regress.size() && (!temSaida || !temEntrada); r++)
+                for(qint32 t=0; t<cr.regress.at(r).size() && (!temSaida || !temEntrada); t++)
+                {
+                    if(cr.regress.at(r).at(t).vTermo.tTermo1.reg)
+                    {
+                        quint32 v = cr.regress.at(r).at(t).vTermo.tTermo1.var;
+                        if(v <= qtS) temSaida = true;
+                        if(v >  qtS) temEntrada = true;
+                    }
+                }
+            if(!temEntrada) cr.aptidao += 100.0 * qtdeAtrasos;
+        }
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+    //Elimina regressores com valor de coeficiente espurio. dentro da faixa de +-1e-3 ou acima da faixa +- 1e+3.
+    for(isOk=false,i=0;i<cr.regress.size()&&i<cr.vlrsCoefic.size();i++) //Varre todos os regressores para aquele cromossomo menos os do residuo final
+        if(cr.vlrsCoefic.at(i)!=0.0?((cr.vlrsCoefic.at(i)<=1e-3)&&(cr.vlrsCoefic.at(i)>=-1e-3))||(cr.vlrsCoefic.at(i)>=1e+3)||(cr.vlrsCoefic.at(i)<=-1e+3)||cr.vlrsCoefic.at(i)!=cr.vlrsCoefic.at(i):false) {cr.regress.remove(i);cr.err.remove('C',i);i--;isOk=true;}
     if(isOk) DES_calAptidao(cr);
 }
 ////////////////////////////////////////////////////////////////////////////////

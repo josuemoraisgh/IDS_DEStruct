@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "../domain/Configuration.h"
 #include "../domain/Chromosome.h"
+#include "../services/DifferentialEvolutionService.h"
 #include "ui_imainwindow.h"
 #include "ui_dialogConfig.h"
 #include "PlotManager.h"
@@ -579,6 +580,40 @@ void MainWindow::onActionIniciarTriggered()
     config.setExponentType(m_comboIntReal->currentIndex());
     config.setCreated(true);
 
+    // ── Resume from JNRR pause (like original: "Continuar") ──────────
+    if (m_algorithmPaused) {
+        appendTextLog(QString("-> Continuando algoritmo DE... RJn=%1, NCy=%2, SERR=%3")
+            .arg(m_editRJn->text()).arg(m_editNCy->text()).arg(m_editSERR->text()));
+
+        // Update runtime params in the running service (like original updates
+        // iteracoesAnt and reads new RJn/NCy/SERR/PolRac/IntReal)
+        auto* deService = dynamic_cast<Services::DifferentialEvolutionService*>(
+            m_presenter->algorithmService());
+        if (deService) {
+            deService->updateRuntimeParams(
+                config.getJNRR(),
+                config.getCycleCount(),
+                config.getSSE(),
+                config.isRational(),
+                config.getExponentType());
+        }
+
+        m_algorithmPaused = false;
+        m_actionParar->setEnabled(true);
+        m_actionIni->setEnabled(false);
+        m_editN->setEnabled(false);
+        m_editE->setEnabled(false);
+        m_editRJn->setEnabled(false);
+        m_editNCy->setEnabled(false);
+        m_editSERR->setEnabled(false);
+        m_comboPolRac->setEnabled(false);
+        m_comboIntReal->setEnabled(false);
+
+        m_presenter->resumeAlgorithm();
+        return;
+    }
+
+    // ── Fresh start ──────────────────────────────────────────────────
     appendTextLog(QString("-> Iniciando algoritmo DE... N=%1, E=%2, SERR=%3, RJn=%4, NCy=%5")
         .arg(m_editN->text()).arg(m_editE->text())
         .arg(m_editSERR->text()).arg(m_editRJn->text()).arg(m_editNCy->text()));

@@ -5,8 +5,11 @@
 #include <QMetaType>
 #include <QElapsedTimer>
 #include <QTime>
+#include <QThread>
 #include <algorithm>
 #include <limits>
+#include <thread>
+#include <mutex>
 
 namespace Services {
 
@@ -173,6 +176,35 @@ Domain::Chromosome DifferentialEvolutionService::getBestChromosome(qint32 output
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Runtime parameter update — for resume after JNRR pause
+// Faithful to original: iteracoesAnt = iteracoes, read new JNRR/NCy/SERR/PolRac/IntReal
+////////////////////////////////////////////////////////////////////////////////
+
+void DifferentialEvolutionService::updateRuntimeParams(qreal jnrr, qint32 cycleCount,
+                                                       qreal sse, bool rational,
+                                                       qint32 exponentType)
+{
+    m_config.setJNRR(jnrr);
+    m_config.setCycleCount(cycleCount);
+    m_config.setSSE(sse);
+    m_config.setRational(rational);
+    m_config.setExponentType(exponentType);
+
+    // Reset convergence counter (like original: iteracoesAnt = iteracoes)
+    m_previousIterations = m_currentIteration.load();
+
+    // Reset bestPreviousFitness so JNRR can detect new improvements
+    for (qint32 i = 0; i < m_bestPreviousFitness.size(); ++i) {
+        qint32 bestIdx = m_elitismIndices[i].isEmpty() ? 0 : m_elitismIndices[i][0];
+        if (bestIdx < m_population[i].size())
+            m_bestPreviousFitness[i] = m_population[i][bestIdx].getFitness();
+    }
+
+    qDebug() << "[DE] updateRuntimeParams: JNRR=" << jnrr << "NCy=" << cycleCount
+             << "SSE=" << sse << "prevIter=" << m_previousIterations;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Worker thread entry point
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -238,15 +270,36 @@ void DifferentialEvolutionService::initializePopulation()
     qint32 outputCount = algorithmData.variables.getOutputCount();
     if (outputCount <= 0) outputCount = 1;
 
-    // Create initial population and evaluate
+    const qint32 nThreads = qMax(1, QThread::idealThreadCount());
+    qDebug() << "[DE] initializePopulation: using" << nThreads << "threads";
+
+    // Pre-allocate population (avoid reallocation, like original)
     for (qint32 output = 0; output < outputCount; ++output) {
-        m_population[output].clear();
-        m_population[output].reserve(populationSize);
-        for (qint32 i = 0; i < populationSize; ++i) {
-            if (shouldStop()) return;
-            Domain::Chromosome cr = createRandomChromosome(output);
-            m_population[output].append(cr);
-        }
+        m_population[output].resize(populationSize);
+    }
+
+    // ── Parallel population creation ──────────────────────────────────
+    for (qint32 output = 0; output < outputCount; ++output) {
+        std::atomic<qint32> workIdx(0);
+
+        auto workerFn = [&](qint32 /*threadId*/) {
+            while (!shouldStop()) {
+                qint32 idx = workIdx.fetch_add(1);
+                if (idx >= populationSize) break;
+                Domain::Chromosome cr = createRandomChromosome(output);
+                m_population[output][idx] = cr;
+            }
+        };
+
+        // Launch nThreads-1 additional threads + current thread participates
+        std::vector<std::thread> threads;
+        threads.reserve(nThreads - 1);
+        for (qint32 t = 1; t < nThreads; ++t)
+            threads.emplace_back(workerFn, t);
+        workerFn(0);
+        for (auto& t : threads) t.join();
+
+        if (shouldStop()) return;
     }
 
     // Initialize elitism indices (like original: 1, 0, 2, 3, ..., n-1)
@@ -282,6 +335,9 @@ void DifferentialEvolutionService::evolutionLoop()
 {
     const qint32 outputCount = m_population.size();
     const qint32 tamPop = m_config.getAlgorithmData().populationSize;
+    const qint32 nThreads = qMax(1, QThread::idealThreadCount());
+
+    qDebug() << "[DE] evolutionLoop: using" << nThreads << "threads, tamPop=" << tamPop;
 
     QElapsedTimer printTimer;
     printTimer.start();
@@ -289,8 +345,11 @@ void DifferentialEvolutionService::evolutionLoop()
 
     QVector<Domain::Chromosome> crBest(outputCount);
 
+    // Per-thread SSE accumulators (avoid lock contention)
+    QVector<QVector<qreal>> perThreadSSE(nThreads, QVector<qreal>(outputCount, 0.0));
+
     while (!shouldStop()) {
-        // Check pause
+        // Check pause (JNRR convergence enters here after setting m_paused)
         if (m_paused.load()) {
             QMutexLocker locker(&m_pauseMutex);
             while (m_paused.load() && !m_stopRequested.load())
@@ -298,36 +357,67 @@ void DifferentialEvolutionService::evolutionLoop()
         }
         if (shouldStop()) break;
 
-        // ── Process each individual in the population ─────────────────
-        for (qint32 tokenPop = 0; tokenPop < tamPop; ++tokenPop) {
-            if (shouldStop()) return;
+        // ── Process each individual in the population — PARALLEL ──────
+        // Reset per-thread SSE
+        for (qint32 t = 0; t < nThreads; ++t)
+            for (qint32 s = 0; s < outputCount; ++s)
+                perThreadSSE[t][s] = 0.0;
 
-            for (qint32 idSaida = 0; idSaida < outputCount; ++idSaida) {
-                // Select 3 random individuals from elitism (like original)
-                qint32 count0 = m_randomGen.randInt(0, tamPop - 1);
-                qint32 count1;
-                do { count1 = m_randomGen.randInt(0, tamPop - 1); } while (count1 == count0);
-                qint32 count2;
-                do { count2 = m_randomGen.randInt(0, tamPop - 1); } while (count2 == count0 || count2 == count1);
+        std::atomic<qint32> workIdx(0);
 
-                // Get chromosomes via elitism indices (like original)
-                qint32 cr0Point = m_elitismIndices[idSaida][count0];
-                qint32 cr1Point = m_elitismIndices[idSaida][count1];
-                qint32 cr2Point = m_elitismIndices[idSaida][count2];
+        auto workerFn = [&](qint32 threadId) {
+            // Per-thread RNG (thread-safe: each thread has its own)
+            Utils::RandomGenerator rng(QTime::currentTime().msec() + threadId * 17 + 1);
 
-                Domain::Chromosome cr0 = m_population[idSaida][cr0Point];
-                Domain::Chromosome cr1 = m_population[idSaida][cr1Point];
-                Domain::Chromosome cr2 = m_population[idSaida][cr2Point];
+            while (true) {
+                qint32 tokenPop = workIdx.fetch_add(1);
+                if (tokenPop >= tamPop || shouldStop()) break;
 
-                // Faithful: DES_CruzMut(Pop[idSaida][tokenPop], cr0, DES_crMut[idSaida], cr1, cr2)
-                cruzMut(m_population[idSaida][tokenPop], cr0, m_crMut[idSaida], cr1, cr2);
+                for (qint32 idSaida = 0; idSaida < outputCount; ++idSaida) {
+                    // Select 3 random individuals from elitism (like original)
+                    qint32 count0 = rng.randInt(0, tamPop - 1);
+                    qint32 count1;
+                    do { count1 = rng.randInt(0, tamPop - 1); } while (count1 == count0);
+                    qint32 count2;
+                    do { count2 = rng.randInt(0, tamPop - 1); } while (count2 == count0 || count2 == count1);
 
-                // Accumulate SSE
-                m_somaSSE[idSaida] += m_population[idSaida][tokenPop].getError();
+                    // Get chromosomes via elitism indices (like original)
+                    qint32 cr0Point = m_elitismIndices[idSaida][count0];
+                    qint32 cr1Point = m_elitismIndices[idSaida][count1];
+                    qint32 cr2Point = m_elitismIndices[idSaida][count2];
+
+                    // Copy for thread safety (like original under lock_DES_BufferSR)
+                    Domain::Chromosome cr0 = m_population[idSaida][cr0Point];
+                    Domain::Chromosome cr1 = m_population[idSaida][cr1Point];
+                    Domain::Chromosome cr2 = m_population[idSaida][cr2Point];
+
+                    // Faithful: DES_CruzMut(Pop[idSaida][tokenPop], cr0, DES_crMut[idSaida], cr1, cr2)
+                    cruzMut(m_population[idSaida][tokenPop], cr0, m_crMut[idSaida], cr1, cr2);
+
+                    // Accumulate SSE in per-thread buffer (no lock needed)
+                    perThreadSSE[threadId][idSaida] += m_population[idSaida][tokenPop].getError();
+                }
             }
+        };
+
+        // Launch worker threads (like original: idealThreadCount() threads)
+        std::vector<std::thread> threads;
+        threads.reserve(nThreads - 1);
+        for (qint32 t = 1; t < nThreads; ++t)
+            threads.emplace_back(workerFn, t);
+        workerFn(0);   // current thread participates too
+        for (auto& t : threads) t.join();
+
+        if (shouldStop()) break;
+
+        // Accumulate SSE from all threads
+        for (qint32 s = 0; s < outputCount; ++s) {
+            m_somaSSE[s] = 0.0;
+            for (qint32 t = 0; t < nThreads; ++t)
+                m_somaSSE[s] += perThreadSSE[t][s];
         }
 
-        // ── After processing all individuals ──────────────────────────
+        // ── After processing all individuals (single-thread) ──────────
         // isOk = true means ALL outputs improved by at least JNRR (faithful to original)
         bool isOk = true;
         for (qint32 idSaida = 0; idSaida < outputCount; ++idSaida) {
@@ -363,14 +453,31 @@ void DifferentialEvolutionService::evolutionLoop()
 
         // JNRR stop condition (faithful to original):
         // if ALL outputs improved → reset convergence counter
-        // else if stagnant for numeroCiclos iterations → stop
+        // else if stagnant for numeroCiclos iterations → PAUSE (like original slot_DES_Estado(2))
         if (isOk) {
             m_previousIterations = iter;
         } else {
             if (m_config.getCycleCount() > 0 &&
                 iter >= m_previousIterations + (qint64)m_config.getCycleCount()) {
-                qDebug() << "[DE] JNRR convergence: stopping after" << iter << "iterations";
-                break; // Stop after numeroCiclos iterations without ALL outputs improving
+                qDebug() << "[DE] JNRR convergence: pausing after" << iter << "iterations";
+
+                // Emit final results before pausing (like original)
+                for (qint32 idSaida = 0; idSaida < outputCount; ++idSaida) {
+                    calcAptidao(crBest[idSaida], 15);
+                    {
+                        QMutexLocker locker(&m_resultMutex);
+                        m_bestChromosomes[idSaida] = crBest[idSaida];
+                        m_bestErrors[idSaida] = crBest[idSaida].getFitness();
+                    }
+                }
+                emitProgress();
+
+                // PAUSE — not STOP. Original uses slot_DES_Estado(2) = pause.
+                // User can press "Continuar" to resume with updated params.
+                m_paused.store(true);
+                emit paused();
+                // Loop continues: will hit pause check at top next iteration
+                continue;
             }
         }
 
@@ -394,10 +501,6 @@ void DifferentialEvolutionService::evolutionLoop()
             emitProgress();
             isPrint = false;
         }
-
-        // Reset SSE
-        for (qint32 i = 0; i < m_somaSSE.size(); ++i)
-            m_somaSSE[i] = 0.0;
     }
 
     // Final progress update
@@ -423,8 +526,11 @@ Domain::Chromosome DifferentialEvolutionService::createRandomChromosome(qint32 o
     Domain::Chromosome cr;
     cr.setOutputId(outputId);
 
-    // Local RNG seeded from current time (like original MTRand)
-    Utils::RandomGenerator RG(QTime::currentTime().msec());
+    // Thread-safe RNG: seed with time + thread ID to avoid identical sequences
+    static std::atomic<quint32> s_seedCounter(0);
+    Utils::RandomGenerator RG(QTime::currentTime().msec() * 1000
+                              + (quint32)(quintptr)QThread::currentThreadId() % 997
+                              + s_seedCounter.fetch_add(1));
 
     const qint32 numVariaveis = m_config.getAlgorithmData().variables.getValues().numRows();
     const qint32 numAmostras  = m_config.getAlgorithmData().variables.getValues().numCols();
@@ -527,8 +633,11 @@ void DifferentialEvolutionService::cruzMut(Domain::Chromosome& crAvali,
     Domain::Chromosome crA1;
     crA1.setOutputId(crAvali.getOutputId());
 
-    // Local RNG (like original MTRand)
-    Utils::RandomGenerator RG(QTime::currentTime().msec());
+    // Thread-safe RNG: seed with time + thread ID to avoid identical sequences
+    static std::atomic<quint32> s_cruzSeedCounter(0);
+    Utils::RandomGenerator RG(QTime::currentTime().msec() * 1000
+                              + (quint32)(quintptr)QThread::currentThreadId() % 997
+                              + s_cruzSeedCounter.fetch_add(1));
     const qreal multBase = RG.randReal(-2.0, 2.0);
 
     QVector<Domain::CompositeTerm> termosAnalisados;

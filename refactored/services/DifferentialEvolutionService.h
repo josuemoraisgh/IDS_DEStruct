@@ -53,6 +53,14 @@ public:
     void setMaxIterations(qint64 max) { m_maxIterations = max; }
     qint64 getMaxIterations() const { return m_maxIterations; }
 
+    /**
+     * @brief Atualiza parâmetros em tempo de execução (para retomada após pausa JNRR).
+     * Como no original: ao continuar, o usuário pode alterar RJn, NCy, SERR, PolRac, IntReal.
+     * Reseta o contador de convergência (iteracoesAnt = iteracoes).
+     */
+    void updateRuntimeParams(qreal jnrr, qint32 cycleCount, qreal sse,
+                             bool rational, qint32 exponentType);
+
     // Called by DEWorkerThread::run() — runs in worker thread
     void runAlgorithm();
 

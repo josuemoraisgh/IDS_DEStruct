@@ -1684,7 +1684,28 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
         {
             cr.vlrsCoefic = vlrsCoefic; //Atualiza os coeficientes.
             cr.erro       = erroDepois;
-            cr.aptidao    = DES_Adj.Dados.variaveis.valores.numColunas()*qLn(cr.erro) + (2*size+cr.regress.size())*qLn(DES_Adj.Dados.variaveis.valores.numColunas());
+            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + (2*size+cr.regress.size())*qLn(qtdeAtrasos);
+            ////////////////////////////////////////////////////////////////////////////////
+            //Penaliza fortemente cromossomos que nao usam variavel de saida (feedback)
+            //OU que nao usam variavel de entrada (estimulo).
+            //Um bom modelo de identificacao precisa de AMBOS: entrada e saida.
+            {
+                bool temSaida = false, temEntrada = false;
+                const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
+                for(qint32 r=0; r<cr.regress.size() && (!temSaida || !temEntrada); r++)
+                    for(qint32 t=0; t<cr.regress.at(r).size() && (!temSaida || !temEntrada); t++)
+                    {
+                        if(cr.regress.at(r).at(t).vTermo.tTermo1.reg) // reg!=0 => nao e constante
+                        {
+                            quint32 v = cr.regress.at(r).at(t).vTermo.tTermo1.var;
+                            if(v <= qtS) temSaida = true;
+                            if(v >  qtS) temEntrada = true;
+                        }
+                    }
+                if(!temSaida)   cr.aptidao += 10.0 * qtdeAtrasos; // penalidade: sem saida
+                if(!temEntrada) cr.aptidao += 10.0 * qtdeAtrasos; // penalidade: sem entrada
+            }
+            ////////////////////////////////////////////////////////////////////////////////
         }
         ////////////////////////////////////////////////////////////////////////////////
         //Insere os termos do residuo no sistema

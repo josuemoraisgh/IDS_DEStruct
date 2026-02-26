@@ -617,7 +617,7 @@ void ICalc::slot_MW_EscreveEquacao()
                     else
                     {
                         isFeito = true;
-                        strDen = QString("%1").arg(idCoefic+1) + strDen;
+                        strDen = QString("%1").arg(idCoefic) + strDen;
                         strErrDen = QString::number(crBest.at(idSaida).err.at(countRegress))+ "; " + strErrDen;
                     }
                 }
@@ -632,12 +632,8 @@ void ICalc::slot_MW_EscreveEquacao()
         }
         /////////////////////////////////////////////////////////////////
         if(strNum == "") strNum = "1";
-        if(strDen == "") strDen = "1";
-        else if(!isFeito)
-        {
-            strDen = QString("+1") + strDen;
-            strErrDen = QString("-1;") + strErrDen;
-        }
+        if(strDen == "") strDen = "0";
+        //O "+1" agora aparece explicito na formula principal: (1 + Vin_Den)
         /////////////////////////////////////////////////////////////////
         for(index=crBest.at(idSaida).maiorAtraso+2;index<numColuna+crBest.at(idSaida).maiorAtraso;index++)
         {
@@ -648,7 +644,7 @@ void ICalc::slot_MW_EscreveEquacao()
         jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
         rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
         str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
-        if(strNum.size()) str.append(QString("\n%1(k) = ((%1_Num+%1_Err)/(%1_Den));\n%1_Num = "+strNum+";\n%1_Err = "+strErr+";\n%1_Den = "+strDen+";\nERR_Num:=("+strErrNum+");\nERR_Den:=("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
+        if(strNum.size()) str.append(QString("\n%1(k) = ((%1_Num+%1_Err)/(1 + %1_Den));\n%1_Num = "+strNum+";\n%1_Err = "+strErr+";\n%1_Den = "+strDen+";\nERR_Num:=("+strErrNum+");\nERR_Den:=("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
     }
     str.append(QString("\n"));
     CheckBox1->setChecked(true);

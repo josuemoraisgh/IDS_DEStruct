@@ -1578,7 +1578,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
                     vlrsEstimado,vlrsResiduo,vlrsMedido,
                     errNum,errDen,auxDen,
                     sigma1,sigma2,aux1,aux2,x,v;
-    qint32 i,tamNum=0,tamDen=0,count1=0,count2=0,size=0;
+    qint32 i,tamNum=0,tamDen=0,count1=0,count2=0;
     //////////////////////////////////////////////////////////////////////////////////
     cr.erro      = 9e99;
     cr.aptidao   = 9e99;
@@ -1600,8 +1600,6 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
         cr.regress.removeLast();
         cr.err.remove('C', cr.err.numColunas()-1);
     }
-    ////////////////////////////////////////////////////////////////////////////////
-    for(i=0;i<cr.regress.size();i++) size+=cr.regress.at(i).size();
     ////////////////////////////////////////////////////////////////////////////////
     //Separa em regressores do numerador e do denominador.
     for(tamNum=0,tamDen=0,i=0;i<cr.regress.size();i++) //Varre todos os termos para aquele cromossomo
@@ -1679,12 +1677,66 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
     do
     {
         ////////////////////////////////////////////////////////////////////////////////
-        //Atualiza o erro, a aptid�o e os vlrsCoefic.
-        if(count1&&isOk&&(erroDepois<cr.erro))
+        //Insere os termos do residuo no sistema
+        for(i=0;(i<count1)&&(vlrsResiduo.numLinhas()>1);i++)
         {
-            cr.vlrsCoefic = vlrsCoefic; //Atualiza os coeficientes.
+            vlrsResiduo.prepend('L',0);
+            vlrsResiduo.remove('L',vlrsResiduo.numLinhas()-1); //e(k-(i+1))
+            vlrsRegress.copy(vlrsResiduo,jst.set("(:,%1)=(:,:)").argInt(tamNum+tamDen+i));  //Insere termos do residuo
+            vlrsRegress1.copy(vlrsResiduo,jst.set("(:,%1)=(:,:)").argInt(tamNum+tamDen+i));  //Insere termos do residuo
+        }
+        ////////////////////////////////////////////////////////////////////////////////
+        //Inicializa o count2
+        count2 = 0;
+        isOk1 = false;
+        isOk2 = false;
+        do
+        {
+            ////////////////////////////////////////////////////////////////////////////////
+            if(count2)
+            {
+                var        = var1;
+                vlrsCoefic = vlrsCoefic1; //Atualiza os coeficientes.
+            }
+            ////////////////////////////////////////////////////////////////////////////////
+            //Calcula vlrsCoefic por [A'*A-COV(e)sigma1]*x = [A'*b-COV(e)*sigma2] -> M�todo dos m�nimos Quadrados estendido
+            v = vlrsRegress(vlrsRegress,jst.set("(:,:)'*(:,:)"));   //A'*A
+            v.copy(sigma1,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//v-var*sigma1
+            x = vlrsRegress(vlrsMedido,jst.set("(:,:)'*(:,:)"));    //A'*b
+            x.copy(sigma2,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//x-var*sigma2
+            vlrsCoefic1 = v.SistemaLinear(x,isOk);                  //Calcula os coeficientes V*vlrsCoefic=X.
+            ////////////////////////////////////////////////////////////////////////////////
+            if(isOk)
+            {
+                DES_CalcVlrsEstRes(cr,vlrsRegress1,vlrsCoefic1,vlrsMedido,vlrsResiduo,vlrsEstimado);
+                var1 = cov(vlrsResiduo);
+                ////////////////////////////////////////////////////////////////////////////////
+                if(count2) // So compara apos a primeira iteracao (quando vlrsCoefic ja foi inicializado)
+                {
+                    isOk1 = compara(vlrsCoefic,vlrsCoefic1,1e-3);
+                    isOk2 = (var-var1)==0?true:(var-var1)>0?(var-var1)<1e-3:(var-var1)>-1e-3;
+                }
+                count2++;
+                ////////////////////////////////////////////////////////////////////////////////
+            }
+        }
+        while(isOk&&(!(isOk1&&isOk2))&&count2<=20);
+        ////////////////////////////////////////////////////////////////////////////////
+        //Calcula o erro APENAS se o sistema linear convergiu (isOk=true)
+        if(isOk)
+        {
+            erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o c�lculo do erro quadr�tico m�dio.
+        }
+        ////////////////////////////////////////////////////////////////////////////////
+        //Atualiza o erro, a aptid�o e os vlrsCoefic SE o erro melhorou.
+        //(Movido para APOS o calculo do erro, para nao desperdicar a ultima iteracao)
+        if(isOk&&(erroDepois<cr.erro))
+        {
+            cr.vlrsCoefic = vlrsCoefic1; //Usa vlrsCoefic1 que corresponde ao erroDepois calculado.
             cr.erro       = erroDepois;
-            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + (2*size+cr.regress.size())*qLn(qtdeAtrasos);
+            //BIC: k = numero de parametros ESTIMADOS dos dados (coeficientes lineares)
+            //     Variaveis, atrasos, expoentes e basisType sao fixos no cromossomo, nao contam.
+            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + vlrsCoefic1.size()*qLn(qtdeAtrasos);
             ////////////////////////////////////////////////////////////////////////////////
             //Penaliza fortemente cromossomos que nao usam variavel de saida (feedback)
             //OU que nao usam variavel de entrada (estimulo).
@@ -1707,47 +1759,6 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
             }
             ////////////////////////////////////////////////////////////////////////////////
         }
-        ////////////////////////////////////////////////////////////////////////////////
-        //Insere os termos do residuo no sistema
-        for(i=0;(i<count1)&&(vlrsResiduo.numLinhas()>1);i++)
-        {
-            vlrsResiduo.prepend('L',0);
-            vlrsResiduo.remove('L',vlrsResiduo.numLinhas()-1); //e(k-(i+1))
-            vlrsRegress.copy(vlrsResiduo,jst.set("(:,%1)=(:,:)").argInt(tamNum+tamDen+i));  //Insere termos do residuo
-            vlrsRegress1.copy(vlrsResiduo,jst.set("(:,%1)=(:,:)").argInt(tamNum+tamDen+i));  //Insere termos do residuo
-        }
-        ////////////////////////////////////////////////////////////////////////////////
-        //Inicializa o count2
-        count2 = 0;
-        do
-        {
-            ////////////////////////////////////////////////////////////////////////////////
-            if(count2)
-            {
-                var        = var1;
-                vlrsCoefic = vlrsCoefic1; //Atualiza os coeficientes.
-            }
-            ////////////////////////////////////////////////////////////////////////////////
-            //Calcula vlrsCoefic por [A'*A-COV(e)sigma1]*x = [A'*b-COV(e)*sigma2] -> M�todo dos m�nimos Quadrados estendido
-            v = vlrsRegress(vlrsRegress,jst.set("(:,:)'*(:,:)"));   //A'*A
-            v.copy(sigma1,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//v-var*sigma1
-            x = vlrsRegress(vlrsMedido,jst.set("(:,:)'*(:,:)"));    //A'*b
-            x.copy(sigma2,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//x-var*sigma2
-            vlrsCoefic1 = v.SistemaLinear(x,isOk);                  //Calcula os coeficientes V*vlrsCoefic=X.
-            ////////////////////////////////////////////////////////////////////////////////
-            if(isOk)
-            {
-                DES_CalcVlrsEstRes(cr,vlrsRegress1,vlrsCoefic1,vlrsMedido,vlrsResiduo,vlrsEstimado);
-                var1 = cov(vlrsResiduo);
-                ////////////////////////////////////////////////////////////////////////////////
-                isOk1 = compara(vlrsCoefic,vlrsCoefic1,1e-3);
-                isOk2 = (var-var1)==0?true:(var-var1)>0?(var-var1)<1e-3:(var-var1)>-1e-3;
-                count2++;
-                ////////////////////////////////////////////////////////////////////////////////
-            }
-        }
-        while(isOk&&(!(isOk1&&isOk2))&&count2<=20);
-        erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o c�lculo do erro quadr�tico m�dio.
         count1++;//Incrementa a variavel do tamanho do erro.
     }
     while((quint32) count1 <= tamErro );

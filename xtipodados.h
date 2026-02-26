@@ -12,8 +12,9 @@
 ////////////////////////////////////////////////////////////////////////////
 #define NUMDENOM    1
 #define REGRESS     9
-#define ATRASOS     11
-#define VARIAVEL    11
+#define BASISTYPE   3
+#define ATRASOS     10
+#define VARIAVEL    9
 #define MASKREG     ((1<<REGRESS)-1)
 ////////////////////////////////////////////////////////////////////////////
 
@@ -21,6 +22,7 @@
 #define TTERM1
 struct tTerm1
 {
+    quint32 basisType : BASISTYPE;
     quint32 var    : VARIAVEL;
     quint32 atraso : ATRASOS;
     quint32 reg    : REGRESS;
@@ -33,7 +35,7 @@ struct tTerm1
 #define TTERM2
 struct tTerm2
 {
-    quint32 idVar   : ATRASOS+VARIAVEL;
+    quint32 idVar   : BASISTYPE+VARIAVEL+ATRASOS;
     quint32 idReg   : NUMDENOM+REGRESS;
 };
 
@@ -68,14 +70,12 @@ class compTermo
 public:
     Termo vTermo;
     qreal expoente;
-    quint8 basisType;
-    compTermo(){vTermo.tTermo0=0;expoente=0.0f;basisType=BASIS_POW;}
-    compTermo(const compTermo &termo){vTermo.tTermo0=termo.vTermo.tTermo0;expoente=termo.expoente;basisType=termo.basisType;}
+    compTermo(){vTermo.tTermo0=0;expoente=0.0f;}
+    compTermo(const compTermo &termo){vTermo.tTermo0=termo.vTermo.tTermo0;expoente=termo.expoente;}
     void operator=(const compTermo &termo)
     {
         vTermo.tTermo0=termo.vTermo.tTermo0;
         expoente=termo.expoente;
-        basisType=termo.basisType;
     }
 };
 

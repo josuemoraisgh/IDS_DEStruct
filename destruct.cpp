@@ -71,7 +71,6 @@ const compTermo XInv(compTermo var1)
     compTermo var;
     var.vTermo.tTermo0 = var1.vTermo.tTermo0;
     var.expoente = (-1)*var1.expoente;
-    var.basisType = var1.basisType;
     return(var);
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -85,7 +84,6 @@ const compTermo XSum(const compTermo &var1, const compTermo &var2)
     {
         var.vTermo.tTermo0 = var1.vTermo.tTermo0;
         var.expoente = var1.expoente+var2.expoente;
-        var.basisType = var1.basisType;
     }
     return(var);
 }
@@ -96,7 +94,6 @@ const compTermo XMult(const quint32 &var1,const compTermo &var2)
     compTermo var;
     var.vTermo.tTermo0 = var2.vTermo.tTermo0;
     var.expoente = var1*var2.expoente;
-    var.basisType = var2.basisType;
     return(var);
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,8 +115,7 @@ const compTermo XMult(const quint32 &var1,const compTermo &var2)
 ////////////////////////////////////////////////////////////////////////////////
 inline bool CmpMaiorTerm(const compTermo &vlr1, const compTermo &vlr2)
 {
-    if(vlr1.vTermo.tTermo0 != vlr2.vTermo.tTermo0) return (vlr1.vTermo.tTermo0>vlr2.vTermo.tTermo0);
-    return (vlr1.basisType > vlr2.basisType);
+    return (vlr1.vTermo.tTermo0>vlr2.vTermo.tTermo0);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1141,7 +1137,7 @@ const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
             if((qint32)vlrTermo.vTermo.tTermo1.atraso>cr.maiorAtraso) cr.maiorAtraso = vlrTermo.vTermo.tTermo1.atraso;
             vlrTermo.expoente = (qreal) RG.randInt(1,10);
             if(!vlrTermo.expoente) vlrTermo.expoente=1;//Elimina a chance de gerar um expoente inicial igual a zero.
-            vlrTermo.basisType = (quint8) RG.randInt(0, BASIS_COUNT-1); //Escolhe aleatoriamente o tipo de base
+            vlrTermo.vTermo.tTermo1.basisType = RG.randInt(0, BASIS_COUNT-1); //Escolhe aleatoriamente o tipo de base
             vetTermo.append(vlrTermo);
             tamRegress--;
         }
@@ -1151,8 +1147,7 @@ const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
         ///////////////////////////////////////////////////////////////////////////////////////////////
         //Concatena termos exatamente iguais (mesma variavel E mesmo basisType).
         for(i=1;i<vetTermo.size();i++)
-            if(vetTermo.at(i).vTermo.tTermo0 == vetTermo.at(i-1).vTermo.tTermo0
-               && vetTermo.at(i).basisType == vetTermo.at(i-1).basisType) vetTermo.remove(i--);
+            if(vetTermo.at(i).vTermo.tTermo0 == vetTermo.at(i-1).vTermo.tTermo0) vetTermo.remove(i--);
         ///////////////////////////////////////////////////////////////////////////////////////////////
         cr.regress.append(vetTermo);
         vetTermo.clear();
@@ -1204,18 +1199,18 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
     for(tr=termosAnalisados.begin()+1,pr=posTermosAnalisados.begin()+1;(tr<=termosAnalisados.end());tr++,pr++)
     {
         ////////////////////////////////////////////////////////////////////////////////
-        if(tr<termosAnalisados.end() ? (termoAv.at(5).vTermo.tTermo0 != tr->vTermo.tTermo0 || termoAv.at(5).basisType != tr->basisType) : true) //Para os termos iguais (mesma variavel E mesmo basisType)
+        if(tr<termosAnalisados.end() ? (termoAv.at(5).vTermo.tTermo0 != tr->vTermo.tTermo0) : true) //Para os termos iguais (mesma variavel E mesmo basisType)
         {
             ////////////////////////////////////////////////////////////////////////////////
             if(termoAv.at(0).vTermo.tTermo0||termoAv.at(1).vTermo.tTermo0||termoAv.at(2).vTermo.tTermo0||termoAv.at(3).vTermo.tTermo0)
             {
-                if(termoAv.at(0).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(0).vTermo.tTermo0; auxTermo.basisType = termoAv.at(0).basisType;}
-                if(termoAv.at(1).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(1).vTermo.tTermo0; auxTermo.basisType = termoAv.at(1).basisType;}
-                if(termoAv.at(2).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(2).vTermo.tTermo0; auxTermo.basisType = termoAv.at(2).basisType;}
-                if(termoAv.at(3).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(3).vTermo.tTermo0; auxTermo.basisType = termoAv.at(3).basisType;}
+                if(termoAv.at(0).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(0).vTermo.tTermo0;}
+                if(termoAv.at(1).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(1).vTermo.tTermo0;}
+                if(termoAv.at(2).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(2).vTermo.tTermo0;}
+                if(termoAv.at(3).vTermo.tTermo0) {auxTermo.vTermo.tTermo0 =  termoAv.at(3).vTermo.tTermo0;}
                 auxTermo.expoente = termoAv.at(0).expoente+ multBase*(termoAv.at(1).expoente-termoAv.at(0).expoente)+multBase*(termoAv.at(2).expoente-termoAv.at(3).expoente);
                 // Mutacao do basisType: com 20% de chance, muda aleatoriamente
-                if(RG.randInt(0,4) == 0) auxTermo.basisType = (quint8) RG.randInt(0, BASIS_COUNT-1);
+                if(RG.randInt(0,4) == 0) auxTermo.vTermo.tTermo1.basisType = RG.randInt(0, BASIS_COUNT-1);
                 //expo = (qint32) auxTermo.expoente;
                 //auxReal = auxTermo.expoente-expo;
                 teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
@@ -1227,16 +1222,16 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
                 //}
                 if(auxTermo.expoente)
                     vetTermo1.append(auxTermo);
-                termoAv[0].vTermo.tTermo0 = 0;termoAv[0].expoente = 0.0f;termoAv[0].basisType = BASIS_POW;
-                termoAv[1].vTermo.tTermo0 = 0;termoAv[1].expoente = 0.0f;termoAv[1].basisType = BASIS_POW;
-                termoAv[2].vTermo.tTermo0 = 0;termoAv[2].expoente = 0.0f;termoAv[2].basisType = BASIS_POW;
-                termoAv[3].vTermo.tTermo0 = 0;termoAv[3].expoente = 0.0f;termoAv[3].basisType = BASIS_POW;
+                termoAv[0].vTermo.tTermo0 = 0;termoAv[0].expoente = 0.0f;
+                termoAv[1].vTermo.tTermo0 = 0;termoAv[1].expoente = 0.0f;
+                termoAv[2].vTermo.tTermo0 = 0;termoAv[2].expoente = 0.0f;
+                termoAv[3].vTermo.tTermo0 = 0;termoAv[3].expoente = 0.0f;
             }
             ////////////////////////////////////////////////////////////////////////////////
             if(termoAv.at(4).vTermo.tTermo0)
             {
                 vetTermo2.append(termoAv.at(4));
-                termoAv[4].vTermo.tTermo0 = 0;termoAv[4].expoente = 0.0f;termoAv[4].basisType = BASIS_POW;
+                termoAv[4].vTermo.tTermo0 = 0;termoAv[4].expoente = 0.0f;
             }
             ////////////////////////////////////////////////////////////////////////////////
         }
@@ -1269,8 +1264,7 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
                         for(i=0;i<size3;i++) if((teste>>i)&1) vetTermo3.append(vetTermo1.at(i));
                         std::sort(vetTermo3.begin(),vetTermo3.end(),CmpMaiorTerm);//Ordena os termos por ordem decrescente.
                         for(i=1;i<vetTermo3.size();i++)//Concatena termos exatamente iguais (mesma variavel E mesmo basisType).
-                            if(vetTermo3.at(i).vTermo.tTermo0 == vetTermo3.at(i-1).vTermo.tTermo0
-                               && vetTermo3.at(i).basisType == vetTermo3.at(i-1).basisType) vetTermo3.remove(i--);
+                            if(vetTermo3.at(i).vTermo.tTermo0 == vetTermo3.at(i-1).vTermo.tTermo0) vetTermo3.remove(i--);
                         crA1.regress.append(vetTermo3);
                     }
                 }
@@ -1282,7 +1276,7 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
         if(tr<termosAnalisados.end())
         {
             termoAv[5] = *tr;
-            if(termoAv.at(*pr).vTermo.tTermo0==tr->vTermo.tTermo0 && termoAv.at(*pr).basisType==tr->basisType) termoAv[*pr].expoente += tr->expoente;
+            if(termoAv.at(*pr).vTermo.tTermo0==tr->vTermo.tTermo0) termoAv[*pr].expoente += tr->expoente;
             else termoAv[*pr] = *tr;
         }
         ////////////////////////////////////////////////////////////////////////////////
@@ -1403,7 +1397,7 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
             if((expo>1e-5)||(expo<-1e-5)||(!cr.regress.at(countRegress).at(i).vTermo.tTermo1.reg))
             {
                 atraso = cr.regress.at(countRegress).at(i).vTermo.tTermo1.atraso; //Obtem o atraso deste regressor
-                const quint8 bt = cr.regress.at(countRegress).at(i).basisType;
+                const quint8 bt = cr.regress.at(countRegress).at(i).vTermo.tTermo1.basisType;
                 // Para bases nao-pow, obtem x^1 (valores brutos) e depois aplica a transformacao
                 const qreal expoReplace = (bt == BASIS_POW) ? expo : 1.0;
                 if(!cr.regress.at(countRegress).at(i).vTermo.tTermo1.reg?matAux.fill(1,tam,1):matAux.replace(DES_Adj.Dados.variaveis.valores,jst.set("(:,:)=(%1,%2:%3:%4)'^%f1").argInt(variavel-1).argInt(posIniAtrasos-atraso*DES_Adj.decimacao.at(cr.idSaida)).argInt(DES_Adj.decimacao.at(cr.idSaida)).argInt(posIniAtrasos+(tam-atraso)*DES_Adj.decimacao.at(cr.idSaida)).argReal(expoReplace))||isValidacao)

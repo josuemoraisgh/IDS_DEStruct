@@ -547,7 +547,7 @@ void ICalc::slot_MW_EscreveEquacao()
                     if(idExpo)
                     {
                         idAtraso   = crBest.at(idSaida).regress.at(countRegress).at(i).vTermo.tTermo1.atraso;
-                        const quint8 bt = crBest.at(idSaida).regress.at(countRegress).at(i).basisType;
+                        const quint8 bt = crBest.at(idSaida).regress.at(countRegress).at(i).vTermo.tTermo1.basisType;
                         ///////////////////////////////////////////////////////////////////////////////////
                         //Monta a string vers�o Scilab/MatLab com suporte a basisType
                         if((idCoefic)&&(idExpo))

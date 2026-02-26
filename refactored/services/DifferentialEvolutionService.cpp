@@ -181,17 +181,46 @@ void DifferentialEvolutionService::runAlgorithm()
     QElapsedTimer timer;
     timer.start();
 
+    qDebug() << "[DE] runAlgorithm START — popSize="
+             << m_config.getAlgorithmData().populationSize
+             << "outputs=" << m_config.getAlgorithmData().variables.getOutputCount()
+             << "rows=" << m_config.getAlgorithmData().variables.getValues().numRows()
+             << "cols=" << m_config.getAlgorithmData().variables.getValues().numCols()
+             << "NCy=" << m_config.getCycleCount()
+             << "JNRR=" << m_config.getJNRR()
+             << "SSE=" << m_config.getSSE();
+
     try {
         initializePopulation();
-        if (shouldStop()) return;
+        if (shouldStop()) {
+            qDebug() << "[DE] Stopped during initialization";
+            return;
+        }
 
+        qDebug() << "[DE] Population initialized in" << timer.elapsed() << "ms";
+
+        // Emit initial progress immediately (so UI shows something)
+        for (qint32 idSaida = 0; idSaida < m_population.size(); ++idSaida) {
+            qint32 bestIdx = m_elitismIndices[idSaida].isEmpty() ? 0 : m_elitismIndices[idSaida][0];
+            if (bestIdx < m_population[idSaida].size()) {
+                QMutexLocker locker(&m_resultMutex);
+                m_bestChromosomes[idSaida] = m_population[idSaida][bestIdx];
+                m_bestErrors[idSaida] = m_population[idSaida][bestIdx].getFitness();
+            }
+        }
         emitProgress();
+
         evolutionLoop();
+
+        qDebug() << "[DE] evolutionLoop finished, iterations=" << m_currentIteration.load()
+                 << "elapsed=" << timer.elapsed() << "ms";
         emitProgress();
 
     } catch (const std::exception& ex) {
+        qDebug() << "[DE] EXCEPTION:" << ex.what();
         emit errorOccurred(QString("Exceção: %1").arg(ex.what()));
     } catch (...) {
+        qDebug() << "[DE] UNKNOWN EXCEPTION";
         emit errorOccurred("Exceção desconhecida");
     }
 
@@ -299,7 +328,8 @@ void DifferentialEvolutionService::evolutionLoop()
         }
 
         // ── After processing all individuals ──────────────────────────
-        bool allConverged = true;
+        // isOk = true means ALL outputs improved by at least JNRR (faithful to original)
+        bool isOk = true;
         for (qint32 idSaida = 0; idSaida < outputCount; ++idSaida) {
             // Previous best
             qint32 prevBestIdx = m_elitismIndices[idSaida].isEmpty() ? 0 : m_elitismIndices[idSaida][0];
@@ -311,9 +341,11 @@ void DifferentialEvolutionService::evolutionLoop()
             crBest[idSaida] = m_population[idSaida][bestIdx];
 
             // JNRR convergence check (faithful to original)
+            // Original: if improvement >= jnrr → update; else isOk = false
             if ((m_bestPreviousFitness[idSaida] - crBest[idSaida].getFitness()) >= m_config.getJNRR()) {
                 m_bestPreviousFitness[idSaida] = crBest[idSaida].getFitness();
-                allConverged = false; // at least one output improved enough
+            } else {
+                isOk = false; // this output did NOT improve enough
             }
 
             // Check if plot should update
@@ -329,19 +361,23 @@ void DifferentialEvolutionService::evolutionLoop()
         // Increment iteration
         qint64 iter = m_currentIteration.fetch_add(1) + 1;
 
-        // JNRR stop condition (faithful to original)
-        if (allConverged) {
+        // JNRR stop condition (faithful to original):
+        // if ALL outputs improved → reset convergence counter
+        // else if stagnant for numeroCiclos iterations → stop
+        if (isOk) {
+            m_previousIterations = iter;
+        } else {
             if (m_config.getCycleCount() > 0 &&
                 iter >= m_previousIterations + (qint64)m_config.getCycleCount()) {
-                break; // Stop after numeroCiclos iterations without improvement
+                qDebug() << "[DE] JNRR convergence: stopping after" << iter << "iterations";
+                break; // Stop after numeroCiclos iterations without ALL outputs improving
             }
-        } else {
-            m_previousIterations = iter;
         }
 
         // Emit progress periodically (like original: 6s if improved, 60s always)
-        bool shouldEmit = (printTimer.elapsed() >= 6000 && isPrint) ||
-                          (printTimer.elapsed() >= 60000);
+        // Reduced from 6s to 2s for faster UI feedback
+        bool shouldEmit = (printTimer.elapsed() >= 2000 && isPrint) ||
+                          (printTimer.elapsed() >= 30000);
         if (shouldEmit) {
             printTimer.restart();
             for (qint32 idSaida = 0; idSaida < outputCount; ++idSaida) {
@@ -353,6 +389,8 @@ void DifferentialEvolutionService::evolutionLoop()
                     m_bestErrors[idSaida] = crBest[idSaida].getFitness();
                 }
             }
+            qDebug() << "[DE] Progress: iter=" << iter
+                     << "bestFitness=" << crBest[0].getFitness();
             emitProgress();
             isPrint = false;
         }
@@ -1502,7 +1540,10 @@ void DifferentialEvolutionService::emitProgress()
 
 bool DifferentialEvolutionService::shouldStop() const
 {
-    return m_stopRequested.load() || m_currentIteration.load() >= m_maxIterations;
+    // Faithful to original: algorithm runs forever until user stops
+    // or JNRR convergence triggers 'break' in evolutionLoop().
+    // numeroCiclos (cycleCount) is NOT a total iteration limit.
+    return m_stopRequested.load();
 }
 
 } // namespace Services

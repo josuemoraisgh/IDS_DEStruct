@@ -1,0 +1,7 @@
+
+Microsoft (R) Program Maintenance Utility Versão 14.29.30159.0
+Direitos autorais da Microsoft Corporation. Todos os direitos reservados.
+	"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.29.30133\bin\HostX64\x64\nmake.exe" -f Makefile.Release
+
+Microsoft (R) Program Maintenance Utility Versão 14.29.30159.0
+Direitos autorais da Microsoft Corporation. Todos os direitos reservados.

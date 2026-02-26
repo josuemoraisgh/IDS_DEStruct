@@ -51,17 +51,31 @@ union Termo{
 
 #ifndef COMPTERMO
 #define COMPTERMO
+// Tipos de base (basisType):
+//   0 = pow(x, e)          - Original: x^e
+//   1 = |x|^e              - Valor absoluto elevado a e
+//   2 = log(1+|x|)^e       - Logaritmo elevado a e
+//   3 = exp(alpha*x)        - Exponencial (expoente = alpha)
+//   4 = tanh(x)^e           - Tangente hiperbolica elevada a e
+#define BASIS_POW    0
+#define BASIS_ABS    1
+#define BASIS_LOG    2
+#define BASIS_EXP    3
+#define BASIS_TANH   4
+#define BASIS_COUNT  5
 class compTermo
 {   
 public:
     Termo vTermo;
     qreal expoente;
-    compTermo(){vTermo.tTermo0=0;expoente=0.0f;}
-    compTermo(const compTermo &termo){vTermo.tTermo0=termo.vTermo.tTermo0;expoente=termo.expoente;}
+    quint8 basisType;
+    compTermo(){vTermo.tTermo0=0;expoente=0.0f;basisType=BASIS_POW;}
+    compTermo(const compTermo &termo){vTermo.tTermo0=termo.vTermo.tTermo0;expoente=termo.expoente;basisType=termo.basisType;}
     void operator=(const compTermo &termo)
     {
         vTermo.tTermo0=termo.vTermo.tTermo0;
         expoente=termo.expoente;
+        basisType=termo.basisType;
     }
 };
 

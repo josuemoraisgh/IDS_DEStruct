@@ -23,6 +23,7 @@
 #include <QSizePolicy>
 #include <QFont>
 #include <QScreen>
+#include <QApplication>
 #include <QGuiApplication>
 #include <QDialog>
 
@@ -693,6 +694,7 @@ void MainWindow::onDataLoadRequested(const QString& fileName,
 
     // --- 2) Ler todas as linhas de dados ---
     QList<QList<qreal>> rawData; // rawData[coluna][variável]
+    qint32 lineCount = 0;
     while (!stream.atEnd()) {
         QString line = stream.readLine();
         if (line.trimmed().isEmpty()) continue;
@@ -717,6 +719,10 @@ void MainWindow::onDataLoadRequested(const QString& fileName,
                 row.append(0.0);
         }
         rawData.append(row);
+
+        // Keep UI responsive during heavy file parsing (300K+ lines)
+        if (++lineCount % 20000 == 0)
+            QApplication::processEvents();
     }
     file.close();
 
@@ -795,11 +801,11 @@ void MainWindow::onStatusUpdated(qint64 iterations,
             .arg(errors[0], 0, 'g', 6)
             .arg(!errors.isEmpty() ? errors[0] : 0.0, 0, 'g', 6);
         statusBar()->showMessage(msg);
-    }
-    if (iterations % 100 == 0) {
+
+        // Log em toda emissão de progresso (emitido a cada ~2s do worker)
         appendTextLog(QString("-> Iteração %1 | Melhor BIC: %2")
             .arg(iterations)
-            .arg(!errors.isEmpty() ? QString::number(errors[0], 'g', 6) : "N/A"));
+            .arg(QString::number(errors[0], 'g', 6)));
     }
 }
 

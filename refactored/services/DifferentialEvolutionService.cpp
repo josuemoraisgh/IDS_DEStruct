@@ -3,13 +3,16 @@
 #include <cmath>
 #include <QDebug>
 #include <QMetaType>
+#include <QMetaObject>
 #include <QElapsedTimer>
 #include <QTime>
 #include <QThread>
+#include <QTimer>
 #include <algorithm>
 #include <limits>
 #include <thread>
 #include <mutex>
+#include <vector>
 
 namespace Services {
 
@@ -30,6 +33,8 @@ DifferentialEvolutionService::DifferentialEvolutionService(MathematicalService* 
     , m_previousIterations(0)
     , m_workerThread(nullptr)
 {
+    qRegisterMetaType<qint64>("qint64");
+    qRegisterMetaType<Domain::Chromosome>("Domain::Chromosome");
     qRegisterMetaType<QVector<qreal>>("QVector<qreal>");
     qRegisterMetaType<QVector<Domain::Chromosome>>("QVector<Domain::Chromosome>");
 }
@@ -250,10 +255,11 @@ void DifferentialEvolutionService::runAlgorithm()
 
     } catch (const std::exception& ex) {
         qDebug() << "[DE] EXCEPTION:" << ex.what();
-        emit errorOccurred(QString("Exceção: %1").arg(ex.what()));
+        QString errMsg = QString("Exceção: %1").arg(ex.what());
+        QMetaObject::invokeMethod(this, [this, errMsg]() { emit errorOccurred(errMsg); }, Qt::QueuedConnection);
     } catch (...) {
         qDebug() << "[DE] UNKNOWN EXCEPTION";
-        emit errorOccurred("Exceção desconhecida");
+        QMetaObject::invokeMethod(this, [this]() { emit errorOccurred("Exceção desconhecida"); }, Qt::QueuedConnection);
     }
 
     m_running.store(false);
@@ -279,15 +285,21 @@ void DifferentialEvolutionService::initializePopulation()
     }
 
     // ── Parallel population creation ──────────────────────────────────
+    // CRITICAL: Get raw pointer via .data() BEFORE launching threads.
+    // QVector::operator[] calls detach() (COW) which is NOT thread-safe
+    // for concurrent access. Raw pointers bypass this completely.
     for (qint32 output = 0; output < outputCount; ++output) {
+        // .data() detaches the QVector (single thread here) and returns raw ptr
+        Domain::Chromosome* popData = m_population[output].data();
+
         std::atomic<qint32> workIdx(0);
 
-        auto workerFn = [&](qint32 /*threadId*/) {
+        auto workerFn = [&, popData](qint32 /*threadId*/) {
             while (!shouldStop()) {
                 qint32 idx = workIdx.fetch_add(1);
                 if (idx >= populationSize) break;
                 Domain::Chromosome cr = createRandomChromosome(output);
-                m_population[output][idx] = cr;
+                popData[idx] = cr;  // raw pointer — no COW race
             }
         };
 
@@ -300,6 +312,22 @@ void DifferentialEvolutionService::initializePopulation()
         for (auto& t : threads) t.join();
 
         if (shouldStop()) return;
+
+        // Update best for this output so polling timer shows progress during init
+        qreal bestFit = std::numeric_limits<qreal>::max();
+        qint32 bestIdx = 0;
+        for (qint32 i = 0; i < populationSize; ++i) {
+            if (popData[i].getFitness() < bestFit) {
+                bestFit = popData[i].getFitness();
+                bestIdx = i;
+            }
+        }
+        {
+            QMutexLocker locker(&m_resultMutex);
+            m_bestChromosomes[output] = popData[bestIdx];
+            m_bestErrors[output] = bestFit;
+        }
+        qDebug() << "[DE] Output" << output << "initialized, bestFit=" << bestFit;
     }
 
     // Initialize elitism indices (like original: 1, 0, 2, 3, ..., n-1)
@@ -358,6 +386,25 @@ void DifferentialEvolutionService::evolutionLoop()
         if (shouldStop()) break;
 
         // ── Process each individual in the population — PARALLEL ──────
+        // CRITICAL FIX: Snapshot population for reads, raw pointers for writes.
+        // QList/QVector::operator[] calls detach() (COW) which is NOT thread-safe.
+        // Original used QReadWriteLock + .at() — we use snapshots instead.
+
+        // 1) Snapshot current population + elitism for thread-safe reads
+        //    QVector COW: assignment is O(1), just increments refcount.
+        std::vector<QVector<Domain::Chromosome>> popSnapshot(outputCount);
+        std::vector<QVector<qint32>> elitSnapshot(outputCount);
+        for (qint32 i = 0; i < outputCount; ++i) {
+            popSnapshot[i]  = m_population[i];       // COW share — O(1)
+            elitSnapshot[i] = m_elitismIndices[i];   // COW share — O(1)
+        }
+        QVector<Domain::Chromosome> crMutSnapshot = m_crMut; // COW share — O(1)
+
+        // 2) Get raw write pointers — detaches from snapshot, O(N) per output
+        std::vector<Domain::Chromosome*> popWritePtr(outputCount);
+        for (qint32 i = 0; i < outputCount; ++i)
+            popWritePtr[i] = m_population[i].data();
+
         // Reset per-thread SSE
         for (qint32 t = 0; t < nThreads; ++t)
             for (qint32 s = 0; s < outputCount; ++s)
@@ -381,21 +428,21 @@ void DifferentialEvolutionService::evolutionLoop()
                     qint32 count2;
                     do { count2 = rng.randInt(0, tamPop - 1); } while (count2 == count0 || count2 == count1);
 
-                    // Get chromosomes via elitism indices (like original)
-                    qint32 cr0Point = m_elitismIndices[idSaida][count0];
-                    qint32 cr1Point = m_elitismIndices[idSaida][count1];
-                    qint32 cr2Point = m_elitismIndices[idSaida][count2];
+                    // Read from SNAPSHOTS — thread-safe const access, no COW detach
+                    qint32 cr0Point = elitSnapshot[idSaida].at(count0);
+                    qint32 cr1Point = elitSnapshot[idSaida].at(count1);
+                    qint32 cr2Point = elitSnapshot[idSaida].at(count2);
 
-                    // Copy for thread safety (like original under lock_DES_BufferSR)
-                    Domain::Chromosome cr0 = m_population[idSaida][cr0Point];
-                    Domain::Chromosome cr1 = m_population[idSaida][cr1Point];
-                    Domain::Chromosome cr2 = m_population[idSaida][cr2Point];
+                    Domain::Chromosome cr0 = popSnapshot[idSaida].at(cr0Point);
+                    Domain::Chromosome cr1 = popSnapshot[idSaida].at(cr1Point);
+                    Domain::Chromosome cr2 = popSnapshot[idSaida].at(cr2Point);
 
-                    // Faithful: DES_CruzMut(Pop[idSaida][tokenPop], cr0, DES_crMut[idSaida], cr1, cr2)
-                    cruzMut(m_population[idSaida][tokenPop], cr0, m_crMut[idSaida], cr1, cr2);
+                    // Write through raw pointer — thread-safe: unique tokenPop per thread
+                    cruzMut(popWritePtr[idSaida][tokenPop], cr0,
+                            crMutSnapshot.at(idSaida), cr1, cr2);
 
                     // Accumulate SSE in per-thread buffer (no lock needed)
-                    perThreadSSE[threadId][idSaida] += m_population[idSaida][tokenPop].getError();
+                    perThreadSSE[threadId][idSaida] += popWritePtr[idSaida][tokenPop].getError();
                 }
             }
         };
@@ -475,7 +522,7 @@ void DifferentialEvolutionService::evolutionLoop()
                 // PAUSE — not STOP. Original uses slot_DES_Estado(2) = pause.
                 // User can press "Continuar" to resume with updated params.
                 m_paused.store(true);
-                emit paused();
+                QMetaObject::invokeMethod(this, [this]() { emit paused(); }, Qt::QueuedConnection);
                 // Loop continues: will hit pause check at top next iteration
                 continue;
             }
@@ -1644,7 +1691,16 @@ void DifferentialEvolutionService::emitProgress()
             best.append(m_bestChromosomes[i]);
         }
     }
-    emit statusUpdated(m_currentIteration.load(), errors, best);
+    qint64 iter = m_currentIteration.load();
+    qDebug() << "[DE] emitProgress: iter=" << iter
+             << "errors.size=" << errors.size()
+             << "best.size=" << best.size();
+    // Post to main thread event loop — QMetaObject::invokeMethod is the
+    // correct way for cross-thread signal delivery (QTimer::singleShot has
+    // thread affinity issues when called from non-owning thread)
+    QMetaObject::invokeMethod(this, [this, iter, errors, best]() {
+        emit statusUpdated(iter, errors, best);
+    }, Qt::QueuedConnection);
 }
 
 bool DifferentialEvolutionService::shouldStop() const

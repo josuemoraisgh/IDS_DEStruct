@@ -547,24 +547,44 @@ void ICalc::slot_MW_EscreveEquacao()
                     if(idExpo)
                     {
                         idAtraso   = crBest.at(idSaida).regress.at(countRegress).at(i).vTermo.tTermo1.atraso;
+                        const quint8 bt = crBest.at(idSaida).regress.at(countRegress).at(i).basisType;
                         ///////////////////////////////////////////////////////////////////////////////////
-                        //Monta a string vers�o c++
-                        /*strRegress += (idCoefic)&&(idExpo)?
-                                                 (idVariavel>=1?(idExpo>1?QString("pow(" + DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "[%1],%2)*").arg(idAtraso).arg(idExpo):
-                                                                (idExpo==1?QString(DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "[%1]*").arg(idAtraso):""))
-                                                               :(idExpo>1?QString("pow(E[%1],%2)*").arg(idAtraso).arg(idExpo):
-                                                                (idExpo==1?QString("E[%1]*").arg(idAtraso):""))
-                                                  )
-                                                 :"";*/
-                        ///////////////////////////////////////////////////////////////////////////////////
-                        //Monta a string vers�o Scilab/MatLab
-                        strRegress += (idCoefic)&&(idExpo)?
-                                    (idVariavel>=1?((idExpo!=1.)&&(idExpo!=0.)?QString("(" + DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "(k-%1)^%2)*").arg(idAtraso).arg(idExpo):
-                                                   ((idExpo==1.)?QString(DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + "(k-%1)*").arg(idAtraso):""))
-                                                  :((idExpo!=1.)&&(idExpo!=0.)?QString("(E(k-%1)^%2)*").arg(idAtraso).arg(idExpo):
-                                                   (idExpo==1.?QString("E(k-%1)*").arg(idAtraso):""))
-                                                  )
-                                                 :"";
+                        //Monta a string vers�o Scilab/MatLab com suporte a basisType
+                        if((idCoefic)&&(idExpo))
+                        {
+                            QString varName = (idVariavel>=1) ? DEStruct::DES_Adj.Dados.variaveis.nome.at(idVariavel-1) + QString("(k-%1)").arg(idAtraso)
+                                                              : QString("E(k-%1)").arg(idAtraso);
+                            switch(bt)
+                            {
+                                case BASIS_ABS: // |x|^e
+                                    if(idExpo!=1. && idExpo!=0.)
+                                        strRegress += QString("(abs(%1)^%2)*").arg(varName).arg(idExpo);
+                                    else if(idExpo==1.)
+                                        strRegress += QString("abs(%1)*").arg(varName);
+                                    break;
+                                case BASIS_LOG: // log(1+|x|)^e
+                                    if(idExpo!=1. && idExpo!=0.)
+                                        strRegress += QString("(log(1+abs(%1))^%2)*").arg(varName).arg(idExpo);
+                                    else if(idExpo==1.)
+                                        strRegress += QString("log(1+abs(%1))*").arg(varName);
+                                    break;
+                                case BASIS_EXP: // exp(alpha*x)
+                                    strRegress += QString("exp(%1*%2)*").arg(idExpo).arg(varName);
+                                    break;
+                                case BASIS_TANH: // tanh(x)^e
+                                    if(idExpo!=1. && idExpo!=0.)
+                                        strRegress += QString("(tanh(%1)^%2)*").arg(varName).arg(idExpo);
+                                    else if(idExpo==1.)
+                                        strRegress += QString("tanh(%1)*").arg(varName);
+                                    break;
+                                default: // BASIS_POW: x^e (original)
+                                    if(idExpo!=1. && idExpo!=0.)
+                                        strRegress += QString("(%1^%2)*").arg(varName).arg(idExpo);
+                                    else if(idExpo==1.)
+                                        strRegress += QString("%1*").arg(varName);
+                                    break;
+                            }
+                        }
 
                     }
                 }

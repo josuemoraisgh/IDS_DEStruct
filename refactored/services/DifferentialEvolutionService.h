@@ -48,6 +48,9 @@ public:
     void pause() override;
     void resume() override;
     bool isRunning() const override;
+    bool isPaused() const override { return m_paused.load(); }
+    qint64 getCurrentIteration() const override { return m_currentIteration.load(); }
+    qint32 getOutputCount() const override { return m_population.size(); }
     Domain::Chromosome getBestChromosome(qint32 outputId) const override;
 
     void setMaxIterations(qint64 max) { m_maxIterations = max; }

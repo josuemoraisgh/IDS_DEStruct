@@ -106,6 +106,8 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
                         xmlWriter.writeAttribute("nd",strTermo);
                         strTermo =  QString::number(XWR_Ajts->Pop.at(j).at(k).regress.at(l).at(m).expoente);
                         xmlWriter.writeAttribute("expoente",strTermo);
+                        strTermo =  QString::number(XWR_Ajts->Pop.at(j).at(k).regress.at(l).at(m).basisType);
+                        xmlWriter.writeAttribute("basisType",strTermo);
                         xmlWriter.writeEndElement();
                     }
                     xmlWriter.writeEndElement();                    
@@ -258,6 +260,11 @@ bool XmlReaderWriter::readFile(QIODevice *device)
             XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].vTermo.tTermo1.reg = xmlRead.attributes().value("reg").toString().toInt();
             XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].vTermo.tTermo1.nd = xmlRead.attributes().value("nd").toString().toInt();
             XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].expoente = xmlRead.attributes().value("expoente").toString().toDouble();
+            // Le basisType se existir (compatibilidade com arquivos antigos que nao tem)
+            if(xmlRead.attributes().hasAttribute("basisType"))
+                XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].basisType = xmlRead.attributes().value("basisType").toString().toInt();
+            else
+                XWR_Ajts->Pop[saidas][cromo].regress[regress][termo].basisType = BASIS_POW;
         }
         else if(aux1 == ("Regress"+QString::number(regress+1)))
         {

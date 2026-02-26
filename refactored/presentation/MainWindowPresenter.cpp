@@ -11,8 +11,14 @@ MainWindowPresenter::MainWindowPresenter(Interfaces::IAlgorithmService* algorith
     , m_algorithmService(algorithmService)
     , m_dataRepository(dataRepository)
     , m_configRepository(configRepository)
+    , m_progressTimer(nullptr)
 {
     connectServices();
+
+    // Timer de polling: garante atualização da UI mesmo que sinais cross-thread falhem
+    m_progressTimer = new QTimer(this);
+    m_progressTimer->setInterval(2000);
+    connect(m_progressTimer, &QTimer::timeout, this, &MainWindowPresenter::pollProgress);
 }
 
 MainWindowPresenter::~MainWindowPresenter()
@@ -23,14 +29,21 @@ MainWindowPresenter::~MainWindowPresenter()
 void MainWindowPresenter::connectServices()
 {
     if (m_algorithmService) {
+        // Qt::QueuedConnection obrigatório: estes sinais são emitidos do worker
+        // thread (DEWorkerThread::run → evolutionLoop → emitProgress / paused / errorOccurred)
+        // e o receiver (this) vive na main thread.
         connect(m_algorithmService, &Interfaces::IAlgorithmService::statusUpdated,
-                this, &MainWindowPresenter::onAlgorithmStatusUpdated);
+                this, &MainWindowPresenter::onAlgorithmStatusUpdated,
+                Qt::QueuedConnection);
         connect(m_algorithmService, &Interfaces::IAlgorithmService::finished,
-                this, &MainWindowPresenter::onAlgorithmFinished);
+                this, &MainWindowPresenter::onAlgorithmFinished,
+                Qt::QueuedConnection);
         connect(m_algorithmService, &Interfaces::IAlgorithmService::paused,
-                this, &MainWindowPresenter::onAlgorithmPaused);
+                this, &MainWindowPresenter::onAlgorithmPaused,
+                Qt::QueuedConnection);
         connect(m_algorithmService, &Interfaces::IAlgorithmService::errorOccurred,
-                this, &MainWindowPresenter::onAlgorithmError);
+                this, &MainWindowPresenter::onAlgorithmError,
+                Qt::QueuedConnection);
     }
 }
 
@@ -61,6 +74,7 @@ void MainWindowPresenter::startAlgorithm()
 
     // Inicia execução
     m_algorithmService->start();
+    if (m_progressTimer) m_progressTimer->start();
     emit algorithmStarted();
     emit statusMessageChanged(QString("Algoritmo iniciado - Pop: %1, Ciclos: %2")
         .arg(m_configuration.getAlgorithmData().populationSize)
@@ -89,6 +103,7 @@ void MainWindowPresenter::resumeAlgorithm()
 {
     if (m_algorithmService) {
         m_algorithmService->resume();
+        if (m_progressTimer) m_progressTimer->start();
         emit algorithmStarted();
         emit statusMessageChanged("Algoritmo retomado...");
     }
@@ -214,6 +229,9 @@ void MainWindowPresenter::onAlgorithmStatusUpdated(qint64 iterations,
 
 void MainWindowPresenter::onAlgorithmFinished()
 {
+    if (m_progressTimer) m_progressTimer->stop();
+    // Emite um último poll para garantir dados finais
+    pollProgress();
     emit algorithmFinished();
     emit algorithmStopped();
     emit statusMessageChanged("Algoritmo finalizado");
@@ -231,6 +249,9 @@ void MainWindowPresenter::showConfigurationDialog()
 
 void MainWindowPresenter::onAlgorithmPaused()
 {
+    if (m_progressTimer) m_progressTimer->stop();
+    // Emite um último poll para garantir dados antes de pausar
+    pollProgress();
     emit algorithmPaused();
     emit statusMessageChanged("Algoritmo pausado");
 }
@@ -246,6 +267,35 @@ void MainWindowPresenter::validateConfiguration()
     if (!m_configuration.isValid()) {
         emit errorOccurred("Configuração inválida");
     }
+}
+
+void MainWindowPresenter::pollProgress()
+{
+    if (!m_algorithmService) return;
+    // Leitura direta do serviço na main thread (métodos thread-safe)
+    qint64 iter = m_algorithmService->getCurrentIteration();
+    qint32 outputCount = m_algorithmService->getOutputCount();
+    if (outputCount <= 0) return;
+
+    QVector<qreal> errors;
+    QVector<Domain::Chromosome> bestChromosomes;
+    for (qint32 i = 0; i < outputCount; ++i) {
+        Domain::Chromosome best = m_algorithmService->getBestChromosome(i);
+        errors.append(best.getFitness());
+        bestChromosomes.append(best);
+    }
+
+    // Atualiza configuração
+    m_configuration.setIterations(iter);
+
+    // Repassa para a view
+    emit statusUpdated(iter, errors, bestChromosomes);
+    emit progressUpdated(iter, errors, bestChromosomes);
+
+    QString message = QString("Iteração %1 - Melhor BIC: %2")
+                         .arg(iter)
+                         .arg(errors.isEmpty() ? 0.0 : errors[0], 0, 'g', 6);
+    emit statusMessageChanged(message);
 }
 
 } // namespace Presentation

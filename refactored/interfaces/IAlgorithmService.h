@@ -54,6 +54,21 @@ public:
     virtual bool isRunning() const = 0;
 
     /**
+     * @brief Retorna se o algoritmo está pausado
+     */
+    virtual bool isPaused() const { return false; }
+
+    /**
+     * @brief Retorna a iteração atual
+     */
+    virtual qint64 getCurrentIteration() const { return 0; }
+
+    /**
+     * @brief Retorna a quantidade de saídas
+     */
+    virtual qint32 getOutputCount() const { return 0; }
+
+    /**
      * @brief Obtém o melhor cromossomo encontrado para uma saída
      * @param outputId ID da saída
      * @return Melhor cromossomo

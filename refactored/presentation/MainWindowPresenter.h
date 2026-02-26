@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QVector>
+#include <QTimer>
 #include "../domain/Configuration.h"
 #include "../domain/Chromosome.h"
 #include "../interfaces/IAlgorithmService.h"
@@ -103,6 +104,10 @@ private:
     void connectServices();
     void disconnectServices();
     void validateConfiguration();
+    void pollProgress();
+
+    // Timer de polling para atualização da UI (backup robusto)
+    QTimer* m_progressTimer;
 };
 
 } // namespace Presentation

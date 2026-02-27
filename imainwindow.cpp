@@ -80,6 +80,26 @@ public:
             Qt::RightButton);
     }
 };
+static QString FormatMetricsLine(
+    int gen,
+    int saida,
+    double mse_best,
+    double mse_mean,
+    double nrmse_d2,
+    double ratio_in,
+    double improvement,
+    double pen_den)
+{
+    return QString("G=%1 | Y%2 | MSE Melhor=%3 | MSE Medio=%4 | NRMSE_D2=%5 | Ratio_in=%6 | Melhoria_Persist=%7 | Pen_Den=%8")
+            .arg(gen)
+            .arg(saida)
+            .arg(mse_best, 0, 'g', 10)
+            .arg(mse_mean, 0, 'g', 10)
+            .arg(nrmse_d2, 0, 'g', 10)
+            .arg(ratio_in, 0, 'g', 10)
+            .arg(improvement, 0, 'g', 10)
+            .arg(pen_den, 0, 'g', 10);
+}
 ////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Fun��o  ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -351,6 +371,7 @@ void ICalc::Iniciar()
         DEStruct::DES_crMut[k] += QVector<Cromossomo >(qtSaidas);
         DEStruct::DES_BufferSR[k] = (QVector<QVector<Cromossomo> >(qtSaidas)).toList();
         DEStruct::DES_somaSSE[k].fill(0.0f,qtSaidas);
+        DEStruct::DES_somaJN2[k].fill(0.0f,qtSaidas);
         DEStruct::DES_index[k]=0;
         DEStruct::DES_idParadaJust[k]=false;
         DEStruct::DES_vcalc[k] = QVector<QVector<qreal> >(qtSaidas).toList();
@@ -514,12 +535,11 @@ void ICalc::slot_MW_SetStatus(const volatile qint64 &iteracoes,const QVector<qre
 void ICalc::slot_MW_EscreveEquacao()
 {
     qint64 iteracoes;
-    bool isFeito=false;
     QVector<qreal> somaEr;
     QVector<Cromossomo> crBest;
     QString str,strErr,strNum,strDen,strErrNum,strErrDen,strRegress;
-    qint32 countRegress=0,i=0,index=0,idVariavel=0,idAtraso=0,numColuna=0,idSaida=0;
-    qreal idCoefic=0.,aux=0.,varAux=0.,jn=0.,jnM=0.,rsme=0.,idExpo=0.;
+    qint32 countRegress=0,i=0,idVariavel=0,idAtraso=0,idSaida=0;
+    qreal idCoefic=0.,jn=0.,jnM=0.,idExpo=0.;
 
     DEStruct::LerDados.lockForRead();
     iteracoes = MW_iteracoes;
@@ -537,7 +557,6 @@ void ICalc::slot_MW_EscreveEquacao()
     }
     for(idSaida=0;idSaida<DEStruct::DES_Adj.Dados.variaveis.qtSaidas;idSaida++)
     {
-        numColuna  = DEStruct::DES_Adj.Dados.variaveis.valores.numColunas()-crBest.at(idSaida).maiorAtraso;
         strNum = "";strDen = "";strErrNum = "";strErrDen = "";strRegress = "";
         for(countRegress=0;countRegress<crBest.at(idSaida).regress.size()&&countRegress<crBest.at(idSaida).vlrsCoefic.size();countRegress++) //Varre todos os termos para aquele cromossomo
         {
@@ -626,7 +645,6 @@ void ICalc::slot_MW_EscreveEquacao()
                     }
                     else
                     {
-                        isFeito = true;
                         strDen = QString("%1").arg(idCoefic) + strDen;
                         strErrDen = QString::number(crBest.at(idSaida).err.at(countRegress))+ "; " + strErrDen;
                     }
@@ -645,15 +663,16 @@ void ICalc::slot_MW_EscreveEquacao()
         if(strDen == "") strDen = "0";
         //O "+1" agora aparece explicito na formula principal: (1 + Vin_Den)
         /////////////////////////////////////////////////////////////////
-        for(index=crBest.at(idSaida).maiorAtraso+2;index<numColuna+crBest.at(idSaida).maiorAtraso;index++)
-        {
-            aux = DEStruct::DES_Adj.Dados.variaveis.valores.at(idSaida,index)-DEStruct::DES_Adj.Dados.variaveis.valores.at(idSaida,index-2);
-            varAux += aux*aux;
-        }
         jn  = crBest.at(idSaida).erro;//DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida);
         jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
-        rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
-        str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
+        str.append(QString("\n") + FormatMetricsLine((int)iteracoes,
+                                                     idSaida+1,
+                                                     jn,
+                                                     jnM,
+                                                     crBest.at(idSaida).rmse2,
+                                                     crBest.at(idSaida).ratioIn,
+                                                     crBest.at(idSaida).improvementPersist,
+                                                     crBest.at(idSaida).penDen));
         if(strNum.size()) str.append(QString("\n%1(k) = ((%1_Num+%1_Err)/(1 + %1_Den)) + %2;\n%1_Num = "+strNum+";\n%1_Err = "+strErr+";\n%1_Den = "+strDen+";\nERR_Num:=("+strErrNum+");\nERR_Den:=("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)).arg(crBest.at(idSaida).theta0));
     }
     str.append(QString("\n"));
@@ -867,14 +886,14 @@ void ICalc::ini_MW_interface()
     chkResiduo->setChecked(true);
     mainToolbar->addWidget(chkResiduo);
     //////////////////////////////////////////////////////////////////////////////
-    mainToolbar->addWidget(new QLabel(" wBIC:=",this));
+    mainToolbar->addWidget(new QLabel(" wPars:=",this));
     LEBIC = new QLineEdit("0.999",this);
     LEBIC->setObjectName(QString::fromUtf8("LEBIC"));
     LEBIC->setSizePolicy(sizePolicy3);
     LEBIC->setMaximumSize(QSize(50, 16777215));
     LEBIC->setContextMenuPolicy(Qt::NoContextMenu);
     LEBIC->setValidator(new QDoubleValidator(0.0, 0.999, 3, this));
-    LEBIC->setToolTip(tr("Peso da parcimonia no BIC (0=so erro, 0.999=padrao)"));
+    LEBIC->setToolTip(tr("Peso da parcimonia no criterio interno (0=so erro, 0.999=padrao)"));
     mainToolbar->addWidget(LEBIC);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();

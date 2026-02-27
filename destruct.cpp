@@ -36,6 +36,8 @@ QMutex         DEStruct::mutex;
 /////////////////////////////////////////////PIPELINE - Saidas - Cromossomo
 QList<QVector<Cromossomo > >         DEStruct::DES_crMut = QVector<QVector<Cromossomo > >(TAMPIPELINE).toList();
 QList<QVector<qreal > >              DEStruct::DES_somaSSE = QVector<QVector<qreal> >(TAMPIPELINE).toList();
+QList<QVector<qreal > >              DEStruct::DES_somaJN2 = QVector<QVector<qreal> >(TAMPIPELINE).toList();
+QList<QVector<DiversityControlState> > DEStruct::DES_divState = QVector<QVector<DiversityControlState> >(TAMPIPELINE).toList();
                                      //DEStruct::DES_erroMelhor = QVector<QVector<qreal> >(TAMPIPELINE).toList(),
                                      //DEStruct::DES_BIC = QVector<QVector<qreal> >(TAMPIPELINE).toList();
 QList<QVector<qint32 > >             DEStruct::DES_idChange = QVector<QVector<qint32 > >(TAMPIPELINE).toList();
@@ -63,7 +65,9 @@ QList<qreal>    DEStruct::DES_mediaY,
 namespace
 {
 constexpr qreal kInvalidCost = std::numeric_limits<qreal>::max();
+constexpr qreal kNormEpsDefault = 1e-12;
 constexpr qreal kDenClampEpsDefault = 1e-8;
+constexpr qreal kDenWarnDefault = 1e-7;
 constexpr qreal kGammaPenaltyDefault = 1.0;
 constexpr qreal kLmTolStepDefault = 1e-4;
 constexpr qint32 kLmMaxIterDefault = 2;
@@ -76,6 +80,23 @@ constexpr qreal kExpoZeroTol = 1e-5;
 constexpr qreal kSerrKeepThreshold = 1e-3;
 constexpr qreal kSerrMinThreshold = 9e-4; // 0.0009
 constexpr qreal kNoInputPenaltyFactor = 100.0;
+constexpr qreal kDivGapLowDefault = 0.05;
+constexpr qreal kDivGapHighDefault = 1.0;
+constexpr qint32 kDivStreakLowDefault = 5;
+constexpr qint32 kDivStreakHighDefault = 5;
+constexpr qint32 kDivCooldownDefault = 10;
+constexpr qreal kDivFracReinitDefault = 0.2;
+constexpr qreal kDeFDefault = 1.0;
+constexpr qreal kDeCRDefault = 0.5;
+constexpr qreal kDeFMinDefault = 0.2;
+constexpr qreal kDeFMaxDefault = 1.0;
+constexpr qreal kDeCRMinDefault = 0.1;
+constexpr qreal kDeCRMaxDefault = 0.95;
+constexpr qreal kRatioMinInDefault = 0.05;
+constexpr qreal kImprovMinBaseDefault = 0.05;
+constexpr qreal kDeltaMinResidDefault = 0.01;
+constexpr qreal kTolRatioResidDefault = 0.02;
+constexpr qreal kWeightScaleNDefault = 50.0;
 }
 ////////////////////////////////////////////////////////////////////////////
 qreal sign(const qreal &x)
@@ -107,6 +128,11 @@ static inline qreal safeDenClamp(const qreal &d,const qreal &eps)
     const qreal ad = fabs(d);
     if(ad >= eps) return d;
     return d>=0 ? eps : -eps;
+}
+////////////////////////////////////////////////////////////////////////////////
+static inline qreal clampReal(const qreal &v,const qreal &vmin,const qreal &vmax)
+{
+    return v < vmin ? vmin : (v > vmax ? vmax : v);
 }
 ////////////////////////////////////////////////////////////////////////////
 const compTermo XInv(compTermo var1)
@@ -912,6 +938,31 @@ void DEStruct::DES_AlgDiffEvol()
     if(DES_justThread[0].tryAcquire()) justSync.wait(&mutex);
     else
     {
+        // Sane defaults (mantem compatibilidade com configuracoes antigas sem esses campos).
+        if(!(DES_Adj.epsNormJn2>0.0)) DES_Adj.epsNormJn2 = kNormEpsDefault;
+        if(!(DES_Adj.epsDen>0.0)) DES_Adj.epsDen = kDenClampEpsDefault;
+        if(!(DES_Adj.denWarn>0.0)) DES_Adj.denWarn = kDenWarnDefault;
+        if(!(DES_Adj.wDen>=0.0)) DES_Adj.wDen = kGammaPenaltyDefault;
+        if(!(DES_Adj.ratioMinIn>=0.0)) DES_Adj.ratioMinIn = kRatioMinInDefault;
+        if(!(DES_Adj.improvMinBase>=0.0)) DES_Adj.improvMinBase = kImprovMinBaseDefault;
+        if(!(DES_Adj.deltaMinResid>=0.0)) DES_Adj.deltaMinResid = kDeltaMinResidDefault;
+        if(!(DES_Adj.tolRatioResid>=0.0)) DES_Adj.tolRatioResid = kTolRatioResidDefault;
+        if(DES_Adj.maxErroRefine<0) DES_Adj.maxErroRefine = 0;
+        if(!(DES_Adj.deF>0.0)) DES_Adj.deF = kDeFDefault;
+        if(!(DES_Adj.deCR>=0.0)) DES_Adj.deCR = kDeCRDefault;
+        if(!(DES_Adj.deFMin>0.0)) DES_Adj.deFMin = kDeFMinDefault;
+        if(!(DES_Adj.deFMax>=DES_Adj.deFMin)) DES_Adj.deFMax = kDeFMaxDefault;
+        if(!(DES_Adj.deCRMin>=0.0)) DES_Adj.deCRMin = kDeCRMinDefault;
+        if(!(DES_Adj.deCRMax>=DES_Adj.deCRMin)) DES_Adj.deCRMax = kDeCRMaxDefault;
+        if(!(DES_Adj.divGapLow>=0.0)) DES_Adj.divGapLow = kDivGapLowDefault;
+        if(!(DES_Adj.divGapHigh>=DES_Adj.divGapLow)) DES_Adj.divGapHigh = kDivGapHighDefault;
+        if(DES_Adj.divStreakLow<=0) DES_Adj.divStreakLow = kDivStreakLowDefault;
+        if(DES_Adj.divStreakHigh<=0) DES_Adj.divStreakHigh = kDivStreakHighDefault;
+        if(DES_Adj.divCooldownGen<0) DES_Adj.divCooldownGen = kDivCooldownDefault;
+        if(!(DES_Adj.divFracReinit>0.0)) DES_Adj.divFracReinit = kDivFracReinitDefault;
+        if(DES_Adj.divFracReinit>0.5) DES_Adj.divFracReinit = 0.5;
+        if(DES_Adj.divEliteCount<1) DES_Adj.divEliteCount = 1;
+
         for(count2=0;count2<m1.size();count2++) {m1[count2]=count2;m2[count2]=count2;}
         DES_justThread[0].release(DES_TH_size-1);
         DES_Adj.tp = QTime::currentTime();
@@ -919,8 +970,12 @@ void DEStruct::DES_AlgDiffEvol()
         {
             if(idPipeLine) DES_Adj.vetPop[idPipeLine].clear();
             DES_Adj.melhorAptidaoAnt.clear();
+            DES_somaJN2[idPipeLine].fill(0.0f,qtSaidas);
+            DES_divState[idPipeLine].fill(DiversityControlState(),qtSaidas);
             for(idSaida=0;idSaida<qtSaidas;idSaida++)
             {
+                DES_divState[idPipeLine][idSaida].F_current = clampReal(DES_Adj.deF,DES_Adj.deFMin,DES_Adj.deFMax);
+                DES_divState[idPipeLine][idSaida].CR_current = clampReal(DES_Adj.deCR,DES_Adj.deCRMin,DES_Adj.deCRMax);
                 DES_idChange[idPipeLine][idSaida]=tamPop+1;
                 DES_Adj.vetElitismo[idPipeLine][idSaida].append(1);
                 DES_Adj.vetElitismo[idPipeLine][idSaida].append(0);
@@ -1027,11 +1082,12 @@ void DEStruct::DES_AlgDiffEvol()
                 ////////////////////////////////////////////////////////////////////////////
                 //DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],DES_crMut[idPipeLine][idSaida],DES_criaCromossomo(idSaida),cr0,cr1);
                 //DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],cr0,DES_criaCromossomo(idSaida),cr1,cr2);
-                DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],cr0,DES_crMut[idPipeLine][idSaida],cr1,cr2);
+                DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],cr0,DES_crMut[idPipeLine][idSaida],cr1,cr2,idPipeLine);
                 ////////////////////////////////////////////////////////////////////////////
                 //Calcula o SSE medio.
                 lock_DES_index[idPipeLine].lockForWrite();
                 DES_somaSSE[idPipeLine][idSaida] += DES_Adj.Pop.at(idSaida).at(tokenPop).erro;
+                DES_somaJN2[idPipeLine][idSaida] += DES_Adj.Pop.at(idSaida).at(tokenPop).jn2;
                 lock_DES_index[idPipeLine].unlock();
                 ////////////////////////////////////////////////////////////////////////////
             }
@@ -1086,6 +1142,13 @@ void DEStruct::DES_AlgDiffEvol()
                     isPrint = isPrint||(crBest.at(idSaida).aptidao<cr2.aptidao);
                     lock_DES_BufferSR.unlock();
 
+                    // Gap de diversidade pode usar MSE bruto (legado) ou Jn2 normalizado.
+                    const qreal bestMetric = DES_Adj.divUseJn2 ? crBest.at(idSaida).jn2 : crBest.at(idSaida).erro;
+                    const qreal meanMetric = DES_Adj.divUseJn2
+                                           ? (tamPop>0 ? DES_somaJN2.at(idPipeLine).at(idSaida)/tamPop : kInvalidCost)
+                                           : (tamPop>0 ? DES_somaSSE.at(idPipeLine).at(idSaida)/tamPop : kInvalidCost);
+                    UpdateDiversityControl(idPipeLine,idSaida,bestMetric,meanMetric);
+
                     //DES_SuperResp(cr1,DES_BufferSR[idPipeLine][idSaida]);
                     //DES_Mutacao(DES_crMut[idPipeLine][idSaida],cr1,DES_criaCromossomo(idSaida));
                     //DES_crMut[idPipeLine][idSaida] = crBest.at(idSaida);//DES_criaCromossomo(idSaida);
@@ -1115,7 +1178,11 @@ void DEStruct::DES_AlgDiffEvol()
                 ////////////////////////////////////////////////////////////////////////////
                 lock_DES_index[idPipeLine].lockForWrite();
                 DES_idParadaJust[idPipeLine] = DES_idParadaJust[idPipeLine]?false:true;//Garante que a mesma thread n�o passe duas vezes pela mesma chamada
-                for(idSaida=0;idSaida<qtSaidas;idSaida++) DES_somaSSE[idPipeLine][idSaida]=0.0f;
+                for(idSaida=0;idSaida<qtSaidas;idSaida++)
+                {
+                    DES_somaSSE[idPipeLine][idSaida]=0.0f;
+                    DES_somaJN2[idPipeLine][idSaida]=0.0f;
+                }
                 DES_index[idPipeLine] = 0;
                 lock_DES_index[idPipeLine].unlock();
                 ////////////////////////////////////////////////////////////////////////////
@@ -1214,17 +1281,26 @@ const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const
+void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2, const qint32 &idPipeLine) const
 {
     ////////////////////////////////////////////////////////////////////////////////
     //JMathVar<qreal> vlrsMedido,vlrsRegress;
     Cromossomo crAvali0,crA1;//,crA2;
     lock_DES_BufferSR.lockForRead();
     crAvali0=crAvali;
+    qreal fCurrent = clampReal(DES_Adj.deF,DES_Adj.deFMin,DES_Adj.deFMax);
+    qreal crCurrent = clampReal(DES_Adj.deCR,DES_Adj.deCRMin,DES_Adj.deCRMax);
+    const qint32 sid = crAvali.idSaida;
+    if((idPipeLine>=0)&&(idPipeLine<DES_divState.size())&&(sid>=0)&&(sid<DES_divState.at(idPipeLine).size()))
+    {
+        fCurrent = clampReal(DES_divState.at(idPipeLine).at(sid).F_current,DES_Adj.deFMin,DES_Adj.deFMax);
+        crCurrent = clampReal(DES_divState.at(idPipeLine).at(sid).CR_current,DES_Adj.deCRMin,DES_Adj.deCRMax);
+    }
     lock_DES_BufferSR.unlock();
     ////////////////////////////////////////////////////////////////////////////////
     MTRand RG(QTime::currentTime().msec());
-    const qreal multBase = RG.randReal(-2,2);
+    const qreal multBase = RG.randReal(-2.0*fCurrent,2.0*fCurrent);
+    const qreal crProb = clampReal(crCurrent,DES_Adj.deCRMin,DES_Adj.deCRMax);
     QVector<compTermo> termosAnalisados,vetTermo1,vetTermo2,vetTermo3,termoAv(6,compTermo());
     QVector<QVector<compTermo> > matTermo;
     QVector<qint32> posTermosAnalisados;
@@ -1300,14 +1376,14 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
             {
                 vetTermo3.clear();
                 teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
-                for(i=0;i<size1;i++) if((teste>>i)&1) vetTermo3.append(vetTermo1.at(i));
+                for(i=0;i<size1;i++) if(RG.randReal(0.0,1.0)<=crProb) vetTermo3.append(vetTermo1.at(i));
                 crA1.regress.append(vetTermo3);
 
                 if(vetTermo3.size()?vetTermo3.at(0).vTermo.tTermo1.reg:true)
                 {
                     vetTermo3.clear();
                     teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
-                    for(i=0;i<size2;i++) if((teste>>i)&1) vetTermo3.append(vetTermo2.at(i));
+                    for(i=0;i<size2;i++) if(RG.randReal(0.0,1.0)<=crProb) vetTermo3.append(vetTermo2.at(i));
                     crA1.regress.append(vetTermo3);
 
                     if(vetTermo3.size()?vetTermo3.at(0).vTermo.tTermo1.reg:true)
@@ -1315,7 +1391,7 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
                         vetTermo3.clear();
                         teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
                         vetTermo1+=vetTermo2;
-                        for(i=0;i<size3;i++) if((teste>>i)&1) vetTermo3.append(vetTermo1.at(i));
+                        for(i=0;i<size3;i++) if(RG.randReal(0.0,1.0)<=crProb) vetTermo3.append(vetTermo1.at(i));
                         std::sort(vetTermo3.begin(),vetTermo3.end(),CmpMaiorTerm);//Ordena os termos por ordem decrescente.
                         for(i=1;i<vetTermo3.size();i++)//Concatena termos exatamente iguais (mesma variavel E mesmo basisType).
                             if(vetTermo3.at(i).vTermo.tTermo0 == vetTermo3.at(i-1).vTermo.tTermo0) vetTermo3.remove(i--);
@@ -1341,9 +1417,9 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
     size1 = crA1.regress.size();
     matTermo = crA1.regress;
     crA1.regress.clear();
-    for(count=0,i=0;(i<size1)&&(i<=testeSize)&&(count<qtdeAtrasos);i++) if((teste>>i)&1) {crA1.regress.append(matTermo.at(i));count++;}
+    for(count=0,i=0;(i<size1)&&(i<=testeSize)&&(count<qtdeAtrasos);i++) if(RG.randReal(0.0,1.0)<=crProb) {crA1.regress.append(matTermo.at(i));count++;}
     for(i=testeSize+1;(i<size1)&&(count<qtdeAtrasos);i++)
-        if(RG.randInt(0,1)){crA1.regress.append(matTermo.at(i));count++;}
+        if(RG.randReal(0.0,1.0)<=crProb){crA1.regress.append(matTermo.at(i));count++;}
     ////////////////////////////////////////////////////////////////////////////////
     {
         JMathVar<qreal> vlrsRegress,vlrsMedido;
@@ -1494,7 +1570,8 @@ bool DEStruct::EvaluateStreaming_1plusDen(ModelEvalContext &ctx,
                 ctx.s_hist[pIdx][i]=0.0;
     }
 
-    const qreal denWarn = 10.0*eps;
+    const qreal denWarnCfg = DES_Adj.denWarn>0.0 ? DES_Adj.denWarn : (10.0*eps);
+    const qreal denWarn = qMax(denWarnCfg,eps);
     qint32 lowDenHits = 0;
     ctx.minAbsDen = kInvalidCost;
     ctx.penDen = 0.0;
@@ -1670,6 +1747,184 @@ void DEStruct::InitThetaByLS(const ModelEvalContext &ctx,QVector<qreal> &Theta) 
     Theta[offTheta0] = mediaY - (ctx.hasNumConst ? 1.0 : 0.0);
 }
 ////////////////////////////////////////////////////////////////////////////////
+qreal DEStruct::ComputeVarAuxDelta2(const JMathVar<qreal> &y,const qreal &eps) const
+{
+    const qint32 N = y.numLinhas();
+    if(N<3) return 0.0;
+    qreal sum = 0.0;
+    for(qint32 k=2;k<N;k++)
+    {
+        const qreal d = y.at(k,0)-y.at(k-2,0);
+        sum += d*d;
+        if(!isFiniteReal(sum)) return 0.0;
+    }
+    qreal varAux = sum/(N-2);
+    if(!isFiniteReal(varAux) || (varAux<0.0)) varAux = 0.0;
+    if(varAux<eps) return 0.0;
+    return varAux;
+}
+////////////////////////////////////////////////////////////////////////////////
+qreal DEStruct::ComputeMSEBaselinePersist(const JMathVar<qreal> &y,const qreal &eps) const
+{
+    const qint32 N = y.numLinhas();
+    if(N<3) return -1.0;
+    qreal sseBase = 0.0;
+    for(qint32 k=1;k<N;k++)
+    {
+        const qreal d = y.at(k,0)-y.at(k-1,0);
+        sseBase += d*d;
+        if(!isFiniteReal(sseBase)) return -1.0;
+    }
+    qreal mseBase = sseBase/(N-1);
+    if(!isFiniteReal(mseBase) || (mseBase<0.0)) return -1.0;
+    if(mseBase<=eps) return 0.0;
+    return mseBase;
+}
+////////////////////////////////////////////////////////////////////////////////
+void DEStruct::ComputeRatioInOut(const Cromossomo &cr,const JMathVar<qreal> &vlrsCoefic,const qint32 &mErroUsed,const qint32 &qtSaidas,qreal &outEin,qreal &outEout,qreal &outRatioIn) const
+{
+    Q_UNUSED(mErroUsed);
+    outEin = 0.0;
+    outEout = 0.0;
+    outRatioIn = 0.0;
+
+    const qint32 regCols = qMin((qint32)cr.regress.size(),vlrsCoefic.numColunas());
+    for(qint32 i=0;i<regCols;i++)
+    {
+        if(!cr.regress.at(i).size()) continue;
+
+        bool hasIn = false;
+        bool hasOut = false;
+        for(qint32 t=0;t<cr.regress.at(i).size();t++)
+        {
+            const compTermo &tm = cr.regress.at(i).at(t);
+            if(!tm.vTermo.tTermo1.reg) continue; // ignora constante
+            if((qint32)tm.vTermo.tTermo1.var > qtSaidas) hasIn = true;
+            else hasOut = true;
+        }
+
+        if(!hasIn && !hasOut) continue;
+        const qreal cabs = fabs(vlrsCoefic.at(i));
+        if(!isFiniteReal(cabs)) continue;
+        if(hasIn) outEin += cabs;
+        else if(hasOut) outEout += cabs;
+    }
+
+    const qreal den = outEin + outEout + kNormEpsDefault;
+    outRatioIn = outEin/den;
+    if(!isFiniteReal(outRatioIn) || (outRatioIn<0.0)) outRatioIn = 0.0;
+}
+////////////////////////////////////////////////////////////////////////////////
+bool DEStruct::EvaluateChromosomeWithErrorOrder(const Cromossomo &crBase,
+                                                const JMathVar<qreal> &vlrsRegress,
+                                                const JMathVar<qreal> &vlrsMedido,
+                                                const qint32 &mErroEfetivo,
+                                                const qreal &epsNorm,
+                                                const qreal &epsDen,
+                                                const qreal &wDen,
+                                                const qreal &tolStep,
+                                                const qint32 &maxIterLM,
+                                                const Cromossomo *pSeed,
+                                                Cromossomo &outCr,
+                                                qreal &outCE2,
+                                                qreal &outRatioIn,
+                                                qreal &outLambdaFinal,
+                                                qint32 &outIterLM) const
+{
+    outCr = crBase;
+    outCr.erro = kInvalidCost;
+    outCr.aptidao = kInvalidCost;
+    outCr.rmse2 = kInvalidCost;
+    outCr.jn2 = kInvalidCost;
+    outCr.penDen = kInvalidCost;
+    outCr.minAbsDen = 0.0;
+    outCr.ratioIn = 0.0;
+    outCr.improvementPersist = 0.0;
+    outCE2 = 0.0;
+    outRatioIn = 0.0;
+    outLambdaFinal = 0.0;
+    outIterLM = 0;
+
+    ModelEvalContext ctx;
+    if(!BuildEvalContextFromChromosome(outCr,vlrsRegress,vlrsMedido,mErroEfetivo,ctx)) return false;
+    if(ctx.N<=0) return false;
+
+    const qint32 offDen = ctx.tamNumSel;
+    const qint32 offTheta0 = offDen + ctx.tamDenSel;
+    const qint32 offCe = offTheta0 + 1;
+
+    QVector<qreal> Theta;
+    Theta.fill(0.0,ctx.p);
+    bool seeded = false;
+    if(pSeed)
+    {
+        for(qint32 i=0;i<ctx.tamNumSel;i++)
+        {
+            const qint32 idReg = ctx.idxNum.at(i);
+            if(idReg<pSeed->vlrsCoefic.numColunas())
+            {
+                Theta[i] = pSeed->vlrsCoefic.at(idReg);
+                if(isFiniteReal(Theta.at(i))) seeded = true;
+            }
+        }
+        for(qint32 i=0;i<ctx.tamDenSel;i++)
+        {
+            const qint32 idReg = ctx.idxDen.at(i);
+            if(idReg<pSeed->vlrsCoefic.numColunas())
+            {
+                Theta[offDen+i] = pSeed->vlrsCoefic.at(idReg);
+                if(isFiniteReal(Theta.at(offDen+i))) seeded = true;
+            }
+        }
+        Theta[offTheta0] = pSeed->theta0;
+        if(isFiniteReal(Theta.at(offTheta0))) seeded = true;
+    }
+    if(!seeded) InitThetaByLS(ctx,Theta);
+
+    qreal sse=kInvalidCost,pen=0.0,minAbsDen=0.0;
+    if(!LMRefineBudget_AllChromosomes(ctx,Theta,maxIterLM,epsDen,wDen,tolStep,sse,pen,minAbsDen,outLambdaFinal,outIterLM))
+        return false;
+
+    outCr.vlrsCoefic.fill(0.0,outCr.regress.size()+ctx.mErro);
+    for(qint32 i=0;i<ctx.tamNumSel;i++)
+        if(i<ctx.idxNum.size())
+            outCr.vlrsCoefic(ctx.idxNum.at(i)) = Theta.at(i);
+    for(qint32 i=0;i<ctx.tamDenSel;i++)
+        if(i<ctx.idxDen.size())
+            outCr.vlrsCoefic(ctx.idxDen.at(i)) = Theta.at(offDen+i);
+    for(qint32 i=0;i<ctx.mErro;i++)
+        outCr.vlrsCoefic(outCr.regress.size()+i) = Theta.at(offCe+i);
+    outCr.theta0 = Theta.at(offTheta0);
+    outCr.penDen = pen;
+    outCr.minAbsDen = minAbsDen;
+
+    const qreal mse = sse/ctx.N;
+    if(!isFiniteReal(mse) || (mse<=0.0)) return false;
+    outCr.erro = mse;
+
+    const qreal varAux = ComputeVarAuxDelta2(vlrsMedido,epsNorm);
+    const qreal denJn = varAux + epsNorm;
+    outCr.jn2 = outCr.erro/denJn;
+    outCr.rmse2 = qSqrt(outCr.erro)/qSqrt(denJn);
+    if(!isFiniteReal(outCr.jn2) || (outCr.jn2<=0.0) || !isFiniteReal(outCr.rmse2)) return false;
+
+    for(qint32 i=0;i<ctx.mErro;i++)
+    {
+        const qreal ce = outCr.vlrsCoefic.at(outCr.regress.size()+i);
+        outCE2 += ce*ce;
+    }
+    if(!isFiniteReal(outCE2) || (outCE2<0.0)) outCE2 = 0.0;
+
+    qreal eIn=0.0,eOut=0.0;
+    ComputeRatioInOut(outCr,outCr.vlrsCoefic,ctx.mErro,DES_Adj.Dados.variaveis.qtSaidas,eIn,eOut,outRatioIn);
+    outCr.ratioIn = outRatioIn;
+
+    const qint32 kBIC = ctx.p;
+    outCr.aptidao = ctx.N*qLn(outCr.jn2) + DES_Adj.pesoBIC*kBIC*qLn(ctx.N);
+    outCr.aptidao += wDen*outCr.penDen;
+    return isFiniteReal(outCr.aptidao);
+}
+////////////////////////////////////////////////////////////////////////////////
 bool DEStruct::LMRefineBudget_AllChromosomes(ModelEvalContext &ctx,
                                              QVector<qreal> &Theta,
                                              const qint32 &maxIterLM,
@@ -1779,6 +2034,131 @@ bool DEStruct::LMRefineBudget_AllChromosomes(ModelEvalContext &ctx,
     return isFiniteReal(outSSE) && (outSSE>=0.0);
 }
 ////////////////////////////////////////////////////////////////////////////////
+qint32 DEStruct::PartialReinitializePopulation(const qint32 &idPipeLine,const qint32 &idSaida,const qint32 &eliteCount,const qreal &fracReinit) const
+{
+    if((idSaida<0)||(idSaida>=DES_Adj.Pop.size())) return 0;
+    if((idPipeLine<0)||(idPipeLine>=DES_Adj.vetElitismo.size())) return 0;
+    if((idSaida>=DES_Adj.vetElitismo.at(idPipeLine).size())) return 0;
+
+    const qint32 tamPop = DES_Adj.Pop.at(idSaida).size();
+    if(tamPop<4) return 0;
+
+    const qint32 eliteSafe = qBound<qint32>(1,eliteCount,tamPop-1);
+    const qint32 pool = tamPop - eliteSafe;
+    if(pool<=0) return 0;
+
+    qint32 nReinit = (qint32)qRound(fracReinit*pool);
+    if(nReinit<1) return 0;
+    if(nReinit>pool) nReinit = pool;
+
+    QVector<qint32> cand;
+    cand.reserve(pool);
+    const QVector<qint32> &ord = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida);
+    for(qint32 i=eliteSafe;i<ord.size();i++) cand.append(ord.at(i));
+    if(cand.size()<pool)
+    {
+        for(qint32 i=0;i<tamPop;i++) if(!cand.contains(i)) cand.append(i);
+    }
+    if(cand.isEmpty()) return 0;
+
+    MTRand RG(QTime::currentTime().msec());
+    // Embaralhamento simples in-place.
+    for(qint32 i=cand.size()-1;i>0;i--)
+    {
+        const qint32 j = RG.randInt(0,i);
+        qSwap(cand[i],cand[j]);
+    }
+
+    qint32 done = 0;
+    lock_DES_BufferSR.lockForWrite();
+    for(qint32 i=0;(i<cand.size())&&(done<nReinit);i++)
+    {
+        const qint32 idx = cand.at(i);
+        if(idx<0 || idx>=tamPop) continue;
+        DES_Adj.Pop[idSaida][idx] = DES_criaCromossomo(idSaida);
+        done++;
+    }
+    lock_DES_BufferSR.unlock();
+    return done;
+}
+////////////////////////////////////////////////////////////////////////////////
+void DEStruct::UpdateDiversityControl(const qint32 &idPipeLine,const qint32 &idSaida,const qreal &bestMetric,const qreal &meanMetric) const
+{
+    if((idPipeLine<0)||(idPipeLine>=DES_divState.size())) return;
+    if((idSaida<0)||(idSaida>=DES_divState.at(idPipeLine).size())) return;
+
+    DiversityControlState &st = DES_divState[idPipeLine][idSaida];
+    if(st.cooldown>0) st.cooldown--;
+
+    if(!DES_Adj.enableDiversityControl) return;
+    if(!isFiniteReal(bestMetric) || !isFiniteReal(meanMetric) || (bestMetric<=0.0) || (meanMetric<0.0))
+    {
+        st.lowGapStreak = 0;
+        st.highGapStreak = 0;
+        return;
+    }
+
+    const qreal eps = DES_Adj.epsNormJn2>0.0 ? DES_Adj.epsNormJn2 : kNormEpsDefault;
+    const qreal gap = (meanMetric-bestMetric)/qMax(bestMetric,eps);
+    if(!isFiniteReal(gap)) return;
+
+    if(gap < DES_Adj.divGapLow)
+    {
+        st.lowGapStreak++;
+        st.highGapStreak=0;
+    }
+    else if(gap > DES_Adj.divGapHigh)
+    {
+        st.highGapStreak++;
+        st.lowGapStreak=0;
+    }
+    else
+    {
+        st.lowGapStreak=0;
+        st.highGapStreak=0;
+    }
+
+    qint32 reinits = 0;
+    bool tuned = false;
+    if((st.lowGapStreak>=DES_Adj.divStreakLow) && (st.cooldown<=0))
+    {
+        st.F_current = clampReal(st.F_current*1.10,DES_Adj.deFMin,DES_Adj.deFMax);
+        st.CR_current = clampReal(st.CR_current*1.05,DES_Adj.deCRMin,DES_Adj.deCRMax);
+        reinits = PartialReinitializePopulation(idPipeLine,idSaida,DES_Adj.divEliteCount,DES_Adj.divFracReinit);
+        st.cooldown = DES_Adj.divCooldownGen;
+        st.lowGapStreak = 0;
+        st.highGapStreak = 0;
+        tuned = true;
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_DIVERSITY sid=" << idSaida << " low gap -> increase explore; reinits=" << reinits;
+    }
+    else if(st.highGapStreak>=DES_Adj.divStreakHigh)
+    {
+        st.F_current = clampReal(st.F_current*0.95,DES_Adj.deFMin,DES_Adj.deFMax);
+        st.CR_current = clampReal(st.CR_current*0.95,DES_Adj.deCRMin,DES_Adj.deCRMax);
+        st.highGapStreak = 0;
+        tuned = true;
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_DIVERSITY sid=" << idSaida << " high gap -> reduce F/CR";
+    }
+
+    if(isEvalLogEnabled())
+    {
+        qDebug().nospace()
+            << "DES_DIVERSITY gen=" << DES_Adj.iteracoes
+            << " pipe=" << idPipeLine
+            << " sid=" << idSaida
+            << " best=" << bestMetric
+            << " mean=" << meanMetric
+            << " gap=" << gap
+            << " lowStreak=" << st.lowGapStreak
+            << " highStreak=" << st.highGapStreak
+            << " cooldown=" << st.cooldown
+            << " F=" << st.F_current
+            << " CR=" << st.CR_current
+            << " tuned=" << (tuned?1:0)
+            << " reinits=" << reinits;
+    }
+}
+////////////////////////////////////////////////////////////////////////////////
 qreal DEStruct::CalcPenalidadeSemEntrada(const Cromossomo &cr,const qint32 &qtdeAtrasos) const
 {
     bool temEntrada = false;
@@ -1872,6 +2252,12 @@ void DEStruct::DES_calAptidaoPrepared(Cromossomo &cr,const quint32 &tamErroEfeti
     cr.erro = kInvalidCost;
     cr.aptidao = kInvalidCost;
     cr.theta0 = 0.0;
+    cr.rmse2 = kInvalidCost;
+    cr.jn2 = kInvalidCost;
+    cr.penDen = kInvalidCost;
+    cr.minAbsDen = 0.0;
+    cr.ratioIn = 0.0;
+    cr.improvementPersist = 0.0;
 
     const qint32 N = vlrsMedido.numLinhas();
     if(N<=0)
@@ -1890,63 +2276,106 @@ void DEStruct::DES_calAptidaoPrepared(Cromossomo &cr,const quint32 &tamErroEfeti
         for(qint32 i=cr.err.numColunas();i<cr.regress.size();i++) cr.err.append('C',-1);
     while(cr.err.numColunas()>cr.regress.size()) cr.err.remove('C',cr.err.numColunas()-1);
 
-    const qreal eps = kDenClampEpsDefault;
-    const qreal gamma = kGammaPenaltyDefault;
+    const qreal epsNorm = DES_Adj.epsNormJn2>0.0 ? DES_Adj.epsNormJn2 : kNormEpsDefault;
+    const qreal eps = DES_Adj.epsDen>0.0 ? DES_Adj.epsDen : kDenClampEpsDefault;
+    const qreal gamma = DES_Adj.wDen>=0.0 ? DES_Adj.wDen : kGammaPenaltyDefault;
+    const qreal ratioMin = DES_Adj.ratioMinIn>=0.0 ? DES_Adj.ratioMinIn : kRatioMinInDefault;
+    const qreal improvMin = DES_Adj.improvMinBase>=0.0 ? DES_Adj.improvMinBase : kImprovMinBaseDefault;
+    const qreal deltaMin = DES_Adj.deltaMinResid>=0.0 ? DES_Adj.deltaMinResid : kDeltaMinResidDefault;
+    const qreal tolRatio = DES_Adj.tolRatioResid>=0.0 ? DES_Adj.tolRatioResid : kTolRatioResidDefault;
     const qreal tolStep = kLmTolStepDefault;
     const qint32 maxIterLM = kLmMaxIterDefault; // Budget leve para todos os cromossomos
+    const qreal wInDom = DES_Adj.wInDom>0.0 ? DES_Adj.wInDom : (kWeightScaleNDefault*N);
+    const qreal wBase = DES_Adj.wBase>0.0 ? DES_Adj.wBase : (kWeightScaleNDefault*N);
+    const qreal wCe = DES_Adj.wCe>0.0 ? DES_Adj.wCe : (qreal)N;
+    const qreal wOrder = DES_Adj.wOrder>0.0 ? DES_Adj.wOrder : (qreal)N;
+    const qreal ratioMinEff = clampReal(ratioMin,0.0,1.0);
+    const qreal improvMinEff = clampReal(improvMin,0.0,1.0);
+    qint32 mErroStage2 = qMax(0,(qint32)tamErroEfetivo);
+    if((DES_Adj.maxErroRefine>0) && (mErroStage2>DES_Adj.maxErroRefine)) mErroStage2 = DES_Adj.maxErroRefine;
+    const qreal mseBase = ComputeMSEBaselinePersist(vlrsMedido,epsNorm);
 
-    ModelEvalContext ctx;
-    if(!BuildEvalContextFromChromosome(cr,vlrsRegress,vlrsMedido,(qint32)tamErroEfetivo,ctx))
+    // Estagio 1: identifica sem termos de residuo (mErro=0).
+    Cromossomo st1;
+    qreal ce2_1=0.0,ratio1=0.0,lambda1=0.0;
+    qint32 it1=0;
+    if(!EvaluateChromosomeWithErrorOrder(cr,vlrsRegress,vlrsMedido,0,epsNorm,eps,gamma,tolStep,maxIterLM,NULL,st1,ce2_1,ratio1,lambda1,it1))
     {
-        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_context";
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=stage1_failed";
         return;
     }
 
-    QVector<qreal> Theta;
-    InitThetaByLS(ctx,Theta);
+    Cromossomo stSel = st1;
+    qreal ratioSel = ratio1;
+    qreal ce2Sel = ce2_1;
+    qint32 mErroSel = 0;
+    qreal deltaRes = 0.0;
+    qreal mse2Eval = kInvalidCost;
+    qreal ratio2 = ratio1;
+    qreal ce2_2 = 0.0;
+    qreal lambda2 = 0.0;
+    qint32 it2 = 0;
+    bool stage2Tried = (mErroStage2>0);
+    bool stage2Accepted = false;
+    qreal penCeOrder = 0.0;
 
-    qreal sse=kInvalidCost,pen=0.0,minAbsDen=0.0,lambdaFinal=0.0;
-    qint32 itLM=0;
-    const bool okLM = LMRefineBudget_AllChromosomes(ctx,Theta,maxIterLM,eps,gamma,tolStep,sse,pen,minAbsDen,lambdaFinal,itLM);
-    if(!okLM)
+    if(stage2Tried)
     {
-        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=lm_failed";
-        return;
+        // Estagio 2: so aceita residuo se houver ganho minimo e sem perder influencia de entrada.
+        Cromossomo st2;
+        const bool ok2 = EvaluateChromosomeWithErrorOrder(cr,vlrsRegress,vlrsMedido,mErroStage2,epsNorm,eps,gamma,tolStep,maxIterLM,&st1,st2,ce2_2,ratio2,lambda2,it2);
+        if(ok2)
+        {
+            mse2Eval = st2.erro;
+            deltaRes = (st1.erro-st2.erro)/qMax(st1.erro,epsNorm);
+            const bool gainOk = deltaRes >= deltaMin;
+            const bool ratioOk = ratio2 >= (ratio1-tolRatio);
+            const qreal apt2Adj = st2.aptidao + wCe*ce2_2 + wOrder*mErroStage2;
+            if(gainOk && ratioOk && isFiniteReal(apt2Adj) && (apt2Adj < stSel.aptidao))
+            {
+                stSel = st2;
+                stSel.aptidao = apt2Adj;
+                ratioSel = ratio2;
+                ce2Sel = ce2_2;
+                mErroSel = mErroStage2;
+                penCeOrder = wCe*ce2_2 + wOrder*mErroStage2;
+                stage2Accepted = true;
+            }
+        }
     }
 
-    const qint32 offDen = ctx.tamNumSel;
-    const qint32 offTheta0 = offDen + ctx.tamDenSel;
-    const qint32 offCe = offTheta0 + 1;
+    cr = stSel;
 
-    cr.vlrsCoefic.fill(0.0,cr.regress.size()+ctx.mErro);
-    for(qint32 i=0;i<ctx.tamNumSel;i++)
-        if(i<ctx.idxNum.size())
-            cr.vlrsCoefic(ctx.idxNum.at(i)) = Theta.at(i);
-    for(qint32 i=0;i<ctx.tamDenSel;i++)
-        if(i<ctx.idxDen.size())
-            cr.vlrsCoefic(ctx.idxDen.at(i)) = Theta.at(offDen+i);
-    for(qint32 i=0;i<ctx.mErro;i++)
-        cr.vlrsCoefic(cr.regress.size()+i) = Theta.at(offCe+i);
-    cr.theta0 = Theta.at(offTheta0);
-
-    const qreal mse = sse/N;
-    if(!isFiniteReal(mse) || (mse<=0.0))
+    const qreal penNoInput = CalcPenalidadeSemEntrada(cr,N);
+    qreal penRatioIn = 0.0;
+    if(ratioSel < ratioMinEff)
     {
-        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_mse mse=" << mse;
-        return;
+        const qreal d = ratioMinEff-ratioSel;
+        penRatioIn = wInDom*d*d;
     }
-    cr.erro = mse;
 
-    // Penalizacao de tamanho (BIC): considera todos os parametros do modelo,
-    // incluindo termos de residuo (ce).
-    const qint32 kBIC = ctx.p;
-    cr.aptidao = N*qLn(cr.erro) + DES_Adj.pesoBIC*kBIC*qLn(N);
-    cr.aptidao += CalcPenalidadeSemEntrada(cr,N);
+    qreal improvementBase = 0.0;
+    qreal penBase = 0.0;
+    if((N>=3) && isFiniteReal(mseBase) && (mseBase>epsNorm))
+    {
+        improvementBase = 1.0 - (cr.erro/(mseBase+epsNorm));
+        if(improvementBase < improvMinEff) penBase = wBase*(improvMinEff-improvementBase);
+    }
+
+    cr.aptidao += penNoInput + penRatioIn + penBase;
+    cr.ratioIn = ratioSel;
+    cr.improvementPersist = improvementBase;
     if(!isFiniteReal(cr.aptidao))
     {
         cr.aptidao=kInvalidCost;
         cr.erro=kInvalidCost;
-        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_bic";
+        cr.jn2=kInvalidCost;
+        cr.rmse2=kInvalidCost;
+        cr.penDen=kInvalidCost;
+        cr.minAbsDen=0.0;
+        cr.ratioIn=0.0;
+        cr.improvementPersist=0.0;
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_fitness";
         return;
     }
 
@@ -1955,19 +2384,31 @@ void DEStruct::DES_calAptidaoPrepared(Cromossomo &cr,const quint32 &tamErroEfeti
         qDebug().nospace()
             << "DES_EVAL sid=" << cr.idSaida
             << " N=" << N
-            << " p=" << ctx.p
-            << " kBIC=" << kBIC
-            << " SSE=" << sse
-            << " penDen=" << pen
-            << " minAbsDen=" << minAbsDen
-            << " lambdaFinal=" << lambdaFinal
-            << " iterLM=" << itLM
-            << " mse=" << cr.erro
-            << " bic=" << cr.aptidao;
+            << " mse1=" << st1.erro
+            << " mse2=" << mse2Eval
+            << " delta=" << deltaRes
+            << " ratio1=" << ratio1
+            << " ratio2=" << ratio2
+            << " ratioSel=" << ratioSel
+            << " mErroSel=" << mErroSel
+            << " stage2Tried=" << (stage2Tried?1:0)
+            << " stage2Accepted=" << (stage2Accepted?1:0)
+            << " penDen=" << cr.penDen
+            << " penCeOrder=" << penCeOrder
+            << " penRatioIn=" << penRatioIn
+            << " mseBase=" << mseBase
+            << " improvement=" << improvementBase
+            << " penBase=" << penBase
+            << " jn2=" << cr.jn2
+            << " rmse2=" << cr.rmse2
+            << " fitness=" << cr.aptidao
+            << " lambda1=" << lambda1
+            << " iter1=" << it1
+            << " lambda2=" << lambda2
+            << " iter2=" << it2
+            << " ce2Sel=" << ce2Sel;
     }
 }
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
 void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVar<qreal> &vlrsMedido,const bool &isValidacao,const bool &isLinearCoef) const
 {
     //////////////////////////////////////////////////////////////////////////////////
@@ -2072,7 +2513,9 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
     }
 
     qreal sse=0.0,pen=0.0,minAbsDen=0.0;
-    if(!EvaluateStreaming_1plusDen(ctx,Theta,true,false,kDenClampEpsDefault,kGammaPenaltyDefault,sse,pen,minAbsDen,NULL,NULL,&vlrsEstimado,&vlrsResiduo))
+    const qreal eps = DES_Adj.epsDen>0.0 ? DES_Adj.epsDen : kDenClampEpsDefault;
+    const qreal gamma = DES_Adj.wDen>=0.0 ? DES_Adj.wDen : kGammaPenaltyDefault;
+    if(!EvaluateStreaming_1plusDen(ctx,Theta,true,false,eps,gamma,sse,pen,minAbsDen,NULL,NULL,&vlrsEstimado,&vlrsResiduo))
     {
         vlrsEstimado.fill(0.0,vlrsMedido.numLinhas(),1);
         vlrsResiduo = vlrsMedido;

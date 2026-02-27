@@ -63,6 +63,23 @@ struct ModelEvalContext
     {}
 };
 
+struct DiversityControlState
+{
+    qint32 lowGapStreak;
+    qint32 highGapStreak;
+    qint32 cooldown;
+    qreal F_current;
+    qreal CR_current;
+
+    DiversityControlState()
+        : lowGapStreak(0),
+          highGapStreak(0),
+          cooldown(0),
+          F_current(1.0),
+          CR_current(0.5)
+    {}
+};
+
 class DEStruct : public QThread
 {
 
@@ -93,6 +110,8 @@ public:
     static QList<qint32> DES_cVariaveis;
     static QList<QVector<Cromossomo > > DES_crMut;
     static QList<QVector<qreal> > DES_somaSSE;
+    static QList<QVector<qreal> > DES_somaJN2;
+    static QList<QVector<DiversityControlState> > DES_divState;
     static QList<qreal > DES_mediaY,DES_mediaY2;
     static QList<QList<QVector<qreal> > > DES_residuos,
                                           DES_vcalc;
@@ -104,7 +123,7 @@ public:
     void qSortPop(qint32 *start, qint32 *end, const qint32 &idSaida) const;
     ////////////////////////////////////////////////////////////////////////////
     const Cromossomo DES_criaCromossomo(const qint32 &idSaida) const;
-    void DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const;
+    void DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2, const qint32 &idPipeLine) const;
     void DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const;
     void DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVar<qreal> &vlrsMedido,const bool &isValidacao=false,const bool &isLinearCoef=true) const;
     void DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,const JMathVar<qreal> &vlrsMedido,JMathVar<qreal> &vlrsResiduo,JMathVar<qreal> &vlrsEstimado) const;
@@ -166,6 +185,24 @@ private:
                                     JMathVar<qreal> *outYhat=NULL,
                                     JMathVar<qreal> *outE=NULL) const;
     void InitThetaByLS(const ModelEvalContext &ctx,QVector<qreal> &Theta) const;
+    qreal ComputeVarAuxDelta2(const JMathVar<qreal> &y,const qreal &eps) const;
+    qreal ComputeMSEBaselinePersist(const JMathVar<qreal> &y,const qreal &eps) const;
+    void ComputeRatioInOut(const Cromossomo &cr,const JMathVar<qreal> &vlrsCoefic,const qint32 &mErroUsed,const qint32 &qtSaidas,qreal &outEin,qreal &outEout,qreal &outRatioIn) const;
+    bool EvaluateChromosomeWithErrorOrder(const Cromossomo &crBase,
+                                          const JMathVar<qreal> &vlrsRegress,
+                                          const JMathVar<qreal> &vlrsMedido,
+                                          const qint32 &mErroEfetivo,
+                                          const qreal &epsNorm,
+                                          const qreal &epsDen,
+                                          const qreal &wDen,
+                                          const qreal &tolStep,
+                                          const qint32 &maxIterLM,
+                                          const Cromossomo *pSeed,
+                                          Cromossomo &outCr,
+                                          qreal &outCE2,
+                                          qreal &outRatioIn,
+                                          qreal &outLambdaFinal,
+                                          qint32 &outIterLM) const;
     bool LMRefineBudget_AllChromosomes(ModelEvalContext &ctx,
                                        QVector<qreal> &Theta,
                                        const qint32 &maxIterLM,
@@ -178,6 +215,8 @@ private:
                                        qreal &outLambdaFinal,
                                        qint32 &outIterUsed) const;
     qreal CalcPenalidadeSemEntrada(const Cromossomo &cr,const qint32 &qtdeAtrasos) const;
+    qint32 PartialReinitializePopulation(const qint32 &idPipeLine,const qint32 &idSaida,const qint32 &eliteCount,const qreal &fracReinit) const;
+    void UpdateDiversityControl(const qint32 &idPipeLine,const qint32 &idSaida,const qreal &bestMetric,const qreal &meanMetric) const;
     static volatile qint16 DES_TH_size,DES_countSR;//,DES_countPipe;
     qint32 DES_TH_id;
     bool DES_idParada_Th[TAMPIPELINE];

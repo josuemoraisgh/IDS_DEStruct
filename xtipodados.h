@@ -87,19 +87,21 @@ class Cromossomo
 {
 public:
     qreal erro,
-          aptidao;                //Aptid�o calculada pelo m�todo BIC
+          aptidao,                //Aptidao calculada pelo metodo BIC
+          theta0;                 //Offset fora da fracao: yhat = g/d + theta0
     qint32 idSaida,               //Indentificador da saida para este cromossomo
            maiorAtraso;
     JMathVar<qreal> err,vlrsCoefic;
     QVector<QVector<compTermo > > regress;
     //QVector<QVector<compTermo > > regressResid;
-    Cromossomo(){erro=0.0f;aptidao=0.0f;idSaida=0;maiorAtraso=0;vlrsCoefic.clear();err.clear();regress.clear();}
+    Cromossomo(){erro=0.0f;aptidao=0.0f;theta0=0.0f;idSaida=0;maiorAtraso=0;vlrsCoefic.clear();err.clear();regress.clear();}
     void operator=(const Cromossomo &cr)
     {
         erro=cr.erro;
         aptidao=cr.aptidao;
+        theta0=cr.theta0;
         idSaida=cr.idSaida;
-        maiorAtraso=cr.maiorAtraso;        
+        maiorAtraso=cr.maiorAtraso;
         vlrsCoefic.resize(cr.vlrsCoefic.size());
         std::copy(cr.vlrsCoefic.begin(),cr.vlrsCoefic.end(),vlrsCoefic.begin());
         err.resize(cr.err.size());

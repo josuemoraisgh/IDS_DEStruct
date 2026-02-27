@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <cmath>
 #include <algorithm>
 #include <QVector>
 
@@ -26,6 +27,14 @@
 // uint64_t
 ///////////////////////////////////////////////////////
 //Inser��o de constantes reais com nota��o cientifica apenas pelo argReal n�o podendo ser inserida na string.
+template<typename T>
+inline bool JMV_isFinite(const T &v)
+{
+    return std::isfinite(static_cast<long double>(v));
+}
+
+constexpr double JMV_SolverPivotEps = 1e-15;
+
 class JStrSet
 {
  public:
@@ -424,7 +433,7 @@ bool JMathVar<T>::fill(const qint32 id[15])
             posEscrita = ((iL*this->JMV_numLinhas)+jL);
         }
         //////////////////////////////////////////////////////////////////////////////////////////
-        if(((*vi)!=(*vi))||((*vi)>=1e199)||((*vi)<=-1e199))
+        if(!JMV_isFinite(*vi))
             return false;
         pos--;
         //////////////////////////////////////////////////////////////////////////////////////////
@@ -551,7 +560,7 @@ bool JMathVar<T>::copy(const JMathVar<T> &mt,const qint32 id[15],const qreal rd[
             }
             //////////////////////////////////////////////////////////////////////////////////////////
         }
-        if(((*i)!=(*i))||((*i)>=1e199)||((*i)<=-1e199)) isOk=false;
+        if(!JMV_isFinite(*i)) isOk=false;
         pos--;
         //////////////////////////////////////////////////////////////////////////////////////////
     }
@@ -775,7 +784,7 @@ bool JMathVar<T>::copy(const JStrSet &parsing) //Ou faz com ele mesmo ou com uma
                 case 5: *(i+posEscrita)  = rd[0]*qPow(*(i+posEscrita),rd[1]);break;
             }*/
             //////////////////////////////////////////////////////////////////////////////////////////
-            if(((*(i+posEscrita))!=(*(i+posEscrita)))||((*(i+posEscrita))>=1e199)||((*(i+posEscrita))<=-1e199)) isOk = false;
+            if(!JMV_isFinite(*(i+posEscrita))) isOk = false;
             //////////////////////////////////////////////////////////////////////////////////////////
         }
         return isOk;
@@ -1152,7 +1161,7 @@ JMathVar<T> JMathVar<T>::SistemaLinear(const JMathVar<T> &vet1,bool &isOK)
                     if(val > maxVal) { maxVal = val; maxRow = i; }
                 }
                 //Se o maior pivot e muito pequeno, a matriz e singular
-                if(maxVal < 1e-15) { isOK=false; break; }
+                if(maxVal < JMV_SolverPivotEps) { isOK=false; break; }
                 //Troca as linhas se necessario
                 if(maxRow != k)
                 {
@@ -1171,7 +1180,7 @@ JMathVar<T> JMathVar<T>::SistemaLinear(const JMathVar<T> &vet1,bool &isOK)
                 }
             }
             //Verifica o ultimo pivot
-            if(isOK && fabs(matAux.at(n-1,n-1)) < 1e-15) isOK=false;
+            if(isOK && fabs(matAux.at(n-1,n-1)) < JMV_SolverPivotEps) isOK=false;
             //Resolvendo o sistema por substituicao reversa
             if(isOK)
             {
@@ -1181,7 +1190,7 @@ JMathVar<T> JMathVar<T>::SistemaLinear(const JMathVar<T> &vet1,bool &isOK)
                     l=n-i;
                     for (j=l;j<n;j++) termo=termo+(result.at(j)*matAux.at(n-i-1,j));
                     result[n-i-1]=(matAux.at(n-1-i,n)-termo)/matAux.at(n-i-1,n-i-1);
-                    if(result.at(n-i-1)!=result.at(n-i-1) || result.at(n-i-1)>=1e199 || result.at(n-i-1)<=-1e199)
+                    if(!JMV_isFinite(result.at(n-i-1)))
                     {
                         isOK=false;
                         break;

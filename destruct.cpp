@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <math.h>
+#include <cmath>
 #include <qmath.h>
 #include <algorithm>
 #include <limits>
@@ -59,11 +60,53 @@ QList<qreal>    DEStruct::DES_mediaY,
 ////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Fun��es ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
+namespace
+{
+constexpr qreal kInvalidCost = std::numeric_limits<qreal>::max();
+constexpr qreal kDenClampEpsDefault = 1e-8;
+constexpr qreal kGammaPenaltyDefault = 1.0;
+constexpr qreal kLmTolStepDefault = 1e-4;
+constexpr qint32 kLmMaxIterDefault = 2;
+constexpr qreal kLmLambdaInit = 1e-3;
+constexpr qreal kLmLambdaMin = 1e-12;
+constexpr qreal kLmLambdaMax = 1e12;
+constexpr qreal kLmDiagFloor = 1e-12;
+constexpr qreal kPivotGuard = 1e-10;
+constexpr qreal kExpoZeroTol = 1e-5;
+constexpr qreal kSerrKeepThreshold = 1e-3;
+constexpr qreal kSerrMinThreshold = 9e-4; // 0.0009
+constexpr qreal kNoInputPenaltyFactor = 100.0;
+}
+////////////////////////////////////////////////////////////////////////////
 qreal sign(const qreal &x)
 {
     if(x>0) return 1;
     else if(x==0) return 0;
     else return -1; //if(x<0)
+}
+////////////////////////////////////////////////////////////////////////////////
+static inline bool isFiniteReal(const qreal &v)
+{
+    return std::isfinite(static_cast<long double>(v));
+}
+////////////////////////////////////////////////////////////////////////////////
+static inline bool isEvalLogEnabled()
+{
+    static const bool enabled = []() -> bool
+    {
+        bool ok = false;
+        const int v = qEnvironmentVariableIntValue("DES_LOG_EVAL",&ok);
+        if(ok) return v != 0;
+        return qEnvironmentVariableIsSet("DES_LOG_EVAL");
+    }();
+    return enabled;
+}
+////////////////////////////////////////////////////////////////////////////////
+static inline qreal safeDenClamp(const qreal &d,const qreal &eps)
+{
+    const qreal ad = fabs(d);
+    if(ad >= eps) return d;
+    return d>=0 ? eps : -eps;
 }
 ////////////////////////////////////////////////////////////////////////////
 const compTermo XInv(compTermo var1)
@@ -1302,8 +1345,12 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
     for(i=testeSize+1;(i<size1)&&(count<qtdeAtrasos);i++)
         if(RG.randInt(0,1)){crA1.regress.append(matTermo.at(i));count++;}
     ////////////////////////////////////////////////////////////////////////////////
-    DES_CalcERR(crA1,DES_Adj.serr);
-    DES_calAptidao(crA1);
+    {
+        JMathVar<qreal> vlrsRegress,vlrsMedido;
+        DES_MontaVlrs(crA1,vlrsRegress,vlrsMedido,true,false);
+        DES_CalcERRPrepared(crA1,DES_Adj.serr,vlrsRegress,vlrsMedido);
+        DES_calAptidaoPrepared(crA1,DES_Adj.isResiduo ? 1 : 0,vlrsRegress,vlrsMedido);
+    }
     ////////////////////////////////////////////////////////////////////////////////
     size1 = crA1.regress.size();
     if(size1)
@@ -1333,7 +1380,7 @@ static bool applyBasisTransform(JMathVar<qreal> &mat, const quint8 basisType, co
             while(ptr < ptrEnd)
             {
                 *ptr = qPow(fabs(*ptr), expo);
-                if((*ptr)!=(*ptr) || (*ptr)>=1e199 || (*ptr)<=-1e199) {isOk = false;}
+                if(!isFiniteReal(*ptr)) {isOk = false;}
                 ptr++;
             }
             break;
@@ -1341,7 +1388,7 @@ static bool applyBasisTransform(JMathVar<qreal> &mat, const quint8 basisType, co
             while(ptr < ptrEnd)
             {
                 *ptr = qPow(log(1.0 + fabs(*ptr)), expo);
-                if((*ptr)!=(*ptr) || (*ptr)>=1e199 || (*ptr)<=-1e199) {isOk = false;}
+                if(!isFiniteReal(*ptr)) {isOk = false;}
                 ptr++;
             }
             break;
@@ -1349,7 +1396,7 @@ static bool applyBasisTransform(JMathVar<qreal> &mat, const quint8 basisType, co
             while(ptr < ptrEnd)
             {
                 *ptr = exp(expo * (*ptr));
-                if((*ptr)!=(*ptr) || (*ptr)>=1e199 || (*ptr)<=-1e199) {isOk = false;}
+                if(!isFiniteReal(*ptr)) {isOk = false;}
                 ptr++;
             }
             break;
@@ -1357,7 +1404,7 @@ static bool applyBasisTransform(JMathVar<qreal> &mat, const quint8 basisType, co
             while(ptr < ptrEnd)
             {
                 *ptr = qPow(tanh(*ptr), expo);
-                if((*ptr)!=(*ptr) || (*ptr)>=1e199 || (*ptr)<=-1e199) {isOk = false;}
+                if(!isFiniteReal(*ptr)) {isOk = false;}
                 ptr++;
             }
             break;
@@ -1365,6 +1412,559 @@ static bool applyBasisTransform(JMathVar<qreal> &mat, const quint8 basisType, co
             break;
     }
     return isOk;
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+bool DEStruct::BuildEvalContextFromChromosome(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsMedido,const qint32 &mErroEfetivo,ModelEvalContext &ctx) const
+{
+    ctx = ModelEvalContext();
+    ctx.pVlrsRegress = &vlrsRegress;
+    ctx.pY = &vlrsMedido;
+    ctx.N = vlrsMedido.numLinhas();
+    if(ctx.N <= 0) return false;
+
+    const qint32 colsUse = qMin((qint32)cr.regress.size(),vlrsRegress.numColunas());
+    for(qint32 i=0;i<colsUse;i++)
+    {
+        if(!cr.regress.at(i).size()) continue;
+        if(cr.regress.at(i).at(0).vTermo.tTermo1.nd) ctx.idxNum.append(i);
+        else ctx.idxDen.append(i);
+    }
+
+    ctx.hasNumConst = ctx.idxNum.isEmpty();
+    ctx.tamNumSel = ctx.idxNum.size();
+    ctx.tamDenSel = ctx.idxDen.size();
+    ctx.mErro = qMax(0,mErroEfetivo);
+    ctx.p = ctx.tamNumSel + ctx.tamDenSel + 1 + ctx.mErro; // +theta0
+
+    ctx.numVec.resize(ctx.tamNumSel);
+    ctx.denVec.resize(ctx.tamDenSel);
+    ctx.e_hist.fill(0.0,ctx.mErro);
+    ctx.s.resize(ctx.p);
+    ctx.s_hist.resize(ctx.p);
+    for(qint32 i=0;i<ctx.p;i++) ctx.s_hist[i].fill(0.0,ctx.mErro);
+
+    ctx.minAbsDen = kInvalidCost;
+    ctx.penDen = 0.0;
+    return ctx.p > 0;
+}
+////////////////////////////////////////////////////////////////////////////////
+bool DEStruct::EvaluateStreaming_1plusDen(ModelEvalContext &ctx,
+                                          const QVector<qreal> &Theta,
+                                          const bool &needTrace,
+                                          const bool &needLM,
+                                          const qreal &eps,
+                                          const qreal &/*gamma*/,
+                                          qreal &outSSE,
+                                          qreal &outPen,
+                                          qreal &outMinAbsDen,
+                                          JMathVar<qreal> *outJTJ,
+                                          QVector<qreal> *outJTr,
+                                          JMathVar<qreal> *outYhat,
+                                          JMathVar<qreal> *outE) const
+{
+    outSSE = 0.0;
+    outPen = 0.0;
+    outMinAbsDen = kInvalidCost;
+    if(!ctx.pVlrsRegress || !ctx.pY || ctx.N<=0 || Theta.size()!=ctx.p) return false;
+    if(needLM && (!outJTJ || !outJTr)) return false;
+    if(needTrace && (!outYhat || !outE)) return false;
+
+    const qint32 offNum = 0;
+    const qint32 offDen = offNum + ctx.tamNumSel;
+    const qint32 offTheta0 = offDen + ctx.tamDenSel;
+    const qint32 offCe = offTheta0 + 1;
+
+    if(needLM)
+    {
+        outJTJ->fill(0.0,ctx.p,ctx.p);
+        outJTr->fill(0.0,ctx.p);
+    }
+    if(needTrace)
+    {
+        outYhat->fill(0.0,ctx.N,1);
+        outE->fill(0.0,ctx.N,1);
+    }
+
+    for(qint32 i=0;i<ctx.mErro;i++) ctx.e_hist[i]=0.0;
+    if(needLM)
+    {
+        for(qint32 pIdx=0;pIdx<ctx.p;pIdx++)
+            for(qint32 i=0;i<ctx.mErro;i++)
+                ctx.s_hist[pIdx][i]=0.0;
+    }
+
+    const qreal denWarn = 10.0*eps;
+    qint32 lowDenHits = 0;
+    ctx.minAbsDen = kInvalidCost;
+    ctx.penDen = 0.0;
+
+    for(qint32 k=0;k<ctx.N;k++)
+    {
+        const qreal y = ctx.pY->at(k,0);
+        qreal n = ctx.hasNumConst ? 1.0 : 0.0;
+        for(qint32 j=0;j<ctx.tamNumSel;j++)
+        {
+            const qreal x = ctx.pVlrsRegress->at(k,ctx.idxNum.at(j));
+            ctx.numVec[j]=x;
+            n += Theta.at(offNum+j)*x;
+        }
+
+        qreal g = n;
+        for(qint32 i=0;i<ctx.mErro;i++) g += Theta.at(offCe+i)*ctx.e_hist.at(i);
+
+        qreal d = 1.0;
+        for(qint32 j=0;j<ctx.tamDenSel;j++)
+        {
+            const qreal x = ctx.pVlrsRegress->at(k,ctx.idxDen.at(j));
+            ctx.denVec[j]=x;
+            d += Theta.at(offDen+j)*x;
+        }
+
+        const qreal absD = fabs(d);
+        if(absD < ctx.minAbsDen) ctx.minAbsDen = absD;
+        if(absD < denWarn)
+        {
+            const qreal r = (denWarn-absD)/denWarn;
+            outPen += r*r;
+            lowDenHits++;
+        }
+        const qreal dSafe = safeDenClamp(d,eps);
+        const qreal yhat = (g/dSafe) + Theta.at(offTheta0);
+        const qreal e = y - yhat;
+
+        if(!isFiniteReal(yhat) || !isFiniteReal(e)) return false;
+        outSSE += e*e;
+        if(!isFiniteReal(outSSE)) return false;
+
+        if(needTrace)
+        {
+            (*outYhat)(k,0)=yhat;
+            (*outE)(k,0)=e;
+        }
+
+        if(needLM)
+        {
+            for(qint32 pIdx=0;pIdx<ctx.p;pIdx++)
+            {
+                qreal sRat = 0.0;
+                if(pIdx < offDen)
+                {
+                    sRat = ctx.numVec.at(pIdx)/dSafe;
+                }
+                else if(pIdx < offTheta0)
+                {
+                    const qint32 j = pIdx-offDen;
+                    sRat = -(g/(dSafe*dSafe))*ctx.denVec.at(j);
+                }
+                else if(pIdx == offTheta0)
+                {
+                    sRat = 1.0;
+                }
+
+                qreal sval = sRat;
+                for(qint32 i=0;i<ctx.mErro;i++)
+                    sval -= Theta.at(offCe+i)*ctx.s_hist[pIdx].at(i);
+
+                if(pIdx >= offCe)
+                {
+                    const qint32 ceIdx = pIdx-offCe;
+                    if((ceIdx>=0)&&(ceIdx<ctx.mErro)) sval += ctx.e_hist.at(ceIdx);
+                }
+
+                if(!isFiniteReal(sval)) return false;
+                ctx.s[pIdx]=sval;
+            }
+
+            for(qint32 i=0;i<ctx.p;i++)
+            {
+                const qreal si = ctx.s.at(i);
+                (*outJTr)[i] += si*e;
+                for(qint32 j=i;j<ctx.p;j++)
+                    (*outJTJ)(i,j) += si*ctx.s.at(j);
+            }
+
+            for(qint32 pIdx=0;pIdx<ctx.p;pIdx++)
+            {
+                for(qint32 i=ctx.mErro-1;i>0;i--) ctx.s_hist[pIdx][i]=ctx.s_hist[pIdx].at(i-1);
+                if(ctx.mErro>0) ctx.s_hist[pIdx][0]=ctx.s.at(pIdx);
+            }
+        }
+
+        for(qint32 i=ctx.mErro-1;i>0;i--) ctx.e_hist[i]=ctx.e_hist.at(i-1);
+        if(ctx.mErro>0) ctx.e_hist[0]=e;
+
+        if((lowDenHits>32) && ((lowDenHits*4)>(k+1))) return false;
+    }
+
+    if(needLM)
+        for(qint32 i=0;i<ctx.p;i++)
+            for(qint32 j=i+1;j<ctx.p;j++)
+                (*outJTJ)(j,i)=outJTJ->at(i,j);
+
+    outMinAbsDen = ctx.minAbsDen;
+    ctx.penDen = outPen;
+    return true;
+}
+////////////////////////////////////////////////////////////////////////////////
+void DEStruct::InitThetaByLS(const ModelEvalContext &ctx,QVector<qreal> &Theta) const
+{
+    Theta.fill(0.0,ctx.p);
+    if(ctx.N<=0 || !ctx.pY || !ctx.pVlrsRegress) return;
+
+    const qint32 offDen = ctx.tamNumSel;
+    const qint32 offTheta0 = offDen + ctx.tamDenSel;
+
+    qreal mediaY = 0.0;
+    for(qint32 k=0;k<ctx.N;k++) mediaY += ctx.pY->at(k,0);
+    mediaY /= ctx.N;
+
+    if(ctx.tamNumSel<=0)
+    {
+        Theta[offTheta0] = mediaY - (ctx.hasNumConst ? 1.0 : 0.0);
+        return;
+    }
+
+    const qint32 pLS = ctx.tamNumSel + 1; // +theta0
+    JMathVar<qreal> A;
+    JMathVar<qreal> b;
+    A.fill(0.0,pLS,pLS);
+    b.fill(0.0,pLS,1);
+
+    for(qint32 k=0;k<ctx.N;k++)
+    {
+        for(qint32 i=0;i<ctx.tamNumSel;i++)
+        {
+            const qreal xi = ctx.pVlrsRegress->at(k,ctx.idxNum.at(i));
+            for(qint32 j=i;j<ctx.tamNumSel;j++)
+            {
+                const qreal xj = ctx.pVlrsRegress->at(k,ctx.idxNum.at(j));
+                A(i,j) += xi*xj;
+            }
+            A(i,ctx.tamNumSel) += xi;
+            b(i,0) += xi*ctx.pY->at(k,0);
+        }
+        A(ctx.tamNumSel,ctx.tamNumSel) += 1.0;
+        b(ctx.tamNumSel,0) += ctx.pY->at(k,0);
+    }
+    for(qint32 i=0;i<pLS;i++)
+        for(qint32 j=i+1;j<pLS;j++)
+            A(j,i)=A.at(i,j);
+
+    bool isOk=false;
+    JMathVar<qreal> sol = A.SistemaLinear(b,isOk);
+    if(isOk && (sol.size()>=pLS))
+    {
+        bool ok2=true;
+        for(qint32 i=0;i<ctx.tamNumSel;i++)
+        {
+            if(!isFiniteReal(sol.at(i))) {ok2=false;break;}
+            Theta[i]=sol.at(i);
+        }
+        if(ok2 && isFiniteReal(sol.at(ctx.tamNumSel)))
+        {
+            Theta[offTheta0] = sol.at(ctx.tamNumSel);
+            return;
+        }
+    }
+    Theta[offTheta0] = mediaY - (ctx.hasNumConst ? 1.0 : 0.0);
+}
+////////////////////////////////////////////////////////////////////////////////
+bool DEStruct::LMRefineBudget_AllChromosomes(ModelEvalContext &ctx,
+                                             QVector<qreal> &Theta,
+                                             const qint32 &maxIterLM,
+                                             const qreal &eps,
+                                             const qreal &gamma,
+                                             const qreal &tolStep,
+                                             qreal &outSSE,
+                                             qreal &outPen,
+                                             qreal &outMinAbsDen,
+                                             qreal &outLambdaFinal,
+                                             qint32 &outIterUsed) const
+{
+    outSSE = kInvalidCost;
+    outPen = 0.0;
+    outMinAbsDen = 0.0;
+    outLambdaFinal = kLmLambdaInit;
+    outIterUsed = 0;
+    if(Theta.size()!=ctx.p) return false;
+
+    qreal sse=0.0,pen=0.0,minAbsDen=0.0;
+    if(!EvaluateStreaming_1plusDen(ctx,Theta,false,false,eps,gamma,sse,pen,minAbsDen,NULL,NULL,NULL,NULL))
+        return false;
+
+    qreal J = sse + gamma*pen;
+    qreal lambda = kLmLambdaInit;
+    const qint32 p = ctx.p;
+    JMathVar<qreal> JTJ,A,b,deltaMat;
+    QVector<qreal> JTr,ThetaTry,delta;
+    ThetaTry.resize(p);
+    delta.resize(p);
+
+    for(qint32 iter=0;iter<maxIterLM;iter++)
+    {
+        if(!EvaluateStreaming_1plusDen(ctx,Theta,false,true,eps,gamma,sse,pen,minAbsDen,&JTJ,&JTr,NULL,NULL))
+            break;
+
+        A = JTJ;
+        b.fill(0.0,p,1);
+        for(qint32 i=0;i<p;i++)
+        {
+            qreal di = A.at(i,i);
+            if(!isFiniteReal(di) || fabs(di)<kLmDiagFloor) di = 1.0;
+            A(i,i) = A.at(i,i) + lambda*di;
+            b(i,0) = JTr.at(i);
+        }
+
+        bool isOk=false;
+        deltaMat = A.SistemaLinear(b,isOk);
+        if(!isOk || (deltaMat.size()<p))
+        {
+            lambda *= 10.0;
+            if(lambda>kLmLambdaMax) break;
+            continue;
+        }
+
+        qreal normDelta=0.0,normTheta=0.0;
+        bool isFiniteDelta=true;
+        for(qint32 i=0;i<p;i++)
+        {
+            delta[i]=deltaMat.at(i);
+            if(!isFiniteReal(delta.at(i))) {isFiniteDelta=false;break;}
+            ThetaTry[i]=Theta.at(i)+delta.at(i);
+            if(!isFiniteReal(ThetaTry.at(i))) {isFiniteDelta=false;break;}
+            normDelta += delta.at(i)*delta.at(i);
+            normTheta += Theta.at(i)*Theta.at(i);
+        }
+        if(!isFiniteDelta)
+        {
+            lambda *= 10.0;
+            if(lambda>kLmLambdaMax) break;
+            continue;
+        }
+
+        qreal sseTry=0.0,penTry=0.0,minAbsTry=0.0;
+        if(!EvaluateStreaming_1plusDen(ctx,ThetaTry,false,false,eps,gamma,sseTry,penTry,minAbsTry,NULL,NULL,NULL,NULL))
+        {
+            lambda *= 10.0;
+            if(lambda>kLmLambdaMax) break;
+            continue;
+        }
+
+        const qreal Jtry = sseTry + gamma*penTry;
+        if(Jtry < J)
+        {
+            Theta = ThetaTry;
+            J = Jtry;
+            sse = sseTry;
+            pen = penTry;
+            minAbsDen = minAbsTry;
+            lambda *= 0.1;
+            if(lambda<kLmLambdaMin) lambda=kLmLambdaMin;
+            outIterUsed = iter+1;
+            const qreal stepRel = sqrt(normDelta)/(sqrt(normTheta)+kLmDiagFloor);
+            if(stepRel < tolStep) break;
+        }
+        else
+        {
+            lambda *= 10.0;
+            if(lambda>kLmLambdaMax) break;
+        }
+    }
+
+    outSSE = sse;
+    outPen = pen;
+    outMinAbsDen = minAbsDen;
+    outLambdaFinal = lambda;
+    return isFiniteReal(outSSE) && (outSSE>=0.0);
+}
+////////////////////////////////////////////////////////////////////////////////
+qreal DEStruct::CalcPenalidadeSemEntrada(const Cromossomo &cr,const qint32 &qtdeAtrasos) const
+{
+    bool temEntrada = false;
+    const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
+    for(qint32 r=0; r<cr.regress.size() && !temEntrada; r++)
+        for(qint32 t=0; t<cr.regress.at(r).size() && !temEntrada; t++)
+            if(cr.regress.at(r).at(t).vTermo.tTermo1.reg)
+                if(cr.regress.at(r).at(t).vTermo.tTermo1.var > qtS) temEntrada = true;
+    return temEntrada ? 0.0 : (kNoInputPenaltyFactor*qtdeAtrasos);
+}
+////////////////////////////////////////////////////////////////////////////////
+void DEStruct::DES_CalcERRPrepared(Cromossomo &cr,const qreal &metodoSerr,JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsMedido) const
+{
+    // Nucleo original de ERR reaproveitando vlrsRegress/vlrsMedido previamente montados.
+    JStrSet jst;
+    qint32 i=0,j=0,k=0,aux,start=0;
+    qreal vlrsMedidoQuad=0.,serr=0.,u=0.;
+    JMathVar<qreal> A,a,c,x,v;
+
+    if(cr.regress.size())
+    {
+        A = vlrsRegress;
+        // Para compatibilidade com o ERR antigo, lineariza apenas para o calculo de ERR:
+        // termos de denominador recebem -y sem alterar vlrsRegress base.
+        for(i=0;i<cr.regress.size() && i<A.numColunas();i++)
+            if(cr.regress.at(i).size() && !cr.regress.at(i).at(0).vTermo.tTermo1.nd)
+                for(j=0;j<A.numLinhas();j++)
+                    A(j,i) = -A.at(j,i)*vlrsMedido.at(j,0);
+
+        A.replace(vlrsMedido,jst.set("(:,%1)=(:,:)").argInt(A.numColunas()));
+        const qint32 n = A.numColunas()-1;
+        vlrsMedidoQuad = vlrsMedido(vlrsMedido,jst.set("(:)'*(:)")).at(0);
+        c.resize(n);
+        cr.err.fill(0,n);
+        for(j=0;j<n;j++)
+        {
+            for(k=j;k<n;k++)
+            {
+                x = (A(A,jst.set("(%1:,%2)'*(%1:,%3)^2").argInt(j).argInt(k).argInt(n)));
+                v = (A(A,jst.set("%f1*(%1:,%2)'*(%1:,%2)").argReal(vlrsMedidoQuad).argInt(j).argInt(k)));
+                c(k) = x.at(0)/v.at(0);
+            }
+            cr.err(j) = c.MaiorElem(jst.set("(%1:1:%2)").argInt(j).argInt(n),start,aux);
+            if(aux!=j)
+            {
+                A.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux));
+                vlrsRegress.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux));
+                qSwap(cr.regress[j],cr.regress[aux]);
+            }
+            v = A(jst.set("(%1:,%1)'").argInt(j));
+            u=v.Norma(2);
+            if(u!=0)
+            {
+                u = ((v.at(0)>kPivotGuard)||(v.at(0)<-kPivotGuard)?v.at(0):(v.at(0)>0)?kPivotGuard:-kPivotGuard) + sign(v.at(0))*u;
+                v.replace(v,jst.set("(1:)=%f1*(1:)").argReal(1/u));
+            }
+            v(0)=1;
+            a = A(jst.set("(%1:,%1:)").argInt(j));
+            u = -2/v(v,jst.set("(:)*(:)'")).at(0);
+            x = a(a,jst.set("(0:,0:)=%f1*(0:,0:)").argReal(u));
+            x = x(v,jst.set("(:,:)'*(:,:)'"));
+            x = v(x,jst.set("(:,:)'*(:,:)'"));
+            a.replace(x,jst.set("(:,:)+=(:,:)"));
+            A.replace(a,jst.set("(%1,%1)=(:,:)").argInt(j));
+        }
+        for(j=0;j<n-1;j++)
+        {
+            cr.err.MaiorElem(jst.set("(%1:1:%2)").argInt(j).argInt(n),start,aux);
+            if(aux!=j)
+            {
+                cr.err.swap(jst.set("(%1)=(%2)").argInt(j).argInt(aux));
+                A.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux));
+                vlrsRegress.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux));
+                qSwap(cr.regress[j],cr.regress[aux]);
+            }
+        }
+        for(j=0,serr=0.0;(j<cr.err.size())&&((serr<metodoSerr)||(cr.err.at(j)>kSerrKeepThreshold))&&(cr.err.at(j)>kSerrMinThreshold)&&(cr.err.at(j)==cr.err.at(j));j++)
+            serr+=cr.err.at(j);
+        vlrsRegress = vlrsRegress(jst.set("(:,0:1:%1)").argInt(j));
+        cr.err = cr.err(jst.set("(:,0:1:%1)").argInt(j));
+        for(;j<cr.regress.size();) cr.regress.remove(j);
+        for(cr.maiorAtraso=0,i=0;i<cr.regress.size();i++)
+            for(j=0;j<cr.regress.at(i).size();j++)
+                if((qint32)cr.regress.at(i).at(j).vTermo.tTermo1.atraso>cr.maiorAtraso)
+                    cr.maiorAtraso=cr.regress.at(i).at(j).vTermo.tTermo1.atraso;
+    }
+}
+////////////////////////////////////////////////////////////////////////////////
+void DEStruct::DES_calAptidaoPrepared(Cromossomo &cr,const quint32 &tamErroEfetivo,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsMedido) const
+{
+    cr.erro = kInvalidCost;
+    cr.aptidao = kInvalidCost;
+    cr.theta0 = 0.0;
+
+    const qint32 N = vlrsMedido.numLinhas();
+    if(N<=0)
+    {
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=N<=0";
+        return;
+    }
+
+    while(cr.regress.size()>vlrsRegress.numColunas())
+    {
+        cr.regress.removeLast();
+        if(cr.err.numColunas()>0) cr.err.remove('C',cr.err.numColunas()-1);
+    }
+
+    if(cr.err.numColunas()<cr.regress.size())
+        for(qint32 i=cr.err.numColunas();i<cr.regress.size();i++) cr.err.append('C',-1);
+    while(cr.err.numColunas()>cr.regress.size()) cr.err.remove('C',cr.err.numColunas()-1);
+
+    const qreal eps = kDenClampEpsDefault;
+    const qreal gamma = kGammaPenaltyDefault;
+    const qreal tolStep = kLmTolStepDefault;
+    const qint32 maxIterLM = kLmMaxIterDefault; // Budget leve para todos os cromossomos
+
+    ModelEvalContext ctx;
+    if(!BuildEvalContextFromChromosome(cr,vlrsRegress,vlrsMedido,(qint32)tamErroEfetivo,ctx))
+    {
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_context";
+        return;
+    }
+
+    QVector<qreal> Theta;
+    InitThetaByLS(ctx,Theta);
+
+    qreal sse=kInvalidCost,pen=0.0,minAbsDen=0.0,lambdaFinal=0.0;
+    qint32 itLM=0;
+    const bool okLM = LMRefineBudget_AllChromosomes(ctx,Theta,maxIterLM,eps,gamma,tolStep,sse,pen,minAbsDen,lambdaFinal,itLM);
+    if(!okLM)
+    {
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=lm_failed";
+        return;
+    }
+
+    const qint32 offDen = ctx.tamNumSel;
+    const qint32 offTheta0 = offDen + ctx.tamDenSel;
+    const qint32 offCe = offTheta0 + 1;
+
+    cr.vlrsCoefic.fill(0.0,cr.regress.size()+ctx.mErro);
+    for(qint32 i=0;i<ctx.tamNumSel;i++)
+        if(i<ctx.idxNum.size())
+            cr.vlrsCoefic(ctx.idxNum.at(i)) = Theta.at(i);
+    for(qint32 i=0;i<ctx.tamDenSel;i++)
+        if(i<ctx.idxDen.size())
+            cr.vlrsCoefic(ctx.idxDen.at(i)) = Theta.at(offDen+i);
+    for(qint32 i=0;i<ctx.mErro;i++)
+        cr.vlrsCoefic(cr.regress.size()+i) = Theta.at(offCe+i);
+    cr.theta0 = Theta.at(offTheta0);
+
+    const qreal mse = sse/N;
+    if(!isFiniteReal(mse) || (mse<=0.0))
+    {
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_mse mse=" << mse;
+        return;
+    }
+    cr.erro = mse;
+
+    // Penalizacao de tamanho (BIC): considera todos os parametros do modelo,
+    // incluindo termos de residuo (ce).
+    const qint32 kBIC = ctx.p;
+    cr.aptidao = N*qLn(cr.erro) + DES_Adj.pesoBIC*kBIC*qLn(N);
+    cr.aptidao += CalcPenalidadeSemEntrada(cr,N);
+    if(!isFiniteReal(cr.aptidao))
+    {
+        cr.aptidao=kInvalidCost;
+        cr.erro=kInvalidCost;
+        if(isEvalLogEnabled()) qDebug().nospace() << "DES_EVAL abort sid=" << cr.idSaida << " reason=invalid_bic";
+        return;
+    }
+
+    if(isEvalLogEnabled())
+    {
+        qDebug().nospace()
+            << "DES_EVAL sid=" << cr.idSaida
+            << " N=" << N
+            << " p=" << ctx.p
+            << " kBIC=" << kBIC
+            << " SSE=" << sse
+            << " penDen=" << pen
+            << " minAbsDen=" << minAbsDen
+            << " lambdaFinal=" << lambdaFinal
+            << " iterLM=" << itLM
+            << " mse=" << cr.erro
+            << " bic=" << cr.aptidao;
+    }
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1405,7 +2005,7 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
                 expo +=((cr.regress.at(countRegress).at(i).expoente-expo)>=0.5)?1:(((cr.regress.at(countRegress).at(i).expoente-expo)<=-0.5)?-1:0);
                 if(DES_Adj.isTipoExpo==2) expo = fabs(expo); //Obtem um expoente natural
             }
-            if((expo>1e-5)||(expo<-1e-5)||(!cr.regress.at(countRegress).at(i).vTermo.tTermo1.reg))
+            if((expo>kExpoZeroTol)||(expo<-kExpoZeroTol)||(!cr.regress.at(countRegress).at(i).vTermo.tTermo1.reg))
             {
                 atraso = cr.regress.at(countRegress).at(i).vTermo.tTermo1.atraso; //Obtem o atraso deste regressor
                 const quint8 bt = cr.regress.at(countRegress).at(i).vTermo.tTermo1.basisType;
@@ -1437,63 +2037,45 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
 ////////////////////////////////////////////////////////////////////////////////
 inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,const JMathVar<qreal> &vlrsMedido,JMathVar<qreal> &vlrsResiduo,JMathVar<qreal> &vlrsEstimado) const
 {
-    //////////////////////////////////////////////////////////////////////////////////
-    JStrSet jst;
-    JMathVar<qreal> vlrsRegressNum,vlrsRegressDen,vlrsCoeficNum,vlrsCoeficDen,a,b;
-    qint32 i=0,atraso=0,tamNum=0,tamDen=0;
-    qreal *estimado,*residuo;
-    const qreal *medido;
-    ////////////////////////////////////////////////////////////////////////////////
-    //Separa em regressores do numerador e do denominador.
-    for(tamNum=0,tamDen=0,i=0;i<cr.regress.size();i++) //Varre todos os termos para aquele cromossomo
+    const qint32 tamErro = qMax(0,vlrsCoefic.numColunas()-cr.regress.size());
+    ModelEvalContext ctx;
+    if(!BuildEvalContextFromChromosome(cr,vlrsRegress,vlrsMedido,tamErro,ctx))
     {
-        if(cr.regress.at(i).at(0).vTermo.tTermo1.nd)
-        {
-            vlrsCoeficNum.copy(vlrsCoefic,jst.set("(:,%1)=(:,%2)").argInt(tamNum).argInt(i));
-            vlrsRegressNum.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamNum++).argInt(i));
-        }
-        else
-        {
-            vlrsCoeficDen.copy(vlrsCoefic,jst.set("(:,%1)=(:,%2)").argInt(tamDen).argInt(i));
-            vlrsRegressDen.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamDen++).argInt(i));
-        }
+        vlrsEstimado.fill(0.0,vlrsMedido.numLinhas(),1);
+        vlrsResiduo = vlrsMedido;
+        return;
     }
-    ////////////////////////////////////////////////////////////////////////////////
-    //Faz o c�lculo do valor estimado.
-    //Equa��o correta (consistente com o ELS Estendido):
-    //  y = (Rnum*Cnum + E*Ce) / (1 + Rden*Cden)
-    vlrsEstimado = vlrsRegressNum(vlrsCoeficNum,jst.set("(:,:)*(:,:)'"));
-    b = vlrsRegressDen(vlrsCoeficDen,jst.set("(:,:)*(:,:)'"));
-    a.fill(1,vlrsEstimado.numLinhas(),vlrsEstimado.numColunas());
-    if(b.numLinhas() > 0)
-        a.copy(b,jst.set("(:,:)+=(:,:)"));
-    ////////////////////////////////////////////////////////////////////////////////
-    //Insere os termos do residuo no sistema se houver
-    const qint32 tamErro = vlrsCoefic.numColunas()-(tamNum+tamDen);
-    if(tamErro)
+
+    const qint32 offNum = 0;
+    const qint32 offDen = offNum + ctx.tamNumSel;
+    const qint32 offTheta0 = offDen + ctx.tamDenSel;
+    const qint32 offCe = offTheta0 + 1;
+
+    QVector<qreal> Theta;
+    Theta.fill(0.0,ctx.p);
+
+    for(qint32 i=0;i<ctx.tamNumSel;i++)
     {
-        vlrsResiduo.fill(0,vlrsMedido.numLinhas(),1);
-        ////////////////////////////////////////////////////////////////////////////////
-        //Calcula os valores estimados dos residuos com os regressores do residuo.
-        //Os termos de erro sao somados ao numerador ANTES da divisao pelo denominador.
-        const qint32 tamvlrsRegress = (tamNum+tamDen);
-        const qreal *denVal = a.begin();
-        for(atraso=0,estimado=vlrsEstimado.begin(),residuo=vlrsResiduo.begin(),medido=vlrsMedido.begin();medido < vlrsMedido.end();medido++,residuo++,estimado++,atraso++,denVal++)
-        {
-            for(i=0;i<tamErro;i++)
-                *estimado += vlrsCoefic.at(tamvlrsRegress+i)*((atraso-i-1)>=0?*(residuo-i-1):0);
-            //Protecao contra divisao por zero no denominador (1+Rden*Cden)
-            if(fabs(*denVal) > 1e-15)
-                *estimado /= *denVal;
-            else
-                *estimado = (*estimado >= 0 ? 1e199 : -1e199);
-            *residuo = *medido - *estimado;
-        }
+        const qint32 idReg = ctx.idxNum.at(i);
+        if(idReg<vlrsCoefic.numColunas()) Theta[i] = vlrsCoefic.at(idReg);
     }
-    else
+    for(qint32 i=0;i<ctx.tamDenSel;i++)
     {
-        vlrsEstimado.copy(a,jst.set("(:,:)/=(:,:)"));
-        vlrsResiduo = vlrsMedido(vlrsEstimado,jst.set("(:)-(:)"));
+        const qint32 idReg = ctx.idxDen.at(i);
+        if(idReg<vlrsCoefic.numColunas()) Theta[offDen+i] = vlrsCoefic.at(idReg);
+    }
+    Theta[offTheta0] = cr.theta0;
+    for(qint32 i=0;i<ctx.mErro;i++)
+    {
+        const qint32 idCoef = cr.regress.size()+i;
+        if(idCoef<vlrsCoefic.numColunas()) Theta[offCe+i] = vlrsCoefic.at(idCoef);
+    }
+
+    qreal sse=0.0,pen=0.0,minAbsDen=0.0;
+    if(!EvaluateStreaming_1plusDen(ctx,Theta,true,false,kDenClampEpsDefault,kGammaPenaltyDefault,sse,pen,minAbsDen,NULL,NULL,&vlrsEstimado,&vlrsResiduo))
+    {
+        vlrsEstimado.fill(0.0,vlrsMedido.numLinhas(),1);
+        vlrsResiduo = vlrsMedido;
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -1501,307 +2083,18 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
 //Calcula a taxa de redu��o do erro e seleciona apartir de uma valor serr desejado
 void DEStruct::DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const
 {
-    //////////////////////////////////////////////////////////////////////////////////
-    JStrSet jst;
-    qint32 i=0,j=0,k=0,aux,start=0;
-    qreal vlrsMedidoQuad=0.,serr=0.,u=0.;
-    JMathVar<qreal> vlrsMedido,vlrsRegress,A,a,c,x,v;
-    //////////////////////////////////////////////////////////////////////////////////
-    //Monta a matrix valores dos regressores
-    DES_MontaVlrs(cr,vlrsRegress,vlrsMedido,true);
-    ////////////////////////////////////////////////////////////////////////////////
-    if(cr.regress.size())
-    {
-        A = vlrsRegress;
-        A.replace(vlrsMedido,jst.set("(:,%1)=(:,:)").argInt(A.numColunas()));
-        const qint32 n = A.numColunas()-1;
-        vlrsMedidoQuad = vlrsMedido(vlrsMedido,jst.set("(:)'*(:)")).at(0);
-        c.resize(n);
-        cr.err.fill(0,n);
-        for(j=0;j<n;j++)
-        {
-            for(k=j;k<n;k++) //Ate completar o numero de termos candidatos
-            {
-                x = (A(A,jst.set("(%1:,%2)'*(%1:,%3)^2").argInt(j).argInt(k).argInt(n)));
-                v = (A(A,jst.set("%f1*(%1:,%2)'*(%1:,%2)").argReal(vlrsMedidoQuad).argInt(j).argInt(k))); //err do regressor k;
-                c(k) = x.at(0)/v.at(0);
-            }
-            cr.err(j) = c.MaiorElem(jst.set("(%1:1:%2)").argInt(j).argInt(n),start,aux);
-            if(aux!=j)
-            {
-                A.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux)); // troca a coluna atual com a de maior err
-                vlrsRegress.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux));
-                qSwap(cr.regress[j],cr.regress[aux]);
-            }
-            v = A(jst.set("(%1:,%1)'").argInt(j));
-            u=v.Norma(2);
-            if(u!=0)
-            {
-                u = ((v.at(0)>1e-10)||(v.at(0)<-1e-10)?v.at(0):(v.at(0)>0)?1e-10:-1e-10) + sign(v.at(0))*u;
-                v.replace(v,jst.set("(1:)=%f1*(1:)").argReal(1/u));
-            }
-            v(0)=1;
-            a = A(jst.set("(%1:,%1:)").argInt(j));
-            u = -2/v(v,jst.set("(:)*(:)'")).at(0);    //-2/(v'*v)
-            x = a(a,jst.set("(0:,0:)=%f1*(0:,0:)").argReal(u));  //x=a*b
-            x = x(v,jst.set("(:,:)'*(:,:)'"));        //x=x'*v
-            x = v(x,jst.set("(:,:)'*(:,:)'"));        //x=v*x'
-            a.replace(x,jst.set("(:,:)+=(:,:)"));        //a+=x
-            A.replace(a,jst.set("(%1,%1)=(:,:)").argInt(j));
-        }
-        ////////////////////////////////////////////////////////////////////////////////
-        for(j=0;j<n-1;j++)
-        {
-            cr.err.MaiorElem(jst.set("(%1:1:%2)").argInt(j).argInt(n),start,aux);
-            if(aux!=j)
-            {
-                cr.err.swap(jst.set("(%1)=(%2)").argInt(j).argInt(aux));
-                A.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux)); // pivota a coluna dos regressores com maior err
-                vlrsRegress.swap(jst.set("(:,%1)=(:,%2)").argInt(j).argInt(aux));
-                qSwap(cr.regress[j],cr.regress[aux]);
-            }
-        }
-        //////////////////////////////////////////////////////////////////////////////////
-        //Pega da matriz vlrsRegress apenas o que � interessante.
-        a.clear();
-        for(j=0,serr=0.0;(j<cr.err.size())&&((serr<metodoSerr)||(cr.err.at(j)>0.001))&&(cr.err.at(j)>0.0009)&&(cr.err.at(j)==cr.err.at(j));j++)
-            serr+=cr.err.at(j);
-        vlrsRegress = vlrsRegress(jst.set("(:,0:1:%1)").argInt(j));
-        cr.err = cr.err(jst.set("(:,0:1:%1)").argInt(j));
-        for(;j<cr.regress.size();) cr.regress.remove(j);
-        //////////////////////////////////////////////////////////////////////////////////
-        //Verifica quem � o maior atraso e o atualiza.
-        for(cr.maiorAtraso=0,i=0;i<cr.regress.size();i++)
-            for(j=0;j<cr.regress.at(i).size();j++)
-                if((qint32)cr.regress.at(i).at(j).vTermo.tTermo1.atraso>cr.maiorAtraso)
-                    cr.maiorAtraso=cr.regress.at(i).at(j).vTermo.tTermo1.atraso;
-        ////////////////////////////////////////////////////////////////////////////////                               
-    }
+    JMathVar<qreal> vlrsMedido,vlrsRegress;
+    DES_MontaVlrs(cr,vlrsRegress,vlrsMedido,true,false);
+    DES_CalcERRPrepared(cr,metodoSerr,vlrsRegress,vlrsMedido);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
 {
-    //////////////////////////////////////////////////////////////////////////////////
-    // Se isResiduo==false, desliga completamente os termos de residuo
     const quint32 tamErroEfetivo = DES_Adj.isResiduo ? tamErro : 0;
-    //////////////////////////////////////////////////////////////////////////////////
-    bool isOk1,isOk2,isOk=false;
-    JStrSet jst;
-    qreal var=0,var1=0,erroDepois=9e99;
-    //MTRand RG(QTime::currentTime().msec());
-    QVector<QVector<compTermo > > regressNum, regressDen;
-    JMathVar<qreal> vlrsRegress,vlrsRegress1,vlrsRegressNum,vlrsRegressDen,vlrsRegressDenAux,vlrsCoefic,vlrsCoefic1,
-                    vlrsEstimado,vlrsResiduo,vlrsMedido,
-                    errNum,errDen,auxDen,
-                    sigma1,sigma2,aux1,aux2,x,v;
-    qint32 i,tamNum=0,tamDen=0,count1=0,count2=0,size=0;
-    //////////////////////////////////////////////////////////////////////////////////
-    cr.erro      = 9e99;
-    cr.aptidao   = 9e99;
-    errNum.remove('C',0);
-    errDen.remove('C',0);
-    //////////////////////////////////////////////////////////////////////////////////
-    //Monta a matrix valores dos regressores
+    JMathVar<qreal> vlrsRegress,vlrsMedido;
     DES_MontaVlrs(cr,vlrsRegress,vlrsMedido,true,false);
-    const qint32 qtdeAtrasos = vlrsMedido.numLinhas();
-    ////////////////////////////////////////////////////////////////////////////////
-    // Proteção: se não há dados suficientes, retorna com aptidão máxima (pior)
-    if (qtdeAtrasos <= 0 || cr.regress.size() == 0) {
-        return;
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    // Remove regressores excedentes que não foram processados em DES_MontaVlrs
-    // (quando cr.regress.size() > vlrsRegress.numColunas(), as colunas extras não existem)
-    while (cr.regress.size() > vlrsRegress.numColunas()) {
-        cr.regress.removeLast();
-        cr.err.remove('C', cr.err.numColunas()-1);
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    for(i=0;i<cr.regress.size();i++) size+=cr.regress.at(i).size();
-    ////////////////////////////////////////////////////////////////////////////////
-    //Separa em regressores do numerador e do denominador.
-    for(tamNum=0,tamDen=0,i=0;i<cr.regress.size();i++) //Varre todos os termos para aquele cromossomo
-    {
-        if(cr.regress.at(i).at(0).vTermo.tTermo1.nd)
-        {
-            regressNum.append(cr.regress.at(i));
-            errNum.append('C',cr.err.at(i));
-            vlrsRegressNum.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamNum++).argInt(i));
-        }
-        else
-        {
-            regressDen.append(cr.regress.at(i));
-            errDen.append('C',cr.err.at(i));
-            vlrsRegressDen.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamDen).argInt(i));
-            auxDen.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamDen).argInt(i));
-            auxDen.replace(vlrsMedido,jst.set("(:,%1)*=-1*(:,:)").argInt(tamDen++));//Multiplica pela saida e -1 pseudolineariza��o.
-        }
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    //Se n�o tiver nada no Numerador coloca pelo menos uma constante.
-    if(!tamNum)
-    {
-        tamNum++;
-        compTermo vlrTermo;
-        vlrTermo.vTermo.tTermo1.atraso = 0;//Apesar de n�o ter variavel � interessante que ela seja diferente de 0.
-        vlrTermo.vTermo.tTermo1.nd = 1;    //Indica que � do numerador
-        vlrTermo.vTermo.tTermo1.reg = 0;   //O regressor 0 � indicando o coeficiente constante
-        vlrTermo.vTermo.tTermo1.var = 1;   //Apesar de n�o ter variavel � interessante que ela seja diferente de 0.
-        vlrTermo.expoente = 1;
-        QVector<compTermo> vetTermo;
-        vetTermo.append(vlrTermo);
-        regressNum.prepend(vetTermo);
-        errNum.prepend('C',-1);
-        vlrsRegressNum.fill(1,qtdeAtrasos,1);
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    //Monta o cr.regress agora em ordem numerador + denominador.
-    cr.regress.clear();cr.regress += regressNum;cr.regress += regressDen;
-    cr.err.clear();cr.err.append('c',errNum);cr.err.append('c',errDen);
-    cr.err.setNumColunas(errNum.numColunas()+errDen.numColunas());
-    cr.vlrsCoefic.fill(0,tamNum+tamDen);
-    vlrsRegress = vlrsRegressNum;
-    vlrsRegress1= vlrsRegressNum;
-    if((vlrsRegressDen.numLinhas()==qtdeAtrasos)||(vlrsRegress.numLinhas()==1))
-    {
-        vlrsRegress1.copy(vlrsRegressDen,jst.set("(:,%1)=(:,:)").argInt(tamNum));//Valores sem estar multiplicados pela saida e sem o -1.
-        vlrsRegress.copy(auxDen,jst.set("(:,%1)=(:,:)").argInt(tamNum));//Valores multiplicados por -1 e a saida.
-        vlrsRegressDenAux.replace(auxDen,jst.set("(:,:)=-1*(:,:)"));//Valores multiplicados pela saida sem o -1.
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    //Faz quando � Racional.
-    if(vlrsRegressDenAux.numLinhas()==qtdeAtrasos)
-    {
-        ////////////////////////////////////////////////////////////////////////////////
-        //Calcula o sigma1
-        aux1 = vlrsRegressDenAux(vlrsRegressDenAux,jst.set("(:,:)'*(:,:)"));
-        sigma1.copy(aux1,jst.set("(%1,%1)=(:,:)").argInt(tamNum));
-        ////////////////////////////////////////////////////////////////////////////////
-        //Calcula o sigma2
-        aux2.resize(vlrsRegressDenAux.numColunas(),1);
-        for(i=0;i<vlrsRegressDenAux.numColunas();i++)
-            aux2(i,0)=-1*sum(vlrsRegressDenAux(jst.set("(:,%1)'").argInt(i)));
-        sigma2.copy(aux2,jst.set("(%1,:)=(:,:)").argInt(tamNum));
-        ////////////////////////////////////////////////////////////////////////////////
-    }
-    else //Faz quando � Polinomial.
-    {
-        sigma1.fill(0,vlrsRegress.numColunas(),vlrsRegress.numColunas());
-        sigma2.fill(0,vlrsRegress.numColunas(),1);
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    //Inicializa o count1
-    count1=0;
-    do
-    {
-        ////////////////////////////////////////////////////////////////////////////////
-        //Atualiza o erro, a aptidao e os vlrsCoefic.
-        if(count1&&isOk&&(erroDepois<cr.erro))
-        {
-            cr.vlrsCoefic = vlrsCoefic; //Atualiza os coeficientes.
-            cr.erro       = erroDepois;
-            //BIC: k = numero de coeficientes lineares estimados dos dados
-            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + DES_Adj.pesoBIC*cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
-            ////////////////////////////////////////////////////////////////////////////////
-            //Penaliza fortemente cromossomos que nao usam variavel de entrada (estimulo).
-            //Um bom modelo de identificacao precisa de pelo menos uma entrada.
-            {
-                bool temSaida = false, temEntrada = false;
-                const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
-                for(qint32 r=0; r<cr.regress.size() && (!temSaida || !temEntrada); r++)
-                    for(qint32 t=0; t<cr.regress.at(r).size() && (!temSaida || !temEntrada); t++)
-                    {
-                        if(cr.regress.at(r).at(t).vTermo.tTermo1.reg) // reg!=0 => nao e constante
-                        {
-                            quint32 v = cr.regress.at(r).at(t).vTermo.tTermo1.var;
-                            if(v <= qtS) temSaida = true;
-                            if(v >  qtS) temEntrada = true;
-                        }
-                    }
-                if(!temEntrada) cr.aptidao += 100.0 * qtdeAtrasos; // penalidade: sem entrada
-            }
-            ////////////////////////////////////////////////////////////////////////////////
-        }
-        ////////////////////////////////////////////////////////////////////////////////
-        //Insere os termos do residuo no sistema
-        for(i=0;(i<count1)&&(vlrsResiduo.numLinhas()>1);i++)
-        {
-            vlrsResiduo.prepend('L',0);
-            vlrsResiduo.remove('L',vlrsResiduo.numLinhas()-1); //e(k-(i+1))
-            vlrsRegress.copy(vlrsResiduo,jst.set("(:,%1)=(:,:)").argInt(tamNum+tamDen+i));  //Insere termos do residuo
-            vlrsRegress1.copy(vlrsResiduo,jst.set("(:,%1)=(:,:)").argInt(tamNum+tamDen+i));  //Insere termos do residuo
-        }
-        ////////////////////////////////////////////////////////////////////////////////
-        //Inicializa o count2
-        count2 = 0;
-        do
-        {
-            ////////////////////////////////////////////////////////////////////////////////
-            if(count2)
-            {
-                var        = var1;
-                vlrsCoefic = vlrsCoefic1; //Atualiza os coeficientes.
-            }
-            ////////////////////////////////////////////////////////////////////////////////
-            //Calcula vlrsCoefic por [A'*A-COV(e)sigma1]*x = [A'*b-COV(e)*sigma2] -> M�todo dos m�nimos Quadrados estendido
-            v = vlrsRegress(vlrsRegress,jst.set("(:,:)'*(:,:)"));   //A'*A
-            v.copy(sigma1,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//v-var*sigma1
-            x = vlrsRegress(vlrsMedido,jst.set("(:,:)'*(:,:)"));    //A'*b
-            x.copy(sigma2,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//x-var*sigma2
-            vlrsCoefic1 = v.SistemaLinear(x,isOk);                  //Calcula os coeficientes V*vlrsCoefic=X.
-            ////////////////////////////////////////////////////////////////////////////////
-            if(isOk)
-            {
-                DES_CalcVlrsEstRes(cr,vlrsRegress1,vlrsCoefic1,vlrsMedido,vlrsResiduo,vlrsEstimado);
-                var1 = cov(vlrsResiduo);
-                ////////////////////////////////////////////////////////////////////////////////
-                isOk1 = compara(vlrsCoefic,vlrsCoefic1,1e-3);
-                isOk2 = (var-var1)==0?true:(var-var1)>0?(var-var1)<1e-3:(var-var1)>-1e-3;
-                count2++;
-                ////////////////////////////////////////////////////////////////////////////////
-            }
-        }
-        while(isOk&&(!(isOk1&&isOk2))&&count2<=20);
-        ////////////////////////////////////////////////////////////////////////////////
-        //Sincroniza vlrsCoefic com vlrsCoefic1: garante que os coeficientes armazenados
-        //correspondam exatamente ao erro (erroDepois) calculado a seguir.
-        if(isOk) vlrsCoefic = vlrsCoefic1;
-        ////////////////////////////////////////////////////////////////////////////////
-        erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o c�lculo do erro quadr�tico m�dio.
-        //Protecao: se erroDepois for NaN ou Inf, invalida esta iteracao
-        if(erroDepois!=erroDepois || erroDepois>=1e199 || erroDepois<=-1e199) { isOk=false; erroDepois=9e99; }
-        count1++;//Incrementa a variavel do tamanho do erro.
-    }
-    while((quint32) count1 <= tamErroEfetivo );
-    ////////////////////////////////////////////////////////////////////////////////
-    //Atualiza final: garante que a ultima iteracao nao seja desperdicada.
-    if(isOk&&(erroDepois<cr.erro))
-    {
-        cr.vlrsCoefic = vlrsCoefic;
-        cr.erro       = erroDepois;
-        cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + DES_Adj.pesoBIC*cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
-        {
-            bool temSaida = false, temEntrada = false;
-            const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;
-            for(qint32 r=0; r<cr.regress.size() && (!temSaida || !temEntrada); r++)
-                for(qint32 t=0; t<cr.regress.at(r).size() && (!temSaida || !temEntrada); t++)
-                {
-                    if(cr.regress.at(r).at(t).vTermo.tTermo1.reg)
-                    {
-                        quint32 v = cr.regress.at(r).at(t).vTermo.tTermo1.var;
-                        if(v <= qtS) temSaida = true;
-                        if(v >  qtS) temEntrada = true;
-                    }
-                }
-            if(!temEntrada) cr.aptidao += 100.0 * qtdeAtrasos;
-        }
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    //Elimina regressores com valor de coeficiente espurio. dentro da faixa de +-1e-3 ou acima da faixa +- 1e+3.
-    for(isOk=false,i=0;i<cr.regress.size()&&i<cr.vlrsCoefic.size();i++) //Varre todos os regressores para aquele cromossomo menos os do residuo final
-        if(cr.vlrsCoefic.at(i)!=0.0?((cr.vlrsCoefic.at(i)<=1e-3)&&(cr.vlrsCoefic.at(i)>=-1e-3))||(cr.vlrsCoefic.at(i)>=1e+3)||(cr.vlrsCoefic.at(i)<=-1e+3)||cr.vlrsCoefic.at(i)!=cr.vlrsCoefic.at(i):false) {cr.regress.remove(i);cr.err.remove('C',i);i--;isOk=true;}
-    if(isOk) DES_calAptidao(cr);
+    DES_calAptidaoPrepared(cr,tamErroEfetivo,vlrsRegress,vlrsMedido);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

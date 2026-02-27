@@ -20,6 +20,49 @@
 class QTextStream;
 class QFile;
 
+struct ModelEvalContext
+{
+    // Dados base (sem copia)
+    const JMathVar<qreal> *pVlrsRegress;
+    const JMathVar<qreal> *pY;
+    qint32 N;
+
+    // Selecao e mapeamento
+    QVector<qint32> idxNum;
+    QVector<qint32> idxDen;
+    bool hasNumConst;
+
+    // Dimensoes do vetor de parametros interno: [theta_num, theta_den, theta0, ce]
+    qint32 tamNumSel;
+    qint32 tamDenSel;
+    qint32 mErro;
+    qint32 p;
+
+    // Buffers reutilizados
+    QVector<qreal> numVec;
+    QVector<qreal> denVec;
+    QVector<qreal> e_hist;
+    QVector< QVector<qreal> > s_hist;
+    QVector<qreal> s;
+
+    // Metricas auxiliares
+    qreal minAbsDen;
+    qreal penDen;
+
+    ModelEvalContext()
+        : pVlrsRegress(NULL),
+          pY(NULL),
+          N(0),
+          hasNumConst(false),
+          tamNumSel(0),
+          tamDenSel(0),
+          mErro(0),
+          p(0),
+          minAbsDen(0.0),
+          penDen(0.0)
+    {}
+};
+
 class DEStruct : public QThread
 {
 
@@ -106,6 +149,35 @@ private:
     void DES_Carregar();
     void DES_AlgDiffEvol();
     const JMathVar<qreal> MultMatrizResiduo(Cromossomo &cr,JMathVar<qreal> &VetResiduo, const JMathVar<qreal> &matrizRegress, const JMathVar<qreal> &vetorCoefic, const JMathVar<qreal> &vetorMedido, const QVector<QVector<qreal> > &matResiduo) const;
+    void DES_CalcERRPrepared(Cromossomo &cr,const qreal &metodoSerr,JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsMedido) const;
+    void DES_calAptidaoPrepared(Cromossomo &cr,const quint32 &tamErroEfetivo,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsMedido) const;
+    bool BuildEvalContextFromChromosome(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsMedido,const qint32 &mErroEfetivo,ModelEvalContext &ctx) const;
+    bool EvaluateStreaming_1plusDen(ModelEvalContext &ctx,
+                                    const QVector<qreal> &Theta,
+                                    const bool &needTrace,
+                                    const bool &needLM,
+                                    const qreal &eps,
+                                    const qreal &gamma,
+                                    qreal &outSSE,
+                                    qreal &outPen,
+                                    qreal &outMinAbsDen,
+                                    JMathVar<qreal> *outJTJ=NULL,
+                                    QVector<qreal> *outJTr=NULL,
+                                    JMathVar<qreal> *outYhat=NULL,
+                                    JMathVar<qreal> *outE=NULL) const;
+    void InitThetaByLS(const ModelEvalContext &ctx,QVector<qreal> &Theta) const;
+    bool LMRefineBudget_AllChromosomes(ModelEvalContext &ctx,
+                                       QVector<qreal> &Theta,
+                                       const qint32 &maxIterLM,
+                                       const qreal &eps,
+                                       const qreal &gamma,
+                                       const qreal &tolStep,
+                                       qreal &outSSE,
+                                       qreal &outPen,
+                                       qreal &outMinAbsDen,
+                                       qreal &outLambdaFinal,
+                                       qint32 &outIterUsed) const;
+    qreal CalcPenalidadeSemEntrada(const Cromossomo &cr,const qint32 &qtdeAtrasos) const;
     static volatile qint16 DES_TH_size,DES_countSR;//,DES_countPipe;
     qint32 DES_TH_id;
     bool DES_idParada_Th[TAMPIPELINE];

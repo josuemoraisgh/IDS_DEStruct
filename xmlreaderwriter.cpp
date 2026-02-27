@@ -89,6 +89,7 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
                 xmlWriter.writeAttribute("erro", QString::number(XWR_Ajts->Pop.at(j).at(k).erro));
                 xmlWriter.writeAttribute("idSaida", QString::number(XWR_Ajts->Pop.at(j).at(k).idSaida));
                 xmlWriter.writeAttribute("maiorAtraso", QString::number(XWR_Ajts->Pop.at(j).at(k).maiorAtraso));
+                xmlWriter.writeAttribute("theta0", QString::number(XWR_Ajts->Pop.at(j).at(k).theta0));
                 strTermo.clear();strCoefic.clear();strExpoente.clear();
                 for(l=0;l<XWR_Ajts->Pop.at(j).at(k).regress.size();l++)
                 {
@@ -288,6 +289,7 @@ bool XmlReaderWriter::readFile(QIODevice *device)
             XWR_Ajts->Pop[saidas][cromo].erro = xmlRead.attributes().value("erro").toString().toDouble();
             XWR_Ajts->Pop[saidas][cromo].idSaida = xmlRead.attributes().value("idSaida").toString().toInt();
             XWR_Ajts->Pop[saidas][cromo].maiorAtraso = xmlRead.attributes().value("maiorAtraso").toString().toInt();
+            XWR_Ajts->Pop[saidas][cromo].theta0 = xmlRead.attributes().hasAttribute("theta0") ? xmlRead.attributes().value("theta0").toString().toDouble() : 0.0;
             XWR_Ajts->Pop[saidas][cromo].err.remove('C',0);
             XWR_Ajts->Pop[saidas][cromo].vlrsCoefic.remove('C',0);
         }

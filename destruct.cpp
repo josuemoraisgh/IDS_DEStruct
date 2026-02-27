@@ -1702,7 +1702,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
             cr.vlrsCoefic = vlrsCoefic; //Atualiza os coeficientes.
             cr.erro       = erroDepois;
             //BIC: k = numero de coeficientes lineares estimados dos dados
-            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
+            cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + DES_Adj.pesoBIC*cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
             ////////////////////////////////////////////////////////////////////////////////
             //Penaliza fortemente cromossomos que nao usam variavel de entrada (estimulo).
             //Um bom modelo de identificacao precisa de pelo menos uma entrada.
@@ -1780,7 +1780,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
     {
         cr.vlrsCoefic = vlrsCoefic;
         cr.erro       = erroDepois;
-        cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
+        cr.aptidao    = qtdeAtrasos*qLn(cr.erro) + DES_Adj.pesoBIC*cr.vlrsCoefic.size()*qLn(qtdeAtrasos);
         {
             bool temSaida = false, temEntrada = false;
             const quint32 qtS = (quint32)DES_Adj.Dados.variaveis.qtSaidas;

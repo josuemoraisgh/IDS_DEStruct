@@ -95,7 +95,7 @@ class ICalc : public DummyBase
         QCheckBox *CheckBox1,*CheckBox2,*chkResiduo;
 
         QLabel *LN,*LEL,*LESE,*LEM,*LENC,*LEIR,*LDI,*LPI;
-        QLineEdit *LEN,*LEEL,*LEESE,*LEEM,*LEENC,*LEDI,*LEPI;
+        QLineEdit *LEN,*LEEL,*LEESE,*LEEM,*LEENC,*LEDI,*LEPI,*LEBIC;
         QComboBox *styleComboBox,
                   *saidaComboBox,
                   *polRacComboBox,

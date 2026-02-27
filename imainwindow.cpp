@@ -236,6 +236,7 @@ void ICalc::slot_MW_Parado()
         polRacComboBox->setEnabled(true);
         intRealComboBox->setEnabled(true);
         chkResiduo->setEnabled(true);
+        LEBIC->setEnabled(true);
     }
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -250,6 +251,7 @@ void ICalc::slot_MW_Finalizado()
         polRacComboBox->setEnabled(true);
         intRealComboBox->setEnabled(true);
         chkResiduo->setEnabled(true);
+        LEBIC->setEnabled(true);
     }
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -268,6 +270,7 @@ void ICalc::slot_MW_IniciarFinalizar()
         LEEL->setEnabled(true);
         LEEM->setEnabled(true);
         chkResiduo->setEnabled(true);
+        LEBIC->setEnabled(true);
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //DEStruct::DES_Adj.isCriado=false;
     }
@@ -395,12 +398,14 @@ void ICalc::slot_MW_PararContinuar()
         DEStruct::DES_Adj.isTipoExpo = intRealComboBox->currentIndex();
         DEStruct::DES_Adj.isRacional = (polRacComboBox->currentIndex()==0);
         DEStruct::DES_Adj.isResiduo = chkResiduo->isChecked();
+        DEStruct::DES_Adj.pesoBIC = LEBIC->text().toDouble();
         LEEM->setEnabled(false);
         LEENC->setEnabled(false);
         LEESE->setEnabled(false);
         polRacComboBox->setEnabled(false);
         intRealComboBox->setEnabled(false);
         chkResiduo->setEnabled(false);
+        LEBIC->setEnabled(false);
         actionParar->setText(QString("Parar"));
         actionIni->setEnabled(false);    
         MW_tempo = QDateTime::currentDateTime();
@@ -862,6 +867,16 @@ void ICalc::ini_MW_interface()
     chkResiduo->setChecked(true);
     mainToolbar->addWidget(chkResiduo);
     //////////////////////////////////////////////////////////////////////////////
+    mainToolbar->addWidget(new QLabel(" wBIC:=",this));
+    LEBIC = new QLineEdit("0.999",this);
+    LEBIC->setObjectName(QString::fromUtf8("LEBIC"));
+    LEBIC->setSizePolicy(sizePolicy3);
+    LEBIC->setMaximumSize(QSize(50, 16777215));
+    LEBIC->setContextMenuPolicy(Qt::NoContextMenu);
+    LEBIC->setValidator(new QDoubleValidator(0.0, 0.999, 3, this));
+    LEBIC->setToolTip(tr("Peso da parcimonia no BIC (0=so erro, 0.999=padrao)"));
+    mainToolbar->addWidget(LEBIC);
+    //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();
     styleComboBox = new QComboBox;
     styleComboBox->addItem("Medido/Estimado");
@@ -1016,6 +1031,7 @@ void ICalc::slot_MW_openConfig()
         intRealComboBox->setCurrentIndex(DEStruct::DES_Adj.isTipoExpo);
         polRacComboBox->setCurrentIndex(DEStruct::DES_Adj.isRacional?0:1);
         chkResiduo->setChecked(DEStruct::DES_Adj.isResiduo);
+        LEBIC->setText(QString::number(DEStruct::DES_Adj.pesoBIC));
         LEN->setText(QString::number(DEStruct::DES_Adj.Dados.tamPop));
         if(DEStruct::DES_Adj.isPararContinuarEnabled)
         {
@@ -1049,6 +1065,7 @@ void ICalc::slot_MW_saveAsConfig()
     DEStruct::DES_Adj.isTipoExpo = intRealComboBox->currentIndex();
     DEStruct::DES_Adj.isRacional = (polRacComboBox->currentIndex()==0);
     DEStruct::DES_Adj.isResiduo = chkResiduo->isChecked();
+    DEStruct::DES_Adj.pesoBIC = LEBIC->text().toDouble();
     DEStruct::DES_Adj.isIniciaEnabled=actionIni->isEnabled();
     DEStruct::DES_Adj.salvarAutomati=true;
     DEStruct::DES_Adj.isPararContinuarEnabled = !actionParar->isEnabled()?0:actionParar->text()==QString("Parar")?1:2;

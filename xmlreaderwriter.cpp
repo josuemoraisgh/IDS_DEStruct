@@ -30,6 +30,7 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
         xmlWriter.writeAttribute("isExpoReal",QString::number(XWR_Ajts->isTipoExpo));
         xmlWriter.writeAttribute("isRacional",QString::number(XWR_Ajts->isRacional));
         xmlWriter.writeAttribute("isResiduo",QString::number(XWR_Ajts->isResiduo));
+        xmlWriter.writeAttribute("pesoBIC",QString::number(XWR_Ajts->pesoBIC));
 
         xmlWriter.writeAttribute("isIniciaEnabled", QString::number(XWR_Ajts->isIniciaEnabled));
         xmlWriter.writeAttribute("salvarAutomati", QString::number(XWR_Ajts->salvarAutomati));        
@@ -145,6 +146,7 @@ bool XmlReaderWriter::readFile(QIODevice *device)
             XWR_Ajts->isTipoExpo = xmlRead.attributes().value("isExpoReal").toString().toInt();
             XWR_Ajts->isRacional = xmlRead.attributes().value("isRacional").toString().toInt();
             XWR_Ajts->isResiduo = xmlRead.attributes().hasAttribute("isResiduo") ? xmlRead.attributes().value("isResiduo").toString().toInt() : true;
+            XWR_Ajts->pesoBIC = xmlRead.attributes().hasAttribute("pesoBIC") ? xmlRead.attributes().value("pesoBIC").toString().toDouble() : 0.999;
             XWR_Ajts->isIniciaEnabled = xmlRead.attributes().value("isIniciaEnabled").toString().toInt();
             XWR_Ajts->salvarAutomati = xmlRead.attributes().value("salvarAutomati").toString().toInt();
             aux1 = xmlRead.attributes().value("decimacao").toString();

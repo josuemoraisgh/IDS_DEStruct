@@ -1,0 +1,388 @@
+name: 🤖 Agente CI Auto - IDS_DEStruct
+
+# Agente que executa automaticamente e retenta em caso de falha.
+# Quando o build passa com sucesso, cria uma pre-release.
+# O workflow principal (main.yml) permanece com trigger manual para releases oficiais.
+on:
+  push:
+    branches:
+      - main
+      - develop
+  schedule:
+    - cron: "0 3 * * *" # Diariamente às 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      force_version:
+        description: "Versão forçada (deixe vazio para gerar automaticamente)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: "5.15.2"
+
+jobs:
+  auto-build:
+    name: 🔨 Build Automático (MinGW + Qt5 + Qwt)
+    runs-on: windows-latest
+
+    steps:
+      # ─────────────────────────────────────────────
+      # 1. Checkout
+      # ─────────────────────────────────────────────
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ─────────────────────────────────────────────
+      # 2. Gerar versão automática
+      # ─────────────────────────────────────────────
+      - name: Gerar versão automática
+        id: gen-version
+        shell: pwsh
+        run: |
+          if ("${{ github.event.inputs.force_version }}" -ne "") {
+            $version = "${{ github.event.inputs.force_version }}"
+          } else {
+            $latestTag = git describe --tags --abbrev=0 2>$null
+            if ($LASTEXITCODE -eq 0 -and $latestTag) {
+              if ($latestTag -match 'v(\d+)\.(\d+)\.(\d+)') {
+                $major = $Matches[1]
+                $minor = $Matches[2]
+                $patch = [int]$Matches[3] + 1
+                $version = "v${major}.${minor}.${patch}-auto.${{ github.run_number }}"
+              } else {
+                $version = "v0.0.${{ github.run_number }}-auto"
+              }
+            } else {
+              $version = "v0.0.${{ github.run_number }}-auto"
+            }
+          }
+          $zipName = "IDS_DEStruct-${version}-windows-x64.zip"
+          Write-Host "✔ Versão gerada: $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+      # ─────────────────────────────────────────────
+      # 3. Instalar Qt5
+      # ─────────────────────────────────────────────
+      - name: Instalar Qt5
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_mingw81
+          cache: true
+
+      # ─────────────────────────────────────────────
+      # 4. Verificar estrutura do projeto
+      # ─────────────────────────────────────────────
+      - name: Verificar estrutura do projeto
+        shell: pwsh
+        run: |
+          Write-Host "Verificando arquivos do projeto..."
+          $requiredPaths = @("IDS_DEStruct.pro", "qwt", "qwt/lib", "qwt/src")
+          $allOk = $true
+          foreach ($path in $requiredPaths) {
+            if (-not (Test-Path $path)) {
+              Write-Host "❌ Não encontrado: $path"
+              $allOk = $false
+            } else {
+              Write-Host "✔ Encontrado: $path"
+            }
+          }
+          if (-not $allOk) {
+            throw "Estrutura do projeto incompleta"
+          }
+          Write-Host "✔ Estrutura do projeto OK"
+          Write-Host "Conteúdo de qwt/lib:"
+          Get-ChildItem -Path "qwt/lib" | Select-Object Name
+
+      # ─────────────────────────────────────────────
+      # 5. Ajustar .pro para CI
+      # ─────────────────────────────────────────────
+      - name: Ajustar IDS_DEStruct.pro para CI
+        shell: pwsh
+        run: |
+          Write-Host "Ajustando IDS_DEStruct.pro..."
+          $proFile = "IDS_DEStruct.pro"
+          $content = Get-Content $proFile -Raw
+
+          $content = $content -replace 'DIRETORIO\s*=\s*C:', '# DIRETORIO = C:'
+          $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
+          $content = $content -replace '^(\s*)DESTDIR\s*=\s*\$\$\{DIRETORIO1\}[^\r\n]+', '# $1DESTDIR = (comentado para CI)'
+
+          if ($content -notmatch 'DESTDIR\s*=\s*\$\$OUT_PWD') {
+            $content += "`n`n# ===== CI Configuration =====`n"
+            $content += "DESTDIR = `$`$OUT_PWD/release`n"
+          }
+
+          Set-Content -Path $proFile -Value $content -NoNewline
+          Write-Host "✔ IDS_DEStruct.pro ajustado"
+          Write-Host "`n--- Trecho relevante do .pro ---"
+          Get-Content $proFile | Select-String -Pattern "(QWT_LOCATION|DESTDIR|INCLUDEPATH.*qwt|LIBS.*qwt)" -Context 0,1
+
+      # ─────────────────────────────────────────────
+      # 6. Build - Tentativa 1
+      # ─────────────────────────────────────────────
+      - name: Criar diretório de build
+        shell: pwsh
+        run: |
+          if (Test-Path "build") { Remove-Item -Path "build" -Recurse -Force }
+          New-Item -ItemType Directory -Path "build" | Out-Null
+          Write-Host "✔ Diretório build criado"
+
+      - name: Executar qmake (tentativa 1)
+        id: qmake-1
+        shell: pwsh
+        working-directory: build
+        continue-on-error: true
+        run: |
+          Write-Host "Executando qmake (tentativa 1)..."
+          $parentDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
+          qmake "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ qmake falhou (tentativa 1) - código: $LASTEXITCODE"
+            exit 1
+          }
+          Write-Host "✔ qmake concluído (tentativa 1)"
+
+      - name: Compilar com mingw32-make (tentativa 1)
+        id: compile-1
+        if: steps.qmake-1.outcome == 'success'
+        shell: pwsh
+        working-directory: build
+        continue-on-error: true
+        run: |
+          Write-Host "Compilando (tentativa 1)..."
+          mingw32-make -f Makefile.Release
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Compilação falhou (tentativa 1) - código: $LASTEXITCODE"
+            exit 1
+          }
+          Write-Host "✔ Compilação concluída (tentativa 1)"
+
+      # ─────────────────────────────────────────────
+      # 7. Diagnóstico e correção (só se tentativa 1 falhou)
+      # ─────────────────────────────────────────────
+      - name: 🔍 Diagnóstico de falha
+        if: steps.qmake-1.outcome == 'failure' || steps.compile-1.outcome == 'failure'
+        shell: pwsh
+        run: |
+          Write-Host "========================================="
+          Write-Host "🔍 DIAGNÓSTICO DE FALHA"
+          Write-Host "========================================="
+          Write-Host "qmake outcome   : ${{ steps.qmake-1.outcome }}"
+          Write-Host "compile outcome : ${{ steps.compile-1.outcome }}"
+          Write-Host ""
+          Write-Host "--- Conteúdo do diretório build ---"
+          if (Test-Path "build") {
+            Get-ChildItem -Path "build" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          } else {
+            Write-Host "(vazio)"
+          }
+          Write-Host ""
+          Write-Host "--- Qt e MinGW no PATH ---"
+          Get-Command qmake   -ErrorAction SilentlyContinue | Select-Object Source
+          Get-Command mingw32-make -ErrorAction SilentlyContinue | Select-Object Source
+          Write-Host ""
+          Write-Host "--- Variáveis de ambiente Qt ---"
+          Get-ChildItem env: | Where-Object { $_.Name -like "Qt*" -or $_.Name -like "QT*" } | Format-Table Name,Value
+
+      - name: 🔧 Correção automática e qmake (tentativa 2)
+        id: qmake-2
+        if: steps.qmake-1.outcome == 'failure' || steps.compile-1.outcome == 'failure'
+        shell: pwsh
+        run: |
+          Write-Host "========================================="
+          Write-Host "🔧 TENTATIVA 2 - Reconstruindo ambiente"
+          Write-Host "========================================="
+
+          # Limpar build anterior
+          if (Test-Path "build") { Remove-Item -Path "build" -Recurse -Force }
+          New-Item -ItemType Directory -Path "build" | Out-Null
+
+          # Re-aplicar ajustes ao .pro (garantir estado limpo para tentativa 2)
+          $proFile = "IDS_DEStruct.pro"
+          $content = Get-Content $proFile -Raw
+          $content = $content -replace 'DIRETORIO\s*=\s*C:', '# DIRETORIO = C:'
+          $content = $content -replace 'DIRETORIO1\s*=\s*C:', '# DIRETORIO1 = C:'
+          if ($content -notmatch 'DESTDIR\s*=\s*\$\$OUT_PWD') {
+            $content += "`n`nDESTDIR = `$`$OUT_PWD/release`n"
+          }
+          Set-Content -Path $proFile -Value $content -NoNewline
+          Write-Host "✔ IDS_DEStruct.pro re-ajustado"
+
+          # Executar qmake com verbose
+          Push-Location "build"
+          $parentDir = Resolve-Path ".." | Select-Object -ExpandProperty Path
+          Write-Host "Executando qmake verbose..."
+          qmake "..\IDS_DEStruct.pro" "CONFIG+=release" "QWT_LOCATION=$parentDir/qwt" -Wall
+          $exitCode = $LASTEXITCODE
+          Pop-Location
+
+          if ($exitCode -ne 0) {
+            throw "qmake falhou na tentativa 2 (código: $exitCode)"
+          }
+          Write-Host "✔ qmake concluído (tentativa 2)"
+
+      - name: Compilar com mingw32-make (tentativa 2)
+        id: compile-2
+        if: steps.qmake-2.outcome == 'success'
+        shell: pwsh
+        working-directory: build
+        run: |
+          Write-Host "Compilando (tentativa 2)..."
+          mingw32-make -f Makefile.Release
+          if ($LASTEXITCODE -ne 0) {
+            throw "Compilação falhou após 2 tentativas (código: $LASTEXITCODE)"
+          }
+          Write-Host "✔ Compilação concluída (tentativa 2)"
+
+      # ─────────────────────────────────────────────
+      # 8. Empacotar
+      # ─────────────────────────────────────────────
+      - name: Localizar executável
+        id: find-exe
+        shell: pwsh
+        run: |
+          Write-Host "Procurando executável..."
+          $exePaths = @(
+            "build/release/IDS_DEStruct.exe",
+            "build/release/IDS_DEStructd.exe",
+            "build/IDS_DEStruct.exe",
+            "build/release/bin/IDS_DEStruct.exe"
+          )
+          $exeFound = $null
+          foreach ($path in $exePaths) {
+            if (Test-Path $path) {
+              $exeFound = (Resolve-Path $path).Path
+              break
+            }
+          }
+          if (-not $exeFound) {
+            Write-Host "❌ Executável não encontrado nos caminhos esperados"
+            Write-Host "Procurando em toda a pasta build..."
+            Get-ChildItem -Path "build" -Filter "*.exe" -Recurse | ForEach-Object {
+              Write-Host "  Encontrado: $($_.FullName)"
+            }
+            throw "Executável não encontrado"
+          }
+          Write-Host "✔ Executável encontrado: $exeFound"
+          $exeDir = Split-Path -Parent $exeFound
+          "exe_path=$exeFound" >> $env:GITHUB_OUTPUT
+          "exe_dir=$exeDir" >> $env:GITHUB_OUTPUT
+
+      - name: Copiar DLLs do Qwt
+        shell: pwsh
+        run: |
+          $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          Write-Host "Copiando DLLs do Qwt para: $exeDir"
+          $qwtDlls = Get-ChildItem -Path "qwt/lib" -Filter "*.dll"
+          foreach ($dll in $qwtDlls) {
+            Copy-Item -Path $dll.FullName -Destination $exeDir -Force
+            Write-Host "  Copiado: $($dll.Name)"
+          }
+          Write-Host "✔ DLLs do Qwt copiadas"
+
+      - name: windeployqt (incluir DLLs do Qt)
+        shell: pwsh
+        run: |
+          $exePath = "${{ steps.find-exe.outputs.exe_path }}"
+          $exeDir  = "${{ steps.find-exe.outputs.exe_dir }}"
+          Write-Host "Executando windeployqt em: $exePath"
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$exePath"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️ windeployqt retornou código: $LASTEXITCODE (continuando...)"
+          } else {
+            Write-Host "✔ windeployqt concluído"
+          }
+          Write-Host "`nConteúdo do diretório do executável:"
+          Get-ChildItem -Path $exeDir | Select-Object Name, Length
+
+      - name: Criar pacote ZIP
+        id: create-zip
+        shell: pwsh
+        run: |
+          $exeDir  = "${{ steps.find-exe.outputs.exe_dir }}"
+          $zipName = "${{ steps.gen-version.outputs.zip_name }}"
+          $releaseDir = "release"
+          $zipPath = Join-Path $releaseDir $zipName
+
+          if (-not (Test-Path $releaseDir)) {
+            New-Item -ItemType Directory -Path $releaseDir | Out-Null
+          }
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+
+          Write-Host "Criando ZIP: $zipPath"
+          Compress-Archive -Path "$exeDir\*" -DestinationPath $zipPath
+
+          if (-not (Test-Path $zipPath)) {
+            throw "Falha ao criar ZIP"
+          }
+          $zipSize = (Get-Item $zipPath).Length / 1MB
+          Write-Host "✔ ZIP criado: $([math]::Round($zipSize, 2)) MB"
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+
+      # ─────────────────────────────────────────────
+      # 9. Upload e Pre-Release
+      # ─────────────────────────────────────────────
+      - name: Upload artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: IDS_DEStruct-${{ steps.gen-version.outputs.version }}-windows-x64
+          path: release/${{ steps.gen-version.outputs.zip_name }}
+          if-no-files-found: error
+
+      - name: Criar Pre-Release no GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.gen-version.outputs.version }}
+          name: "🤖 IDS_DEStruct ${{ steps.gen-version.outputs.version }} (Auto Build)"
+          body: |
+            ## 🤖 Build Automático — Agente CI
+
+            Build gerado automaticamente pelo agente de CI.
+
+            | Campo        | Valor |
+            |--------------|-------|
+            | **Trigger**  | `${{ github.event_name }}` |
+            | **Branch**   | `${{ github.ref_name }}` |
+            | **Commit**   | `${{ github.sha }}` |
+            | **Run**      | #${{ github.run_number }} |
+
+            ## 📦 Download
+            - **Windows x64 (MinGW)**: `${{ steps.gen-version.outputs.zip_name }}`
+
+            ## 🔧 Requisitos
+            - Windows 10/11 64-bit
+            - Todas as DLLs necessárias estão incluídas no pacote
+
+            ---
+            > ℹ️ Para criar uma release oficial (estável), use o workflow
+            > **"Build & Release (Windows MinGW, portable) - IDS_DEStruct"** manualmente informando a versão desejada.
+          prerelease: true
+          files: release/${{ steps.gen-version.outputs.zip_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ─────────────────────────────────────────────
+      # 10. Resumo final
+      # ─────────────────────────────────────────────
+      - name: ✅ Resumo do build
+        if: success()
+        shell: pwsh
+        run: |
+          Write-Host "========================================="
+          Write-Host "✅ BUILD CONCLUÍDO COM SUCESSO"
+          Write-Host "========================================="
+          Write-Host "Versão   : ${{ steps.gen-version.outputs.version }}"
+          Write-Host "Artefato : ${{ steps.gen-version.outputs.zip_name }}"
+          Write-Host ""
+          Write-Host "Para criar uma release oficial, execute o workflow"
+          Write-Host "'Build & Release (Windows MinGW, portable) - IDS_DEStruct'"
+          Write-Host "manualmente, informando a versão desejada."

@@ -1,9 +1,11 @@
-#include <QFile>
+﻿#include <QFile>
 #include <QTextStream>
 #include <QFileDialog>
 #include <QSemaphore>
 #include <QDateTime>
 #include <QRegularExpression>
+#include <QRandomGenerator>
+#include <QAtomicInteger>
 #include <math.h>
 #include <qmath.h>
 #include <algorithm>
@@ -17,7 +19,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //DES_size  = Quantidade de Thread.
 //DES_count = Indicador de qual das thread que esta sendo usada.
-//DES_index = Indicador de qual item da popula��o esta sendo trabalhado
+//DES_index = Indicador de qual item da populaï¿½ï¿½o esta sendo trabalhado
 ////////////////////////////////////////////////////////////////////////////
 QSemaphore     DEStruct::DES_justThread[TAMPIPELINE],
                DEStruct::DES_waitThread;
@@ -57,8 +59,29 @@ volatile qint16 DEStruct::DES_TH_size = 0,
 QList<qreal>    DEStruct::DES_mediaY,
                 DEStruct::DES_mediaY2;
 ////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// Fun��es ////////////////////////////////////
+/////////////////////////////// Funï¿½ï¿½es ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
+namespace {
+const qreal kDiversidadeMinima = 0.05; // 5% de gap entre Jn medio e melhor
+const qint32 kDiversidadePaciencia = 8;
+const qreal kEpsDiversidade = 1e-12;
+QList<QVector<qint32> > g_lowDivCycles = QVector<QVector<qint32> >(TAMPIPELINE).toList();
+QAtomicInteger<quint32> g_seedCounter(1);
+
+inline quint32 DES_seedFromEntropy(const quintptr salt)
+{
+    const quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
+    const quint64 mix = now
+            ^ (now >> 32)
+            ^ static_cast<quint64>(salt)
+            ^ static_cast<quint64>(QRandomGenerator::global()->generate64())
+            ^ static_cast<quint64>(g_seedCounter.fetchAndAddRelaxed(1u));
+    quint32 seed = static_cast<quint32>(mix ^ (mix >> 32));
+    if (!seed) seed = 1u;
+    return seed;
+}
+}
+
 qreal sign(const qreal &x)
 {
     if(x>0) return 1;
@@ -204,7 +227,7 @@ XVetor<T> SistemaLinear(bool &isOK,const JMathVar<T> &mat1,const XVetor<T> &vet1
     double termo,m;
     try
     {
-        //Implementando M�todo de Gauss
+        //Implementando Mï¿½todo de Gauss
         for (k=0;k<n-1;k++)
         {
             for (i=k+1; i<n;i++)
@@ -267,7 +290,7 @@ JMathVar<T> AoQuad(const JMathVar<T> &mat1)
     return result;
 }
 ////////////////////////////////////////////////////////////////////////////////
-//////////Calcula a multiplica��o de uma matriz Transpostas por um vetor////////
+//////////Calcula a multiplicaï¿½ï¿½o de uma matriz Transpostas por um vetor////////
 //<M12, M21> = <M12, M11> * <M22,1>
 template<typename T>
 XVetor<T> MultMatTransVet(const JMathVar<T> &mat1,const XVetor<T> &vet1)
@@ -286,7 +309,7 @@ XVetor<T> MultMatTransVet(const JMathVar<T> &mat1,const XVetor<T> &vet1)
     return result;
 }
 ////////////////////////////////////////////////////////////////////////////////
-///////////////Calcula a multiplica��o de uma matriz por um vetor///////////////
+///////////////Calcula a multiplicaï¿½ï¿½o de uma matriz por um vetor///////////////
 //<M12, M21> = <M12, M11> * <M22,1>
 template<typename T>
 XVetor<T> MultMatVet(const JMathVar<T> &mat1,const XVetor<T> &vet1)
@@ -330,7 +353,8 @@ DEStruct::DEStruct() : QThread()
     DES_Adj.Dados.variaveis.valores.clear();
     DES_Adj.Dados.variaveis.Vmaior.clear();
     DES_Adj.Dados.variaveis.Vmenor.clear();
-    DES_RG.seed(QTime::currentTime().msec());
+    const quintptr seedSalt = reinterpret_cast<quintptr>(this) ^ reinterpret_cast<quintptr>(QThread::currentThreadId());
+    DES_RG.seed(DES_seedFromEntropy(seedSalt));
     DES_isEquacaoEscrita=true;
     DES_isStatusSetado=true;
     DES_vlrRegressores = nullptr; // Ponteiro inicializado como nulo (era comentado)
@@ -440,7 +464,7 @@ void DEStruct::DES_Carregar()
             tamArquivo = file.size();
             file.close();
         }
-        else qDebug() << "Func:DES_Carregar - N�o abriu arquivo para ler tamanho";
+        else qDebug() << "Func:DES_Carregar - Nï¿½o abriu arquivo para ler tamanho";
         emit signal_DES_Status(0);
         //Le a variavel sem o QReadWriteLock pois apenas uma thread esta rodando.
         if(DES_Adj.modeOper_TH==2) waitSync.wait(&mutex);
@@ -448,7 +472,7 @@ void DEStruct::DES_Carregar()
     }
     mutex.unlock();
     ////////////////////////////////////////////////////////////////////////////
-    //Verifica se � para fechar o programa.
+    //Verifica se ï¿½ para fechar o programa.
     lock_DES_modeOper_TH.lockForRead();isOk=DES_Adj.modeOper_TH<=1;lock_DES_modeOper_TH.unlock();
     if(isOk) return;
     ////////////////////////////////////////////////////////////////////////////
@@ -477,11 +501,11 @@ void DEStruct::DES_Carregar()
             if(isOk) waitSync.wait(&mutex);
             mutex.unlock();
             ////////////////////////////////////////////////////////////////////////////
-            //Posiciona no inicio da leitura dos dados para esta itera��o nesta thread.
+            //Posiciona no inicio da leitura dos dados para esta iteraï¿½ï¿½o nesta thread.
             file.seek(posicaoIni?posicaoIni-1:0);
-            //L� os dados referentes a esta itera��o.
+            //Lï¿½ os dados referentes a esta iteraï¿½ï¿½o.
             lineMeio = file.read(posicaoFinal-posicaoIni+(posicaoIni?1:0));
-            //Busca o fim da linha se n�o for a ultima itera��o da ultima thread.
+            //Busca o fim da linha se nï¿½o for a ultima iteraï¿½ï¿½o da ultima thread.
             lineDepois.clear();
             if(lineMeio.size()?(lineMeio.right(1)!="\n")&&(lineMeio.right(1)!="\0"):true)
             {
@@ -492,7 +516,7 @@ void DEStruct::DES_Carregar()
                     line = file.read(1);
                 }
             }
-            //Busca o inicio da linha se n�o for a primeira itera��o da primeira thread.
+            //Busca o inicio da linha se nï¿½o for a primeira iteraï¿½ï¿½o da primeira thread.
             //lineAntes.clear();
             if(DES_TH_id||index)
             {
@@ -541,7 +565,7 @@ void DEStruct::DES_Carregar()
                                     mediaY[j] += posPonto.last();
                                     mediaY2[j] += posPonto.last()*posPonto.last();
                                 }
-                                //Se ja possui m�ximos e m�nimos n�o necessita fazer o incremento
+                                //Se ja possui mï¿½ximos e mï¿½nimos nï¿½o necessita fazer o incremento
                                 if(!DES_Adj.Dados.variaveis.Vmaior.size())
                                 {
                                     if(!isOkIni)
@@ -596,7 +620,7 @@ void DEStruct::DES_Carregar()
         //Fecha o arquivo e liberando-o.
         file.close();
     }
-    else qDebug() << "Func:DES_Carregar - N�o abriu arquivo para ler dados";
+    else qDebug() << "Func:DES_Carregar - Nï¿½o abriu arquivo para ler dados";
     //lock_DES_index[0].unlock();
     lineList.clear();
     ////////////////////////////////////////////////////////////////////////////
@@ -683,7 +707,7 @@ void DEStruct::DES_Carregar()
     lock_DES_modeOper_TH.lockForRead();isOk=DES_modeOper_TH<=1;lock_DES_modeOper_TH.unlock();
     if(isOk) return;*/
     ////////////////////////////////////////////////////////////////////////////
-    //Apenas uma thread qualquer roda para abrir a tela de Normaliza��o.
+    //Apenas uma thread qualquer roda para abrir a tela de Normalizaï¿½ï¿½o.
     mutex.lock();
     if(DES_justThread[0].tryAcquire()) justSync.wait(&mutex);
     else
@@ -695,7 +719,7 @@ void DEStruct::DES_Carregar()
         if(!isNormalizado)
         {
             //////////////////////////////////////////////////////////////
-            //Calcula a Decima��o
+            //Calcula a Decimaï¿½ï¿½o
             j=DES_Adj.Dados.variaveis.valores.numLinhas();
             for(idSaida=0;idSaida<qtSaidas;idSaida++)
             {
@@ -739,7 +763,7 @@ void DEStruct::slot_DES_Normalizar()
     const qint32 nlinha =DES_Adj.Dados.variaveis.valores.numLinhas();//Variaveis
     qint32 index=0,j=0,ncoluna=DES_Adj.Dados.variaveis.valores.numColunas();//Atrasos
     ////////////////////////////////////////////////////////////////////////////
-    //Normalizando os dados (0 � 1).
+    //Normalizando os dados (0 ï¿½ 1).
     forever
     {
         lock_DES_index[0].lockForWrite();index = DES_index[0]++;lock_DES_index[0].unlock();
@@ -851,9 +875,9 @@ void DEStruct::DES_AlgDiffEvol()
     bool isOk=false,isPrint=true;
     qint32 count0=0,count1=0,count2=0,cr0Point,cr1Point,cr2Point,idSaida=0,idPipeLine = 0;//count3=0;
     ////////////////////////////////////////////////////////////////////////////
-    for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++) DES_idParada_Th[idPipeLine] = !DES_idParadaJust[count0];
+    for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++) DES_idParada_Th[idPipeLine] = !DES_idParadaJust[idPipeLine];
     ////////////////////////////////////////////////////////////////////////////    
-    //Apenas um thread qualquer inicializa as variaveis e os ponteiros deste m�todo.
+    //Apenas um thread qualquer inicializa as variaveis e os ponteiros deste mï¿½todo.
     mutex.lock();
     if(DES_justThread[0].tryAcquire()) justSync.wait(&mutex);
     else
@@ -864,6 +888,7 @@ void DEStruct::DES_AlgDiffEvol()
         for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++)
         {
             if(idPipeLine) DES_Adj.vetPop[idPipeLine].clear();
+            g_lowDivCycles[idPipeLine] = QVector<qint32>(qtSaidas,0);
             DES_Adj.melhorAptidaoAnt.clear();
             for(idSaida=0;idSaida<qtSaidas;idSaida++)
             {
@@ -872,7 +897,7 @@ void DEStruct::DES_AlgDiffEvol()
                 DES_Adj.vetElitismo[idPipeLine][idSaida].append(0);
                 for(count0=2;count0<tamPop;count0++)
                     DES_Adj.vetElitismo[idPipeLine][idSaida].append(count0);
-                DES_crMut[idPipeLine][idSaida] = DES_criaCromossomo(idSaida);//� o melhor cromossomo inicial
+                DES_crMut[idPipeLine][idSaida] = DES_criaCromossomo(idSaida);//ï¿½ o melhor cromossomo inicial
                 DES_Adj.melhorAptidaoAnt.append(DES_crMut.at(idPipeLine).at(idSaida).aptidao);
             }
         }
@@ -885,7 +910,7 @@ void DEStruct::DES_AlgDiffEvol()
     }
     mutex.unlock();
     ////////////////////////////////////////////////////////////////////////////
-    //Calcula a aptid�o ou cria os cromossomos iniciais
+    //Calcula a aptidï¿½o ou cria os cromossomos iniciais
     ////////////////////////////////////////////////////////////////////////////
     idPipeLine = 0;
     isOk=false;
@@ -945,7 +970,7 @@ void DEStruct::DES_AlgDiffEvol()
             for(idSaida=0;idSaida<qtSaidas;idSaida++)
             {
                 ////////////////////////////////////////////////////////////////////////////
-                //Cria um cromossomo para cada popula��o altera��o aleatoriamente.
+                //Cria um cromossomo para cada populaï¿½ï¿½o alteraï¿½ï¿½o aleatoriamente.
                 count0 = DES_RG.randInt(0,tamPop-1);
                 do{count1 = DES_RG.randInt(0,tamPop-1);}while(count1 == count0);
                 do{count2 = DES_RG.randInt(0,tamPop-1);}while((count2 == count0)||(count2 == count1));
@@ -963,7 +988,7 @@ void DEStruct::DES_AlgDiffEvol()
                 //cr3=DES_BufferSR.at(idPipeLine).at(idSaida).size()?DES_BufferSR[idPipeLine][idSaida].at(count3):DES_criaCromossomo(idSaida);
                 lock_DES_BufferSR.unlock();
                 ////////////////////////////////////////////////////////////////////////////
-                //Faz a outra parcela da muta��o e o cruzamento. 
+                //Faz a outra parcela da mutaï¿½ï¿½o e o cruzamento. 
                 if(tokenPop == DES_idChange.at(idPipeLine).at(idSaida))
                 {
                     lock_DES_BufferSR.lockForWrite();
@@ -1000,27 +1025,25 @@ void DEStruct::DES_AlgDiffEvol()
         }
         lock_DES_index[idPipeLine].lockForWrite();
         DES_index[idPipeLine]++;
-        isOk = (DES_idParadaJust[idPipeLine]!=DES_idParada_Th[idPipeLine]);//Garante que a mesma thread n�o passe duas vezes pela mesma chamada
+        isOk = (DES_idParadaJust[idPipeLine]!=DES_idParada_Th[idPipeLine]);//Garante que a mesma thread nï¿½o passe duas vezes pela mesma chamada
         lock_DES_index[idPipeLine].unlock();
         if(isOk)
         {
             DES_idParada_Th[idPipeLine] = DES_idParada_Th[idPipeLine]?false:true;
             ////////////////////////////////////////////////////////////////////////////
-            //Uma thread fica para fazer algumas pondera��es e as outras v�o fazer as proximas instru��es.
+            //Uma thread fica para fazer algumas ponderaï¿½ï¿½es e as outras vï¿½o fazer as proximas instruï¿½ï¿½es.
             if(!DES_justThread[idPipeLine].tryAcquire())
             {
                 DES_justThread[idPipeLine].release(DES_TH_size-1);
                 ////////////////////////////////////////////////////////////////////////////
-                //O elitismo � feito colocando os melhores (menor BIC) no inicio do vetor.
+                //O elitismo ï¿½ feito colocando os melhores (menor BIC) no inicio do vetor.
                 isOk = true;
                 for(idSaida=0;idSaida<qtSaidas;idSaida++)
                 {
-                    //lock_DES_Elitismo[idPipeLine].lockForWrite();
+                    lock_DES_Elitismo[idPipeLine].lockForWrite();
                     cr2Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(0);
                     qSortPop(DES_Adj.vetElitismo[idPipeLine][idSaida].begin(),DES_Adj.vetElitismo[idPipeLine][idSaida].end(),idSaida);
                     cr0Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(0);
-                    //cr1Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(DES_RG.randInt(0,(tamPop-1)<10?tamPop-1:10));
-                    //lock_DES_Elitismo[idPipeLine].unlock();
 
                     lock_DES_BufferSR.lockForRead();
                     crBest[idSaida]=DES_Adj.Pop.at(idSaida).at(cr0Point);
@@ -1029,8 +1052,41 @@ void DEStruct::DES_AlgDiffEvol()
                     //DES_idChange[idPipeLine][idSaida]=cr1Point;
                     //cr1 = DES_Adj.Pop.at(idSaida).at(cr1Point);
                     cr2 = DES_Adj.Pop.at(idSaida).at(cr2Point);
+                    const qreal jnBest = crBest.at(idSaida).erro;
+                    const qreal jnMedio = DES_somaSSE.at(idPipeLine).at(idSaida)/(tamPop?tamPop:1);
                     isPrint = isPrint||(crBest.at(idSaida).aptidao<cr2.aptidao);
                     lock_DES_BufferSR.unlock();
+
+                    qreal divGap = (jnMedio-jnBest)/(qAbs(jnBest)+kEpsDiversidade);
+                    if((divGap!=divGap)||(divGap<0.0f)) divGap = 0.0f;
+                    if(divGap<kDiversidadeMinima) g_lowDivCycles[idPipeLine][idSaida]++;
+                    else g_lowDivCycles[idPipeLine][idSaida]=0;
+
+                    qDebug() << "[DIV] Cl=" << DES_Adj.iteracoes
+                             << "Saida=" << idSaida
+                             << "D=" << divGap
+                             << "JnBest=" << jnBest
+                             << "JnMed=" << jnMedio
+                             << "Low=" << g_lowDivCycles[idPipeLine][idSaida];
+
+                    if((g_lowDivCycles[idPipeLine][idSaida] >= kDiversidadePaciencia) && (tamPop > 3))
+                    {
+                        const qint32 immigrantCount = qMax<qint32>(1,tamPop/10);
+                        lock_DES_BufferSR.lockForWrite();
+                        for(count2=0;count2<immigrantCount;count2++)
+                        {
+                            const qint32 replacePos = (tamPop-1)-count2;
+                            if(replacePos<=0) break; //preserva o melhor individuo.
+                            const qint32 replaceIdx = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(replacePos);
+                            DES_Adj.Pop[idSaida][replaceIdx] = DES_criaCromossomo(idSaida);
+                        }
+                        lock_DES_BufferSR.unlock();
+                        g_lowDivCycles[idPipeLine][idSaida]=0;
+                        isPrint = true;
+                        qDebug() << "[DIV] immigrants injected:" << immigrantCount << "Saida=" << idSaida;
+                    }
+
+                    lock_DES_Elitismo[idPipeLine].unlock();
 
                     //DES_SuperResp(cr1,DES_BufferSR[idPipeLine][idSaida]);
                     //DES_Mutacao(DES_crMut[idPipeLine][idSaida],cr1,DES_criaCromossomo(idSaida));
@@ -1053,14 +1109,14 @@ void DEStruct::DES_AlgDiffEvol()
                         DES_calAptidao(crBest[idSaida],15);
                         DES_MontaSaida(crBest[idSaida],DES_vcalc[idPipeLine][idSaida],DES_residuos[idPipeLine][idSaida]);
                     }
-                    emit signal_DES_SetStatus(DES_Adj.iteracoes,&DES_somaSSE.at(idPipeLine),&DES_vcalc.at(idPipeLine),&DES_residuos.at(idPipeLine),&crBest); //Este tem que ser feito numa conex�o direta
+                    emit signal_DES_SetStatus(DES_Adj.iteracoes,&DES_somaSSE.at(idPipeLine),&DES_vcalc.at(idPipeLine),&DES_residuos.at(idPipeLine),&crBest); //Este tem que ser feito numa conexï¿½o direta
                     if(DES_isEquacaoEscrita) {emit signal_DES_EscreveEquacao();DES_isEquacaoEscrita = false;}
                     if(DES_isStatusSetado) {emit signal_DES_Desenha();DES_isStatusSetado=false;}//Este pode ser feito numa conexao livre.
                     isPrint = false;
                 }
                 ////////////////////////////////////////////////////////////////////////////
                 lock_DES_index[idPipeLine].lockForWrite();
-                DES_idParadaJust[idPipeLine] = DES_idParadaJust[idPipeLine]?false:true;//Garante que a mesma thread n�o passe duas vezes pela mesma chamada
+                DES_idParadaJust[idPipeLine] = DES_idParadaJust[idPipeLine]?false:true;//Garante que a mesma thread nï¿½o passe duas vezes pela mesma chamada
                 for(idSaida=0;idSaida<qtSaidas;idSaida++) DES_somaSSE[idPipeLine][idSaida]=0.0f;
                 DES_index[idPipeLine] = 0;
                 lock_DES_index[idPipeLine].unlock();
@@ -1083,7 +1139,7 @@ void DEStruct::DES_AlgDiffEvol()
                     DES_calAptidao(crBest[idSaida],15);
                     DES_MontaSaida(crBest[idSaida],DES_vcalc[idPipeLine][idSaida],DES_residuos[idPipeLine][idSaida]);
                 }
-                emit signal_DES_SetStatus(DES_Adj.iteracoes,&DES_somaSSE.at(idPipeLine),&DES_vcalc.at(idPipeLine),&DES_residuos.at(idPipeLine),&crBest); //Este tem que ser feito numa conex�o direta
+                emit signal_DES_SetStatus(DES_Adj.iteracoes,&DES_somaSSE.at(idPipeLine),&DES_vcalc.at(idPipeLine),&DES_residuos.at(idPipeLine),&crBest); //Este tem que ser feito numa conexï¿½o direta
                 emit signal_DES_Finalizar();
                 emit signal_DES_Parado();
                 waitSync.wait(&mutex);
@@ -1101,41 +1157,40 @@ void DEStruct::DES_AlgDiffEvol()
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
+const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida)
 {
     Cromossomo cr;
     QVector<compTermo> vetTermo;
-    MTRand RG(QTime::currentTime().msec());
-    qint32 tamCrom, tamRegress, i;
+        qint32 tamCrom, tamRegress, i;
     compTermo vlrTermo;
-    //valores - Matriz onde Linha � as variaveis (sendo a linha 0 a variavel de saida) e coluna os atrasos.
+    //valores - Matriz onde Linha ï¿½ as variaveis (sendo a linha 0 a variavel de saida) e coluna os atrasos.
     const quint32 numVariaveis = DES_Adj.Dados.variaveis.valores.numLinhas(),
                   numAtrasos = (DES_Adj.Dados.variaveis.valores.numColunas())/2,
                   vlrMaxAtras= numAtrasos < 30 ? numAtrasos:30;
     cr.idSaida = idSaida;
    //Inicializa os coeficientes constantes.
-    vlrTermo.vTermo.tTermo1.atraso = 0;//Apesar de n�o ter variavel � interessante que ela seja diferente de 0.
-    vlrTermo.vTermo.tTermo1.nd = 1;    //Indica que � do numerador
-    vlrTermo.vTermo.tTermo1.reg = 0;   //O regressor 0 � indicando o coeficiente constante
-    vlrTermo.vTermo.tTermo1.var = 1;   //Apesar de n�o ter variavel � interessante que ela seja diferente de 0.
+    vlrTermo.vTermo.tTermo1.atraso = 0;//Apesar de nï¿½o ter variavel ï¿½ interessante que ela seja diferente de 0.
+    vlrTermo.vTermo.tTermo1.nd = 1;    //Indica que ï¿½ do numerador
+    vlrTermo.vTermo.tTermo1.reg = 0;   //O regressor 0 ï¿½ indicando o coeficiente constante
+    vlrTermo.vTermo.tTermo1.var = 1;   //Apesar de nï¿½o ter variavel ï¿½ interessante que ela seja diferente de 0.
     vlrTermo.expoente = 1;
     vetTermo.append(vlrTermo);
     cr.regress.append(vetTermo);
     vetTermo.clear();
    //Inicializa os coeficientes normais.
-    tamCrom = RG.randInt(3); //Come�a com uma quantidade de termos de no maximo 4 elementos.
+    tamCrom = DES_RG.randInt(3); //Comeï¿½a com uma quantidade de termos de no maximo 4 elementos.
     while(tamCrom>=0)
     {
         //Gera se vai ser numerador (1) ou denominador (0)
-        vlrTermo.vTermo.tTermo1.nd = DES_Adj.isRacional?RG.randInt(0,1):1;
-        vlrTermo.vTermo.tTermo1.reg = RG.randInt(1,(MASKREG/2)-1);//O regressor 0 � indicando o coeficiente constante
-        tamRegress = RG.randInt(3); //Come�a com uma quantidade de regressores de no maximo 4 elementos.
+        vlrTermo.vTermo.tTermo1.nd = DES_Adj.isRacional?DES_RG.randInt(0,1):1;
+        vlrTermo.vTermo.tTermo1.reg = DES_RG.randInt(1,(MASKREG/2)-1);//O regressor 0 ï¿½ indicando o coeficiente constante
+        tamRegress = DES_RG.randInt(3); //Comeï¿½a com uma quantidade de regressores de no maximo 4 elementos.
         while(tamRegress>=0)
         {
-            vlrTermo.vTermo.tTermo1.var = RG.randInt(1,numVariaveis);//Escolhe uma variavel ate o tamanho m�ximo de variaveis do sistema.
-            vlrTermo.vTermo.tTermo1.atraso = RG.randInt(1,vlrMaxAtras);
+            vlrTermo.vTermo.tTermo1.var = DES_RG.randInt(1,numVariaveis);//Escolhe uma variavel ate o tamanho mï¿½ximo de variaveis do sistema.
+            vlrTermo.vTermo.tTermo1.atraso = DES_RG.randInt(1,vlrMaxAtras);
             if((qint32)vlrTermo.vTermo.tTermo1.atraso>cr.maiorAtraso) cr.maiorAtraso = vlrTermo.vTermo.tTermo1.atraso;
-            vlrTermo.expoente = (qreal) RG.randInt(1,10);
+            vlrTermo.expoente = (qreal) DES_RG.randInt(1,10);
             if(!vlrTermo.expoente) vlrTermo.expoente=1;//Elimina a chance de gerar um expoente inicial igual a zero.
             vetTermo.append(vlrTermo);
             tamRegress--;
@@ -1153,13 +1208,13 @@ const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
         tamCrom--;
     }
     cr.err.fill(-1,cr.regress.size());
-    //Calcula o melhor coeficiente, encontra o erro e calcula a Aptid�o pelo BIC.
+    //Calcula o melhor coeficiente, encontra o erro e calcula a Aptidï¿½o pelo BIC.
     DES_calAptidao(cr);
     return cr;
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const
+void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2)
 {
     ////////////////////////////////////////////////////////////////////////////////
     //JMathVar<qreal> vlrsMedido,vlrsRegress;
@@ -1168,16 +1223,15 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
     crAvali0=crAvali;
     lock_DES_BufferSR.unlock();
     ////////////////////////////////////////////////////////////////////////////////
-    MTRand RG(QTime::currentTime().msec());
-    const qreal multBase = RG.randReal(-2,2);
+        const qreal multBase = DES_RG.randReal(-2,2);
     QVector<compTermo> termosAnalisados,vetTermo1,vetTermo2,vetTermo3,termoAv(6,compTermo());
     QVector<QVector<compTermo> > matTermo;
     QVector<qint32> posTermosAnalisados;
     compTermo *tr,auxTermo;
     //qreal expo,auxReal;
     qint32 i,j,size1,size2,size3,count=0,testeSize=0,teste,*pr;//countTermos=0;
-    teste = RG.randInt(0,1);if(teste&1) count++;
-    for(testeSize=1;count<5;testeSize++){teste=(teste<<1)+RG.randInt(0,1);if(teste&1)count++;}
+    teste = DES_RG.randInt(0,1);if(teste&1) count++;
+    for(testeSize=1;count<5;testeSize++){teste=(teste<<1)+DES_RG.randInt(0,1);if(teste&1)count++;}
     ////////////////////////////////////////////////////////////////////////////////
     for(i=0;i<cr0.regress.size();i++) {termosAnalisados+=cr0.regress.at(i);posTermosAnalisados+=QVector<qint32>(cr0.regress.at(i).size(),0);}
     //for(i=0;i<cr0.regressResid.size();i++) {termosAnalisados+=cr0.regressResid.at(i);posTermosAnalisados+=QVector<qint32>(cr0.regressResid.at(i).size(),0);}
@@ -1279,14 +1333,14 @@ void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cr
         ////////////////////////////////////////////////////////////////////////////////
     }
     ////////////////////////////////////////////////////////////////////////////////
-    //Faz uma sele��o de quais regressores ir�o participar do teste final
+    //Faz uma seleï¿½ï¿½o de quais regressores irï¿½o participar do teste final
     const qint32 qtdeAtrasos = (DES_Adj.Dados.variaveis.valores.numColunas()/(2*DES_Adj.decimacao.at(crA1.idSaida)))-27;
     size1 = crA1.regress.size();
     matTermo = crA1.regress;
     crA1.regress.clear();
     for(count=0,i=0;(i<size1)&&(i<=testeSize)&&(count<qtdeAtrasos);i++) if((teste>>i)&1) {crA1.regress.append(matTermo.at(i));count++;}
     for(i=testeSize+1;(i<size1)&&(count<qtdeAtrasos);i++)
-        if(RG.randInt(0,1)){crA1.regress.append(matTermo.at(i));count++;}
+        if(DES_RG.randInt(0,1)){crA1.regress.append(matTermo.at(i));count++;}
     ////////////////////////////////////////////////////////////////////////////////
     DES_CalcERR(crA1,DES_Adj.serr);
     DES_calAptidao(crA1);
@@ -1335,10 +1389,10 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
         for(i=0;i<cr.regress.at(countRegress).size();i++)
         {
             variavel = cr.regress.at(countRegress).at(i).vTermo.tTermo1.var;  //Obtem a variavel
-            if(!DES_Adj.isTipoExpo) expo = cr.regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da N�o-Linearidade)
+            if(!DES_Adj.isTipoExpo) expo = cr.regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da Nï¿½o-Linearidade)
             else //Obtem expoente Inteiros ou Naturais
             {
-                expo = (qint32) cr.regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da N�o-Linearidade)
+                expo = (qint32) cr.regress.at(countRegress).at(i).expoente; //Obtem o expoente deste termo (Grau da Nï¿½o-Linearidade)
                 expo +=((cr.regress.at(countRegress).at(i).expoente-expo)>=0.5)?1:(((cr.regress.at(countRegress).at(i).expoente-expo)<=-0.5)?-1:0);
                 if(DES_Adj.isTipoExpo==2) expo = fabs(expo); //Obtem um expoente natural
             }
@@ -1348,7 +1402,7 @@ void DEStruct::DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVa
                 if(!cr.regress.at(countRegress).at(i).vTermo.tTermo1.reg?matAux.fill(1,tam,1):matAux.replace(DES_Adj.Dados.variaveis.valores,jst.set("(:,:)=(%1,%2:%3:%4)'^%f1").argInt(variavel-1).argInt(posIniAtrasos-atraso*DES_Adj.decimacao.at(cr.idSaida)).argInt(DES_Adj.decimacao.at(cr.idSaida)).argInt(posIniAtrasos+(tam-atraso)*DES_Adj.decimacao.at(cr.idSaida)).argReal(expo))||isValidacao)
                 {
                     if((i<=0)&&(!cr.regress.at(countRegress).at(i).vTermo.tTermo1.nd)&&isLinearCoef)
-                        matAux.replace(vlrsMedido,jst.set("(:,:)*=-1*(:,:)"));//Multiplica pela saida quando os valores s�o do denominador.
+                        matAux.replace(vlrsMedido,jst.set("(:,:)*=-1*(:,:)"));//Multiplica pela saida quando os valores sï¿½o do denominador.
                     vlrsRegress.replace(matAux,jst.set((QString("(:,%1)")+QString((i==0)?"=":"*=")+QString("(:,:)")).toLatin1()).argInt(countRegress));
                 }
                 else cr.regress[countRegress].remove(i--);//Se o termo leva a um valor incoerente ele remove o termo.
@@ -1384,8 +1438,8 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
         }
     }
     ////////////////////////////////////////////////////////////////////////////////
-    //Faz o c�lculo do valor estimado.
-    //Equa��o correta (consistente com o ELS Estendido):
+    //Faz o cï¿½lculo do valor estimado.
+    //Equaï¿½ï¿½o correta (consistente com o ELS Estendido):
     //  y = (Rnum*Cnum + E*Ce) / (1 + Rden*Cden)
     vlrsEstimado = vlrsRegressNum(vlrsCoeficNum,jst.set("(:,:)*(:,:)'"));
     b = vlrsRegressDen(vlrsCoeficDen,jst.set("(:,:)*(:,:)'"));
@@ -1419,7 +1473,7 @@ inline void DEStruct::DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qre
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-//Calcula a taxa de redu��o do erro e seleciona apartir de uma valor serr desejado
+//Calcula a taxa de reduï¿½ï¿½o do erro e seleciona apartir de uma valor serr desejado
 void DEStruct::DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const
 {
     //////////////////////////////////////////////////////////////////////////////////
@@ -1483,7 +1537,7 @@ void DEStruct::DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const
             }
         }
         //////////////////////////////////////////////////////////////////////////////////
-        //Pega da matriz vlrsRegress apenas o que � interessante.
+        //Pega da matriz vlrsRegress apenas o que ï¿½ interessante.
         a.clear();
         for(j=0,serr=0.0;(j<cr.err.size())&&((serr<metodoSerr)||(cr.err.at(j)>0.001))&&(cr.err.at(j)>0.0009)&&(cr.err.at(j)==cr.err.at(j));j++)
             serr+=cr.err.at(j);
@@ -1491,7 +1545,7 @@ void DEStruct::DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const
         cr.err = cr.err(jst.set("(:,0:1:%1)").argInt(j));
         for(;j<cr.regress.size();) cr.regress.remove(j);
         //////////////////////////////////////////////////////////////////////////////////
-        //Verifica quem � o maior atraso e o atualiza.
+        //Verifica quem ï¿½ o maior atraso e o atualiza.
         for(cr.maiorAtraso=0,i=0;i<cr.regress.size();i++)
             for(j=0;j<cr.regress.at(i).size();j++)
                 if((qint32)cr.regress.at(i).at(j).vTermo.tTermo1.atraso>cr.maiorAtraso)
@@ -1508,7 +1562,6 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
     bool isOk1,isOk2,isOk=false;
     JStrSet jst;
     qreal var=0,var1=0,erroDepois=9e99;
-    //MTRand RG(QTime::currentTime().msec());
     QVector<QVector<compTermo > > regressNum, regressDen;
     JMathVar<qreal> vlrsRegress,vlrsRegress1,vlrsRegressNum,vlrsRegressDen,vlrsRegressDenAux,vlrsCoefic,vlrsCoefic1,
                     vlrsEstimado,vlrsResiduo,vlrsMedido,
@@ -1525,13 +1578,13 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
     DES_MontaVlrs(cr,vlrsRegress,vlrsMedido,true,false);
     const qint32 qtdeAtrasos = vlrsMedido.numLinhas();
     ////////////////////////////////////////////////////////////////////////////////
-    // Proteção: se não há dados suficientes, retorna com aptidão máxima (pior)
+    // ProteÃ§Ã£o: se nÃ£o hÃ¡ dados suficientes, retorna com aptidÃ£o mÃ¡xima (pior)
     if (qtdeAtrasos <= 0 || cr.regress.size() == 0) {
         return;
     }
     ////////////////////////////////////////////////////////////////////////////////
-    // Remove regressores excedentes que não foram processados em DES_MontaVlrs
-    // (quando cr.regress.size() > vlrsRegress.numColunas(), as colunas extras não existem)
+    // Remove regressores excedentes que nÃ£o foram processados em DES_MontaVlrs
+    // (quando cr.regress.size() > vlrsRegress.numColunas(), as colunas extras nÃ£o existem)
     while (cr.regress.size() > vlrsRegress.numColunas()) {
         cr.regress.removeLast();
         cr.err.remove('C', cr.err.numColunas()-1);
@@ -1554,19 +1607,19 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
             errDen.append('C',cr.err.at(i));
             vlrsRegressDen.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamDen).argInt(i));
             auxDen.copy(vlrsRegress,jst.set("(:,%1)=(:,%2)").argInt(tamDen).argInt(i));
-            auxDen.replace(vlrsMedido,jst.set("(:,%1)*=-1*(:,:)").argInt(tamDen++));//Multiplica pela saida e -1 pseudolineariza��o.
+            auxDen.replace(vlrsMedido,jst.set("(:,%1)*=-1*(:,:)").argInt(tamDen++));//Multiplica pela saida e -1 pseudolinearizaï¿½ï¿½o.
         }
     }
     ////////////////////////////////////////////////////////////////////////////////
-    //Se n�o tiver nada no Numerador coloca pelo menos uma constante.
+    //Se nï¿½o tiver nada no Numerador coloca pelo menos uma constante.
     if(!tamNum)
     {
         tamNum++;
         compTermo vlrTermo;
-        vlrTermo.vTermo.tTermo1.atraso = 0;//Apesar de n�o ter variavel � interessante que ela seja diferente de 0.
-        vlrTermo.vTermo.tTermo1.nd = 1;    //Indica que � do numerador
-        vlrTermo.vTermo.tTermo1.reg = 0;   //O regressor 0 � indicando o coeficiente constante
-        vlrTermo.vTermo.tTermo1.var = 1;   //Apesar de n�o ter variavel � interessante que ela seja diferente de 0.
+        vlrTermo.vTermo.tTermo1.atraso = 0;//Apesar de nï¿½o ter variavel ï¿½ interessante que ela seja diferente de 0.
+        vlrTermo.vTermo.tTermo1.nd = 1;    //Indica que ï¿½ do numerador
+        vlrTermo.vTermo.tTermo1.reg = 0;   //O regressor 0 ï¿½ indicando o coeficiente constante
+        vlrTermo.vTermo.tTermo1.var = 1;   //Apesar de nï¿½o ter variavel ï¿½ interessante que ela seja diferente de 0.
         vlrTermo.expoente = 1;
         QVector<compTermo> vetTermo;
         vetTermo.append(vlrTermo);
@@ -1589,7 +1642,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
         vlrsRegressDenAux.replace(auxDen,jst.set("(:,:)=-1*(:,:)"));//Valores multiplicados pela saida sem o -1.
     }
     ////////////////////////////////////////////////////////////////////////////////
-    //Faz quando � Racional.
+    //Faz quando ï¿½ Racional.
     if(vlrsRegressDenAux.numLinhas()==qtdeAtrasos)
     {
         ////////////////////////////////////////////////////////////////////////////////
@@ -1604,7 +1657,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
         sigma2.copy(aux2,jst.set("(%1,:)=(:,:)").argInt(tamNum));
         ////////////////////////////////////////////////////////////////////////////////
     }
-    else //Faz quando � Polinomial.
+    else //Faz quando ï¿½ Polinomial.
     {
         sigma1.fill(0,vlrsRegress.numColunas(),vlrsRegress.numColunas());
         sigma2.fill(0,vlrsRegress.numColunas(),1);
@@ -1615,7 +1668,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
     do
     {
         ////////////////////////////////////////////////////////////////////////////////
-        //Atualiza o erro, a aptid�o e os vlrsCoefic.
+        //Atualiza o erro, a aptidï¿½o e os vlrsCoefic.
         if(count1&&isOk&&(erroDepois<cr.erro))
         {
             cr.vlrsCoefic = vlrsCoefic; //Atualiza os coeficientes.
@@ -1643,7 +1696,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
                 vlrsCoefic = vlrsCoefic1; //Atualiza os coeficientes.
             }
             ////////////////////////////////////////////////////////////////////////////////
-            //Calcula vlrsCoefic por [A'*A-COV(e)sigma1]*x = [A'*b-COV(e)*sigma2] -> M�todo dos m�nimos Quadrados estendido
+            //Calcula vlrsCoefic por [A'*A-COV(e)sigma1]*x = [A'*b-COV(e)*sigma2] -> Mï¿½todo dos mï¿½nimos Quadrados estendido
             v = vlrsRegress(vlrsRegress,jst.set("(:,:)'*(:,:)"));   //A'*A
             v.copy(sigma1,jst.set("(:,:)-=%f1*(:,:)").argReal(var));//v-var*sigma1
             x = vlrsRegress(vlrsMedido,jst.set("(:,:)'*(:,:)"));    //A'*b
@@ -1662,7 +1715,7 @@ void DEStruct::DES_calAptidao(Cromossomo &cr, const quint32 &tamErro) const
             }
         }
         while(isOk&&(!(isOk1&&isOk2))&&count2<=20);
-        erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o c�lculo do erro quadr�tico m�dio.
+        erroDepois = vlrsResiduo(vlrsResiduo,jst.set("(:,:)'*(:,:)")).at(0)/qtdeAtrasos; //r'*r :Faz o cï¿½lculo do erro quadrï¿½tico mï¿½dio.
         count1++;//Incrementa a variavel do tamanho do erro.
     }
     while((quint32) count1 <= tamErro );
@@ -1687,3 +1740,4 @@ void DEStruct::DES_MontaSaida(Cromossomo &cr,QVector<qreal> &vplotar,QVector<qre
     vplotar.clear(); vplotar += (QVector<qreal> ) vlrsEstimado;
     resid.clear(); resid += (QVector<qreal> ) vlrsResiduo;
 }
+

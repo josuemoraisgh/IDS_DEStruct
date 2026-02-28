@@ -818,7 +818,7 @@ void ICalc::ini_MW_interface()
     LEEM->setSizePolicy(sizePolicy3);
     LEEM->setMaximumSize(QSize(40, 16777215));
     LEEM->setContextMenuPolicy(Qt::NoContextMenu);
-    LEEM->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEEM->setValidator(new QDoubleValidator (0.0,1000000.0,6,this));
     mainToolbar->addWidget(LEEM);
     //////////////////////////////////////////////////////////////////////////////
     LENC = new QLabel(" NCy:= ",this);
@@ -830,7 +830,7 @@ void ICalc::ini_MW_interface()
     LEENC->setSizePolicy(sizePolicy3);
     LEENC->setMaximumSize(QSize(40, 16777215));
     LEENC->setContextMenuPolicy(Qt::NoContextMenu);
-    LEENC->setValidator(new QDoubleValidator (0.9,0.999,3,this));
+    LEENC->setValidator(new QIntValidator (1,1000000,this));
     mainToolbar->addWidget(LEENC);
     //////////////////////////////////////////////////////////////////////////////
     mainToolbar->addSeparator();

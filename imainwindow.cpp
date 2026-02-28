@@ -335,7 +335,7 @@ void ICalc::Iniciar()
     str.append(QString("Cl:= ")+QString::number(MW_iteracoes)+QString("; Tempo: ")+DEStruct::DES_Adj.segundos.toString("hh:mm:ss.zzz")+QString("ms\n"));
     for(i=0;i<DEStruct::DES_Adj.Dados.variaveis.nome.size();i++)
     {
-        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(tr(", Decima��o = "))+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
+        if(i<DEStruct::DES_Adj.Dados.variaveis.qtSaidas) str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString(tr(", Decimação = "))+QString::number(DEStruct::DES_Adj.decimacao.at(i))+QString("; "));
         else str.append(DEStruct::DES_Adj.Dados.variaveis.nome.at(i)+QString(": Max = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(i))+QString(", Min = ")+QString::number(DEStruct::DES_Adj.Dados.variaveis.Vmenor.at(i))+QString("; "));
     }
     textEdit->append(str);
@@ -627,7 +627,7 @@ void ICalc::slot_MW_EscreveEquacao()
         jn  = crBest.at(idSaida).erro;//DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida);
         jnM = somaEr.at(idSaida)/(DEStruct::DES_Adj.Dados.tamPop);//*DEStruct::DES_Adj.Dados.variaveis.Vmaior.at(idSaida));
         rsme = (sqrt(jn))/(sqrt(varAux/(numColuna-2)));
-        str.append(QString("\nBIC:= %1; RMSE(2):= %2; Jn(Menor):= %3; Jn(Md):= %4").arg(crBest.at(idSaida).aptidao).arg(rsme).arg(jn).arg(jnM));
+        str.append(QString("\nRMSE(2):= %1; Jn(Menor):= %2; Jn(Md):= %3").arg(rsme).arg(jn).arg(jnM));
         if(strNum.size()) str.append(QString("\n%1(k) = ((%1_Num+%1_Err)/(%1_Den));\n%1_Num = "+strNum+";\n%1_Err = "+strErr+";\n%1_Den = "+strDen+";\nERR_Num:=("+strErrNum+");\nERR_Den:=("+strErrDen+");").arg(DEStruct::DES_Adj.Dados.variaveis.nome.at(idSaida)));
     }
     str.append(QString("\n"));

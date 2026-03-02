@@ -837,19 +837,36 @@ void DEStruct::slot_DES_StatusSetado()
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
+// DES_AlgDiffEvol — Algoritmo de Evolução Diferencial (DE) Canônico Adaptado
+//
+// Fluxo principal:
+//   1. INIT: Cria população inicial (ou reusa se isElitismo).
+//   2. LOOP GERAÇÕES (pipeline multi-thread):
+//      Para cada indivíduo (tokenPop) na subpopulação do pipeline:
+//        a) Seleção de doadores: pbest (top-p%), r1, r2 — todos distintos e != target.
+//        b) Leitura thread-safe de target, pbest, r1, r2.
+//        c) Geração do trial via DES_GenerateTrial (mutação current-to-pbest/1 + crossover binomial).
+//        d) Seleção 1-a-1: se aptidão(trial) <= aptidão(target), substitui target por trial.
+//   3. BARREIRA (1 thread): Atualiza ranking (vetElitismo), detecta estagnação,
+//      emite sinais de status/desenho. DES_crMut armazena o best (não mais aleatório).
+//   4. PARADA: Estagnação por janela (numeroCiclos gerações sem melhora relativa/absoluta)
+//      ou comando externo (modeOper_TH).
+//
+// Parâmetros DE em DES_Adj.deParams: { F, CR, pbest_rate, strategy, stagnation_window, tol_rel }
+// =============================================================================
 void DEStruct::DES_AlgDiffEvol()
 {
     ////////////////////////////////////////////////////////////////////////////
     const qint32 qtSaidas = DES_Adj.Dados.variaveis.qtSaidas;
     const qint32 tamPop = DES_Adj.Dados.tamPop;
-    //QList<QVector<Cromossomo > > buffer;   
-    Cromossomo cr0, cr1, cr2;// cr3;
     qint32 tokenPop;
     JMathVar<qreal> m1(10,10,5.0),m2(10,10,5.0);
     QVector<Cromossomo > crBest(qtSaidas);
     ////////////////////////////////////////////////////////////////////////////
     bool isOk=false,isPrint=true;
-    qint32 count0=0,count1=0,count2=0,cr0Point,cr1Point,cr2Point,idSaida=0,idPipeLine = 0;//count3=0;
+    qint32 count0=0,count2=0,idSaida=0,idPipeLine = 0;
+    qint32 pbestPoint, r1Point, r2Point, cr2Point; // Índices dos doadores (DE canônico)
     ////////////////////////////////////////////////////////////////////////////
     for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++) DES_idParada_Th[idPipeLine] = !DES_idParadaJust[count0];
     ////////////////////////////////////////////////////////////////////////////    
@@ -945,35 +962,56 @@ void DEStruct::DES_AlgDiffEvol()
             for(idSaida=0;idSaida<qtSaidas;idSaida++)
             {
                 ////////////////////////////////////////////////////////////////////////////
-                //Cria um cromossomo para cada popula��o altera��o aleatoriamente.
-                count0 = DES_RG.randInt(0,tamPop-1);
-                do{count1 = DES_RG.randInt(0,tamPop-1);}while(count1 == count0);
-                do{count2 = DES_RG.randInt(0,tamPop-1);}while((count2 == count0)||(count2 == count1));
-                //count3 = DES_RG.randInt(0,DES_BufferSR.at(idPipeLine).at(idSaida).size()-1);
-                //do{count3 = DES_RG.randInt(0,tamPop-1);}while((count3 == count1)||(count3 == count2)||(count3 == count0));
+                // DE Canônico: Seleção de doadores (pbest, r1, r2)
+                // pbest: aleatório do top-p% do ranking (vetElitismo)
+                // r1, r2: aleatórios da população, todos distintos e != target (tokenPop)
+                ////////////////////////////////////////////////////////////////////////////
+                const qint32 topP = qMax((qint32)1, (qint32)(DES_Adj.deParams.pbest_rate * tamPop));
+                qint32 pbest_rank, r1_rank, r2_rank;
+
                 lock_DES_Elitismo[idPipeLine].lockForRead();
-                cr0Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(count0);
-                cr1Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(count1);
-                cr2Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(count2);
+                // Seleciona pbest do top-p%, garantindo != target
+                do {
+                    pbest_rank = DES_RG.randInt(0, topP - 1);
+                    pbestPoint = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(pbest_rank);
+                } while(pbestPoint == tokenPop && topP > 1);
+                // Seleciona r1 distinto de target e pbest
+                do {
+                    r1_rank = DES_RG.randInt(0, tamPop - 1);
+                    r1Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(r1_rank);
+                } while(r1Point == tokenPop || r1Point == pbestPoint);
+                // Seleciona r2 distinto de target, pbest e r1
+                do {
+                    r2_rank = DES_RG.randInt(0, tamPop - 1);
+                    r2Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(r2_rank);
+                } while(r2Point == tokenPop || r2Point == pbestPoint || r2Point == r1Point);
                 lock_DES_Elitismo[idPipeLine].unlock();
+                ////////////////////////////////////////////////////////////////////////////
+                // Leitura thread-safe dos cromossomos doadores e do target
+                ////////////////////////////////////////////////////////////////////////////
+                Cromossomo target_cr, pbest_cr, r1_cr, r2_cr;
                 lock_DES_BufferSR.lockForRead();
-                cr0=DES_Adj.Pop.at(idSaida).at(cr0Point);
-                cr1=DES_Adj.Pop.at(idSaida).at(cr1Point);
-                cr2=DES_Adj.Pop.at(idSaida).at(cr2Point);
-                //cr3=DES_BufferSR.at(idPipeLine).at(idSaida).size()?DES_BufferSR[idPipeLine][idSaida].at(count3):DES_criaCromossomo(idSaida);
+                target_cr = DES_Adj.Pop.at(idSaida).at(tokenPop);
+                pbest_cr  = DES_Adj.Pop.at(idSaida).at(pbestPoint);
+                r1_cr     = DES_Adj.Pop.at(idSaida).at(r1Point);
+                r2_cr     = DES_Adj.Pop.at(idSaida).at(r2Point);
                 lock_DES_BufferSR.unlock();
                 ////////////////////////////////////////////////////////////////////////////
-                //Faz a outra parcela da muta��o e o cruzamento. 
-                if(tokenPop == DES_idChange.at(idPipeLine).at(idSaida))
+                // Gera trial via mutação current-to-pbest/1 + crossover binomial
+                ////////////////////////////////////////////////////////////////////////////
+                Cromossomo trial = DES_GenerateTrial(target_cr, pbest_cr, r1_cr, r2_cr,
+                                                     DES_Adj.deParams.F, DES_Adj.deParams.CR);
+                ////////////////////////////////////////////////////////////////////////////
+                // Seleção 1-a-1: trial vs target
+                // Substitui SOMENTE se trial melhor (<=) ou target é NaN
+                ////////////////////////////////////////////////////////////////////////////
+                if(trial.regress.size() > 0 &&
+                   (trial.aptidao <= target_cr.aptidao || target_cr.aptidao != target_cr.aptidao))
                 {
                     lock_DES_BufferSR.lockForWrite();
-                    DES_Adj.Pop[idSaida][tokenPop]= DES_BufferSR.at(idPipeLine).at(idSaida).at(0);
+                    DES_Adj.Pop[idSaida][tokenPop] = trial;
                     lock_DES_BufferSR.unlock();
                 }
-                ////////////////////////////////////////////////////////////////////////////
-                //DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],DES_crMut[idPipeLine][idSaida],DES_criaCromossomo(idSaida),cr0,cr1);
-                //DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],cr0,DES_criaCromossomo(idSaida),cr1,cr2);
-                DES_CruzMut(DES_Adj.Pop[idSaida][tokenPop],cr0,DES_crMut[idPipeLine][idSaida],cr1,cr2);
                 ////////////////////////////////////////////////////////////////////////////
                 //Calcula o SSE medio.
                 lock_DES_index[idPipeLine].lockForWrite();
@@ -1011,37 +1049,45 @@ void DEStruct::DES_AlgDiffEvol()
             {
                 DES_justThread[idPipeLine].release(DES_TH_size-1);
                 ////////////////////////////////////////////////////////////////////////////
-                //O elitismo � feito colocando os melhores (menor BIC) no inicio do vetor.
+                //O elitismo é feito colocando os melhores (menor BIC) no inicio do vetor.
+                // Ranking serve para obter x_best e top-p% (para pbest na próxima geração).
+                // A substituição é LOCAL (trial vs target), feita acima no loop.
                 isOk = true;
                 for(idSaida=0;idSaida<qtSaidas;idSaida++)
                 {
-                    //lock_DES_Elitismo[idPipeLine].lockForWrite();
                     cr2Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(0);
                     qSortPop(DES_Adj.vetElitismo[idPipeLine][idSaida].begin(),DES_Adj.vetElitismo[idPipeLine][idSaida].end(),idSaida);
-                    cr0Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(0);
-                    //cr1Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(DES_RG.randInt(0,(tamPop-1)<10?tamPop-1:10));
-                    //lock_DES_Elitismo[idPipeLine].unlock();
+                    qint32 bestPoint = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(0);
 
                     lock_DES_BufferSR.lockForRead();
-                    crBest[idSaida]=DES_Adj.Pop.at(idSaida).at(cr0Point);
-                    if((DES_Adj.melhorAptidaoAnt.at(idSaida)-crBest.at(idSaida).aptidao)>=DES_Adj.jnrr) DES_Adj.melhorAptidaoAnt[idSaida] = crBest.at(idSaida).aptidao;
-                    else isOk = false;
-                    //DES_idChange[idPipeLine][idSaida]=cr1Point;
-                    //cr1 = DES_Adj.Pop.at(idSaida).at(cr1Point);
-                    cr2 = DES_Adj.Pop.at(idSaida).at(cr2Point);
-                    isPrint = isPrint||(crBest.at(idSaida).aptidao<cr2.aptidao);
+                    crBest[idSaida]=DES_Adj.Pop.at(idSaida).at(bestPoint);
+                    // Critério de melhora: tolerância relativa OU absoluta (jnrr)
+                    {
+                        const qreal delta = DES_Adj.melhorAptidaoAnt.at(idSaida) - crBest.at(idSaida).aptidao;
+                        const qreal base_val = qMax(qAbs(DES_Adj.melhorAptidaoAnt.at(idSaida)), 1e-12);
+                        const bool improved = (delta / base_val >= DES_Adj.deParams.tol_rel) || (delta >= DES_Adj.jnrr);
+                        if(improved) DES_Adj.melhorAptidaoAnt[idSaida] = crBest.at(idSaida).aptidao;
+                        else isOk = false;
+                    }
+                    {
+                        Cromossomo crOldBest = DES_Adj.Pop.at(idSaida).at(cr2Point);
+                        isPrint = isPrint || (crBest.at(idSaida).aptidao < crOldBest.aptidao);
+                    }
                     lock_DES_BufferSR.unlock();
 
-                    //DES_SuperResp(cr1,DES_BufferSR[idPipeLine][idSaida]);
-                    //DES_Mutacao(DES_crMut[idPipeLine][idSaida],cr1,DES_criaCromossomo(idSaida));
-                    //DES_crMut[idPipeLine][idSaida] = crBest.at(idSaida);//DES_criaCromossomo(idSaida);
-                    DES_crMut[idPipeLine][idSaida] = DES_criaCromossomo(idSaida);
+                    // DES_crMut agora armazena o best (NÃO mais aleatório).
+                    // Serve como snapshot do melhor cromossomo para display/logging.
+                    DES_crMut[idPipeLine][idSaida] = crBest.at(idSaida);
                 }
                 ////////////////////////////////////////////////////////////////////////////
                 lock_DES_BufferSR.lockForWrite();
                 DES_Adj.iteracoes++;
                 if(isOk) DES_Adj.iteracoesAnt = DES_Adj.iteracoes;
-                else if(DES_Adj.iteracoes>=DES_Adj.iteracoesAnt+DES_Adj.numeroCiclos) slot_DES_Estado(2);
+                // Estagnação por janela: usa o menor entre numeroCiclos e deParams.stagnation_window
+                else {
+                    const qint64 janela = qMin((qint64)DES_Adj.numeroCiclos, (qint64)DES_Adj.deParams.stagnation_window);
+                    if(DES_Adj.iteracoes >= DES_Adj.iteracoesAnt + janela) slot_DES_Estado(2);
+                }
                 isOk = (((DES_Adj.tp.secsTo(QTime::currentTime()) >= 6)&&isPrint)||(DES_Adj.tp.secsTo(QTime::currentTime()) >= 60));
                 if(isOk) DES_Adj.tp = QTime::currentTime();
                 lock_DES_BufferSR.unlock();
@@ -1159,148 +1205,291 @@ const Cromossomo DEStruct::DES_criaCromossomo(const qint32 &idSaida) const
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-void DEStruct::DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const
+// =============================================================================
+// DES_GenerateTrial — DE Canônico adaptado para cromossomo estrutural (NARX/racional)
+//
+// Fluxo:
+//   1. Coleta termos (genes) de target, pbest, r1, r2
+//   2. Mutação current-to-pbest/1:
+//        exponent_mutant = exponent_target + F*(exponent_pbest - exponent_target)
+//                                          + F*(exponent_r1 - exponent_r2)
+//      (Se o termo estiver ausente em algum doador, expoente tratado como 0.)
+//   3. Crossover binomial com CR e jrand:
+//        Para cada gene do universo (target ∪ mutant):
+//          se rand < CR ou i == jrand → pega do mutant
+//          senão → pega do target
+//   4. Agrupa termos por idReg para reconstruir regress[]
+//   5. Poda via DES_CalcERR + avalia aptidão via DES_calAptidao
+//
+// Parâmetros F ∈ [0.4, 0.9] e CR ∈ [0, 1] vêm de DES_Adj.deParams.
+// =============================================================================
+const Cromossomo DEStruct::DES_GenerateTrial(const Cromossomo &target, const Cromossomo &pbest,
+                                              const Cromossomo &r1, const Cromossomo &r2,
+                                              double F, double CR) const
 {
     ////////////////////////////////////////////////////////////////////////////////
-    //JMathVar<qreal> vlrsMedido,vlrsRegress;
-    Cromossomo crAvali0,crA1;//,crA2;
-    lock_DES_BufferSR.lockForRead();
-    crAvali0=crAvali;
-    lock_DES_BufferSR.unlock();
-    ////////////////////////////////////////////////////////////////////////////////
     MTRand RG(QTime::currentTime().msec());
-    const qreal multBase = RG.randReal(-2,2);
-    QVector<compTermo> termosAnalisados,vetTermo1,vetTermo2,vetTermo3,termoAv(6,compTermo());
-    QVector<QVector<compTermo> > matTermo;
+    Cromossomo trial;
+    trial.idSaida = target.idSaida;
+    trial.maiorAtraso = 0;
+    ////////////////////////////////////////////////////////////////////////////////
+    // Phase 1: Coleta termos de todos os doadores com identificação de fonte
+    // pos: 0=target (x_i), 1=pbest (x_pbest), 2=r1 (x_r1), 3=r2 (x_r2)
+    ////////////////////////////////////////////////////////////////////////////////
+    QVector<compTermo> termosAnalisados;
     QVector<qint32> posTermosAnalisados;
-    compTermo *tr,auxTermo;
-    //qreal expo,auxReal;
-    qint32 i,j,size1,size2,size3,count=0,testeSize=0,teste,*pr;//countTermos=0;
-    teste = RG.randInt(0,1);if(teste&1) count++;
-    for(testeSize=1;count<5;testeSize++){teste=(teste<<1)+RG.randInt(0,1);if(teste&1)count++;}
+    qint32 i, j;
+
+    for(i=0; i<target.regress.size(); i++) {
+        termosAnalisados += target.regress.at(i);
+        posTermosAnalisados += QVector<qint32>(target.regress.at(i).size(), 0);
+    }
+    for(i=0; i<pbest.regress.size(); i++) {
+        termosAnalisados += pbest.regress.at(i);
+        posTermosAnalisados += QVector<qint32>(pbest.regress.at(i).size(), 1);
+    }
+    for(i=0; i<r1.regress.size(); i++) {
+        termosAnalisados += r1.regress.at(i);
+        posTermosAnalisados += QVector<qint32>(r1.regress.at(i).size(), 2);
+    }
+    for(i=0; i<r2.regress.size(); i++) {
+        termosAnalisados += r2.regress.at(i);
+        posTermosAnalisados += QVector<qint32>(r2.regress.at(i).size(), 3);
+    }
+
+    if(termosAnalisados.isEmpty()) {
+        trial = target;
+        return trial;
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
-    for(i=0;i<cr0.regress.size();i++) {termosAnalisados+=cr0.regress.at(i);posTermosAnalisados+=QVector<qint32>(cr0.regress.at(i).size(),0);}
-    //for(i=0;i<cr0.regressResid.size();i++) {termosAnalisados+=cr0.regressResid.at(i);posTermosAnalisados+=QVector<qint32>(cr0.regressResid.at(i).size(),0);}
-    for(i=0;i<crNew.regress.size();i++) {termosAnalisados+=crNew.regress.at(i);posTermosAnalisados+=QVector<qint32>(crNew.regress.at(i).size(),1);}
-    //for(i=0;i<crNew.regressResid.size();i++) {termosAnalisados+=crNew.regressResid.at(i);posTermosAnalisados+=QVector<qint32>(crNew.regressResid.at(i).size(),1);}
-    for(i=0;i<cr1.regress.size();i++) {termosAnalisados+=cr1.regress.at(i);posTermosAnalisados+=QVector<qint32>(cr1.regress.at(i).size(),2);}
-    //for(i=0;i<cr1.regressResid.size();i++) {termosAnalisados+=cr1.regressResid.at(i);posTermosAnalisados+=QVector<qint32>(cr1.regressResid.at(i).size(),2);}
-    for(i=0;i<cr2.regress.size();i++) {termosAnalisados+=cr2.regress.at(i);posTermosAnalisados+=QVector<qint32>(cr2.regress.at(i).size(),3);}
-    //for(i=0;i<cr2.regressResid.size();i++) {termosAnalisados+=cr2.regressResid.at(i);posTermosAnalisados+=QVector<qint32>(cr2.regressResid.at(i).size(),3);}
-    for(i=0;i<crAvali0.regress.size();i++) {termosAnalisados+=crAvali0.regress.at(i);posTermosAnalisados+=QVector<qint32>(crAvali0.regress.at(i).size(),4);}
-    //for(i=0;i<crAvali0.regressResid.size();i++) {termosAnalisados+=crAvali0.regressResid.at(i);posTermosAnalisados+=QVector<qint32>(crAvali0.regressResid.at(i).size(),4);}
+    // Phase 2: Ordena por tTermo0 e computa expoentes mutados (current-to-pbest/1)
+    //          Separa termos do target para uso no crossover binomial
     ////////////////////////////////////////////////////////////////////////////////
-    qSortDuplo(termosAnalisados.begin(),termosAnalisados.end(),posTermosAnalisados.begin(),posTermosAnalisados.end(),CmpMaiorTerm);
-    ////////////////////////////////////////////////////////////////////////////////
-    termoAv[5] = termosAnalisados.at(0);
+    qSortDuplo(termosAnalisados.begin(), termosAnalisados.end(),
+               posTermosAnalisados.begin(), posTermosAnalisados.end(), CmpMaiorTerm);
+
+    // Vetores flat: termos mutados e termos do target (para crossover)
+    QVector<compTermo> mutTermos, tgtTermos;
+
+    // Acumuladores por fonte para o tTermo0 corrente
+    // [0]=target, [1]=pbest, [2]=r1, [3]=r2, [4]=chave corrente
+    QVector<compTermo> termoAv(5, compTermo());
+    compTermo auxTermo;
+
+    termoAv[4] = termosAnalisados.at(0);
     termoAv[posTermosAnalisados.at(0)] = termosAnalisados.at(0);
-    ////////////////////////////////////////////////////////////////////////////////
-    for(tr=termosAnalisados.begin()+1,pr=posTermosAnalisados.begin()+1;(tr<=termosAnalisados.end());tr++,pr++)
+
+    compTermo *tr;
+    qint32 *pr;
+
+    for(tr = termosAnalisados.begin()+1, pr = posTermosAnalisados.begin()+1;
+        tr <= termosAnalisados.end(); tr++, pr++)
     {
         ////////////////////////////////////////////////////////////////////////////////
-        if(tr<termosAnalisados.end() ? termoAv.at(5).vTermo.tTermo0 != tr->vTermo.tTermo0 : true) //Para os termos iguais
+        // Quando muda tTermo0 (ou fim da lista): processa grupo acumulado
+        if(tr < termosAnalisados.end() ? termoAv.at(4).vTermo.tTermo0 != tr->vTermo.tTermo0 : true)
         {
-            ////////////////////////////////////////////////////////////////////////////////
-            if(termoAv.at(0).vTermo.tTermo0||termoAv.at(1).vTermo.tTermo0||termoAv.at(2).vTermo.tTermo0||termoAv.at(3).vTermo.tTermo0)
+            // Algum doador tem este termo?
+            if(termoAv.at(0).vTermo.tTermo0 || termoAv.at(1).vTermo.tTermo0 ||
+               termoAv.at(2).vTermo.tTermo0 || termoAv.at(3).vTermo.tTermo0)
             {
-                if(termoAv.at(0).vTermo.tTermo0) auxTermo.vTermo.tTermo0 =  termoAv.at(0).vTermo.tTermo0;
-                if(termoAv.at(1).vTermo.tTermo0) auxTermo.vTermo.tTermo0 =  termoAv.at(1).vTermo.tTermo0;
-                if(termoAv.at(2).vTermo.tTermo0) auxTermo.vTermo.tTermo0 =  termoAv.at(2).vTermo.tTermo0;
-                if(termoAv.at(3).vTermo.tTermo0) auxTermo.vTermo.tTermo0 =  termoAv.at(3).vTermo.tTermo0;
-                auxTermo.expoente = termoAv.at(0).expoente+ multBase*(termoAv.at(1).expoente-termoAv.at(0).expoente)+multBase*(termoAv.at(2).expoente-termoAv.at(3).expoente);
-                //expo = (qint32) auxTermo.expoente;
-                //auxReal = auxTermo.expoente-expo;
-                teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
-                //if(/*((teste>>i)&3)||*/(auxReal>=0?((auxReal)<=0.01)||((auxReal)>=0.95):((auxReal)>=-0.01)||((auxReal)<=-0.95)))
-                //{
-                //    expo +=(auxReal>=0.5)?1:((auxReal<=-0.5)?-1:0);
-                //    if(((teste>>i)&3)==1) auxTermo.expoente = fabs(expo);
-                //    else auxTermo.expoente = expo;
-                //}
-                if(auxTermo.expoente)
-                    vetTermo1.append(auxTermo);
-                termoAv[0].vTermo.tTermo0 = 0;termoAv[0].expoente = 0.0f;
-                termoAv[1].vTermo.tTermo0 = 0;termoAv[1].expoente = 0.0f;
-                termoAv[2].vTermo.tTermo0 = 0;termoAv[2].expoente = 0.0f;
-                termoAv[3].vTermo.tTermo0 = 0;termoAv[3].expoente = 0.0f;
-            }
-            ////////////////////////////////////////////////////////////////////////////////
-            if(termoAv.at(4).vTermo.tTermo0)
-            {
-                vetTermo2.append(termoAv.at(4));
-                termoAv[4].vTermo.tTermo0 = 0;termoAv[4].expoente = 0.0f;
-            }
-            ////////////////////////////////////////////////////////////////////////////////
-        }
-        ////////////////////////////////////////////////////////////////////////////////
-        if(tr<termosAnalisados.end() ? termoAv.at(5).vTermo.tTermo2.idReg!= tr->vTermo.tTermo2.idReg:true)
-        {
-            //countTermos = 0;
-            size1 = vetTermo1.size();
-            size2 = vetTermo2.size();
-            size3 = size1+size2;
-            if(size1||size2)
-            {
-                vetTermo3.clear();
-                teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
-                for(i=0;i<size1;i++) if((teste>>i)&1) vetTermo3.append(vetTermo1.at(i));
-                crA1.regress.append(vetTermo3);
+                // Identidade estrutural: pega do primeiro doador que possui
+                if(termoAv.at(0).vTermo.tTermo0)      auxTermo.vTermo.tTermo0 = termoAv.at(0).vTermo.tTermo0;
+                else if(termoAv.at(1).vTermo.tTermo0)  auxTermo.vTermo.tTermo0 = termoAv.at(1).vTermo.tTermo0;
+                else if(termoAv.at(2).vTermo.tTermo0)  auxTermo.vTermo.tTermo0 = termoAv.at(2).vTermo.tTermo0;
+                else                                    auxTermo.vTermo.tTermo0 = termoAv.at(3).vTermo.tTermo0;
 
-                if(vetTermo3.size()?vetTermo3.at(0).vTermo.tTermo1.reg:true)
-                {
-                    vetTermo3.clear();
-                    teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
-                    for(i=0;i<size2;i++) if((teste>>i)&1) vetTermo3.append(vetTermo2.at(i));
-                    crA1.regress.append(vetTermo3);
+                // Mutação current-to-pbest/1:
+                //   v = target + F*(pbest - target) + F*(r1 - r2)
+                // Se doador ausente, expoente = 0 (default do compTermo)
+                auxTermo.expoente = termoAv.at(0).expoente
+                                  + F * (termoAv.at(1).expoente - termoAv.at(0).expoente)
+                                  + F * (termoAv.at(2).expoente - termoAv.at(3).expoente);
 
-                    if(vetTermo3.size()?vetTermo3.at(0).vTermo.tTermo1.reg:true)
-                    {
-                        vetTermo3.clear();
-                        teste = (teste>>1)|((teste&1)<<testeSize);//Rotaciona os bits.
-                        vetTermo1+=vetTermo2;
-                        for(i=0;i<size3;i++) if((teste>>i)&1) vetTermo3.append(vetTermo1.at(i));
-                        std::sort(vetTermo3.begin(),vetTermo3.end(),CmpMaiorTerm);//Ordena os termos por ordem decrescente.
-                        for(i=1;i<vetTermo3.size();i++)//Concatena termos exatamente iguais.
-                            if(vetTermo3.at(i).vTermo.tTermo0 == vetTermo3.at(i-1).vTermo.tTermo0) vetTermo3.remove(i--);
-                        crA1.regress.append(vetTermo3);
-                    }
-                }
-                vetTermo1.clear();
-                vetTermo2.clear();
+                if(auxTermo.expoente != 0.0)
+                    mutTermos.append(auxTermo);
             }
+
+            // Coleta termo do target para crossover (se existir)
+            if(termoAv.at(0).vTermo.tTermo0)
+                tgtTermos.append(termoAv.at(0));
+
+            // Reset acumuladores
+            termoAv[0].vTermo.tTermo0 = 0; termoAv[0].expoente = 0.0;
+            termoAv[1].vTermo.tTermo0 = 0; termoAv[1].expoente = 0.0;
+            termoAv[2].vTermo.tTermo0 = 0; termoAv[2].expoente = 0.0;
+            termoAv[3].vTermo.tTermo0 = 0; termoAv[3].expoente = 0.0;
         }
         ////////////////////////////////////////////////////////////////////////////////
-        if(tr<termosAnalisados.end())
+        // Acumula próximo termo
+        if(tr < termosAnalisados.end())
         {
-            termoAv[5] = *tr;
-            if(termoAv.at(*pr).vTermo.tTermo0==tr->vTermo.tTermo0) termoAv[*pr].expoente += tr->expoente;
-            else termoAv[*pr] = *tr;
+            termoAv[4] = *tr;
+            if(termoAv.at(*pr).vTermo.tTermo0 == tr->vTermo.tTermo0)
+                termoAv[*pr].expoente += tr->expoente;
+            else
+                termoAv[*pr] = *tr;
         }
-        ////////////////////////////////////////////////////////////////////////////////
     }
+
     ////////////////////////////////////////////////////////////////////////////////
-    //Faz uma sele��o de quais regressores ir�o participar do teste final
-    const qint32 qtdeAtrasos = (DES_Adj.Dados.variaveis.valores.numColunas()/(2*DES_Adj.decimacao.at(crA1.idSaida)))-27;
-    size1 = crA1.regress.size();
-    matTermo = crA1.regress;
-    crA1.regress.clear();
-    for(count=0,i=0;(i<size1)&&(i<=testeSize)&&(count<qtdeAtrasos);i++) if((teste>>i)&1) {crA1.regress.append(matTermo.at(i));count++;}
-    for(i=testeSize+1;(i<size1)&&(count<qtdeAtrasos);i++)
-        if(RG.randInt(0,1)){crA1.regress.append(matTermo.at(i));count++;}
+    // Phase 3: Crossover binomial com CR e jrand
+    //   Universo = mutTermos ∪ tgtTermos (por tTermo0)
+    //   jrand garante pelo menos 1 gene do mutant
     ////////////////////////////////////////////////////////////////////////////////
-    DES_CalcERR(crA1,DES_Adj.serr);
-    DES_calAptidao(crA1);
+
+    // Ordena ambas as listas por tTermo0 (decrescente) para merge eficiente
+    std::sort(mutTermos.begin(), mutTermos.end(), CmpMaiorTerm);
+    std::sort(tgtTermos.begin(), tgtTermos.end(), CmpMaiorTerm);
+
+    // Merge das duas listas em um universo unificado
+    // Para cada tTermo0 único: armazena expoente mutant e/ou target
+    QVector<quint32> uKey;
+    QVector<qreal> uMutExp, uTgtExp;
+    QVector<qint32> uHasMut, uHasTgt; // 0 ou 1
+
+    qint32 mi = 0, ti = 0;
+    while(mi < mutTermos.size() || ti < tgtTermos.size())
+    {
+        quint32 mk = (mi < mutTermos.size()) ? mutTermos.at(mi).vTermo.tTermo0 : 0;
+        quint32 tk = (ti < tgtTermos.size()) ? tgtTermos.at(ti).vTermo.tTermo0 : 0;
+
+        if(mi >= mutTermos.size()) {
+            // Só target restante
+            uKey.append(tk); uMutExp.append(0.0); uTgtExp.append(tgtTermos.at(ti).expoente);
+            uHasMut.append(0); uHasTgt.append(1);
+            ti++;
+        } else if(ti >= tgtTermos.size()) {
+            // Só mutant restante
+            uKey.append(mk); uMutExp.append(mutTermos.at(mi).expoente); uTgtExp.append(0.0);
+            uHasMut.append(1); uHasTgt.append(0);
+            mi++;
+        } else if(mk > tk) {
+            // Mutant vem primeiro (ordem decrescente)
+            uKey.append(mk); uMutExp.append(mutTermos.at(mi).expoente); uTgtExp.append(0.0);
+            uHasMut.append(1); uHasTgt.append(0);
+            mi++;
+        } else if(tk > mk) {
+            // Target vem primeiro
+            uKey.append(tk); uMutExp.append(0.0); uTgtExp.append(tgtTermos.at(ti).expoente);
+            uHasMut.append(0); uHasTgt.append(1);
+            ti++;
+        } else {
+            // Mesmo tTermo0
+            uKey.append(mk);
+            uMutExp.append(mutTermos.at(mi).expoente);
+            uTgtExp.append(tgtTermos.at(ti).expoente);
+            uHasMut.append(1); uHasTgt.append(1);
+            mi++; ti++;
+        }
+    }
+
+    if(uKey.isEmpty()) {
+        trial = target;
+        return trial;
+    }
+
+    // Aplica crossover binomial
+    const qint32 jrand = RG.randInt(0, uKey.size() - 1);
+    QVector<compTermo> trialTermos;
+
+    for(i = 0; i < uKey.size(); i++)
+    {
+        bool fromMutant = (RG.randReal(0.0, 1.0) < CR) || (i == jrand);
+        compTermo t;
+        t.vTermo.tTermo0 = uKey.at(i);
+
+        if(fromMutant) {
+            if(uHasMut.at(i)) {
+                t.expoente = uMutExp.at(i);
+                trialTermos.append(t);
+            }
+            // Mutant não tem este termo → decisão estrutural: não inclui
+        } else {
+            if(uHasTgt.at(i)) {
+                t.expoente = uTgtExp.at(i);
+                trialTermos.append(t);
+            }
+            // Target não tem este termo → não inclui
+        }
+    }
+
+    // Garante que trial não fique vazio (força pelo menos o termo jrand)
+    if(trialTermos.isEmpty()) {
+        compTermo t;
+        t.vTermo.tTermo0 = uKey.at(jrand);
+        t.expoente = uHasMut.at(jrand) ? uMutExp.at(jrand) : uTgtExp.at(jrand);
+        trialTermos.append(t);
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
-    size1 = crA1.regress.size();
+    // Phase 4: Agrupa termos por idReg → reconstrói trial.regress[]
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // Ordena por tTermo0 (agrupa naturalmente por idReg nos bits altos)
+    std::sort(trialTermos.begin(), trialTermos.end(), CmpMaiorTerm);
+
+    trial.regress.clear();
+    QVector<compTermo> currentGroup;
+    quint32 currentIdReg = trialTermos.at(0).vTermo.tTermo2.idReg;
+
+    for(i = 0; i < trialTermos.size(); i++)
+    {
+        quint32 thisIdReg = trialTermos.at(i).vTermo.tTermo2.idReg;
+
+        if(thisIdReg != currentIdReg) {
+            if(!currentGroup.isEmpty()) {
+                // Remove duplicatas dentro do grupo
+                for(j = 1; j < currentGroup.size(); j++)
+                    if(currentGroup.at(j).vTermo.tTermo0 == currentGroup.at(j-1).vTermo.tTermo0)
+                        currentGroup.remove(j--);
+                trial.regress.append(currentGroup);
+            }
+            currentGroup.clear();
+            currentIdReg = thisIdReg;
+        }
+
+        currentGroup.append(trialTermos.at(i));
+
+        if((qint32)trialTermos.at(i).vTermo.tTermo1.atraso > trial.maiorAtraso)
+            trial.maiorAtraso = trialTermos.at(i).vTermo.tTermo1.atraso;
+    }
+    // Último grupo
+    if(!currentGroup.isEmpty()) {
+        for(j = 1; j < currentGroup.size(); j++)
+            if(currentGroup.at(j).vTermo.tTermo0 == currentGroup.at(j-1).vTermo.tTermo0)
+                currentGroup.remove(j--);
+        trial.regress.append(currentGroup);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Phase 5: Limita regressores, poda via ERR, avalia aptidão
+    ////////////////////////////////////////////////////////////////////////////////
+
+    const qint32 qtdeAtrasos = (DES_Adj.Dados.variaveis.valores.numColunas()/(2*DES_Adj.decimacao.at(trial.idSaida)))-27;
+    while(trial.regress.size() > qtdeAtrasos && trial.regress.size() > 1)
+        trial.regress.removeLast();
+
+    trial.err.fill(-1, trial.regress.size());
+
+    DES_CalcERR(trial, DES_Adj.serr);
+    DES_calAptidao(trial);
+
+    // Renumera regressores (mesma lógica do código original)
+    const qint32 size1 = trial.regress.size();
     if(size1)
     {
-        for(i=0;i<size1;i++)
+        for(i = 0; i < size1; i++)
         {
-            const qint32 size2 = crA1.regress.at(i).size();
-            for(j=0;j<size2;j++) if(crA1.regress.at(i).at(j).vTermo.tTermo1.reg) crA1.regress[i][j].vTermo.tTermo1.reg = (size1-i);
+            const qint32 size2 = trial.regress.at(i).size();
+            for(j = 0; j < size2; j++)
+                if(trial.regress.at(i).at(j).vTermo.tTermo1.reg)
+                    trial.regress[i][j].vTermo.tTermo1.reg = (size1 - i);
         }
-        if((crA1.aptidao <= crAvali.aptidao)||(crAvali.aptidao!=crAvali.aptidao)) {lock_DES_BufferSR.lockForWrite();crAvali = crA1;lock_DES_BufferSR.unlock();}
     }
+
+    return trial;
     ////////////////////////////////////////////////////////////////////////////////
 }
 ////////////////////////////////////////////////////////////////////////////////

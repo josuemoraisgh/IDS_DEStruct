@@ -61,7 +61,8 @@ public:
     void qSortPop(qint32 *start, qint32 *end, const qint32 &idSaida) const;
     ////////////////////////////////////////////////////////////////////////////
     const Cromossomo DES_criaCromossomo(const qint32 &idSaida) const;
-    void DES_CruzMut(Cromossomo &crAvali,  const Cromossomo &cr0, const Cromossomo &crNew, const Cromossomo &cr1, const Cromossomo &cr2) const;
+    // DE Canônico: gera trial via mutação current-to-pbest/1 + crossover binomial
+    const Cromossomo DES_GenerateTrial(const Cromossomo &target, const Cromossomo &pbest, const Cromossomo &r1, const Cromossomo &r2, double F, double CR) const;
     void DES_CalcERR(Cromossomo &cr,const qreal &metodoSerr) const;
     void DES_MontaVlrs(Cromossomo &cr,JMathVar<qreal> &vlrsRegress,JMathVar<qreal> &vlrsMedido,const bool &isValidacao=false,const bool &isLinearCoef=true) const;
     void DES_CalcVlrsEstRes(const Cromossomo &cr,const JMathVar<qreal> &vlrsRegress,const JMathVar<qreal> &vlrsCoefic,const JMathVar<qreal> &vlrsMedido,JMathVar<qreal> &vlrsResiduo,JMathVar<qreal> &vlrsEstimado) const;

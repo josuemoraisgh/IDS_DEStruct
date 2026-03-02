@@ -128,6 +128,31 @@ struct infAGS{
 };
 #endif //INFAGS
 
+////////////////////////////////////////////////////////////////////////////////
+// Parâmetros do DE Canônico (Evolução Diferencial)
+// F:               fator de escala de mutação [0.4, 0.9]
+// CR:              taxa de crossover binomial [0, 1]
+// pbest_rate:      fração top-p% para seleção de pbest
+// strategy:        estratégia de mutação
+// stagnation_window: gerações sem melhora antes de parar
+// tol_rel:         tolerância relativa para detecção de melhora
+////////////////////////////////////////////////////////////////////////////////
+#ifndef DE_PARAMS
+#define DE_PARAMS
+enum DEStrategy { DE_CURRENT_TO_PBEST_1 = 0, DE_BEST_1 = 1 };
+struct DEParams {
+    double F;
+    double CR;
+    double pbest_rate;
+    DEStrategy strategy;
+    qint32 stagnation_window;
+    double tol_rel;
+    DEParams() : F(0.7), CR(0.9), pbest_rate(0.1),
+                 strategy(DE_CURRENT_TO_PBEST_1),
+                 stagnation_window(200), tol_rel(1e-6) {}
+};
+#endif // DE_PARAMS
+
 #ifndef CONFIG
 #define CONFIG
 struct Config
@@ -160,7 +185,8 @@ struct Config
     QList<QList<qint32 > >  vetPop;
     //PIPELINE - Saidas - Cromossomo   
     QList<QList<QList<bool> > > isSR;
-    QList<QList<QVector<qint32 > > > vetElitismo;                     
+    QList<QList<QVector<qint32 > > > vetElitismo;
+    DEParams deParams; // Parâmetros do DE canônico (F, CR, pbest_rate, strategy)
 };
 #endif //CONFIG
 

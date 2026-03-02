@@ -868,6 +868,12 @@ void DEStruct::DES_AlgDiffEvol()
     qint32 count0=0,count2=0,idSaida=0,idPipeLine = 0;
     qint32 pbestPoint, r1Point, r2Point, cr2Point; // Índices dos doadores (DE canônico)
     ////////////////////////////////////////////////////////////////////////////
+    qDebug() << "[DE] DES_AlgDiffEvol START  tamPop=" << tamPop
+             << " qtSaidas=" << qtSaidas
+             << " F=" << DES_Adj.deParams.F
+             << " CR=" << DES_Adj.deParams.CR
+             << " pbest_rate=" << DES_Adj.deParams.pbest_rate;
+    ////////////////////////////////////////////////////////////////////////////
     for(idPipeLine=0;idPipeLine<TAMPIPELINE;idPipeLine++) DES_idParada_Th[idPipeLine] = !DES_idParadaJust[count0];
     ////////////////////////////////////////////////////////////////////////////    
     //Apenas um thread qualquer inicializa as variaveis e os ponteiros deste m�todo.
@@ -964,26 +970,35 @@ void DEStruct::DES_AlgDiffEvol()
                 ////////////////////////////////////////////////////////////////////////////
                 // DE Canônico: Seleção de doadores (pbest, r1, r2)
                 // pbest: aleatório do top-p% do ranking (vetElitismo)
-                // r1, r2: aleatórios da população, todos distintos e != target (tokenPop)
+                // r1, r2: aleatórios da população, todos distintos quando possível
+                // Fallback seguro para tamPop pequeno (< 4)
                 ////////////////////////////////////////////////////////////////////////////
                 const qint32 topP = qMax((qint32)1, (qint32)(DES_Adj.deParams.pbest_rate * tamPop));
                 qint32 pbest_rank, r1_rank, r2_rank;
+                qint32 safetyCounter;
+                const qint32 MAX_RETRIES = tamPop * 3 + 100;
 
                 lock_DES_Elitismo[idPipeLine].lockForRead();
-                // Seleciona pbest do top-p%, garantindo != target
+                // Seleciona pbest do top-p%, tentando != target
+                safetyCounter = 0;
                 do {
                     pbest_rank = DES_RG.randInt(0, topP - 1);
                     pbestPoint = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(pbest_rank);
+                    if(++safetyCounter > MAX_RETRIES) break;
                 } while(pbestPoint == tokenPop && topP > 1);
-                // Seleciona r1 distinto de target e pbest
+                // Seleciona r1 distinto de target e pbest quando possível
+                safetyCounter = 0;
                 do {
                     r1_rank = DES_RG.randInt(0, tamPop - 1);
                     r1Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(r1_rank);
+                    if(++safetyCounter > MAX_RETRIES) break;
                 } while(r1Point == tokenPop || r1Point == pbestPoint);
-                // Seleciona r2 distinto de target, pbest e r1
+                // Seleciona r2 distinto de target, pbest e r1 quando possível
+                safetyCounter = 0;
                 do {
                     r2_rank = DES_RG.randInt(0, tamPop - 1);
                     r2Point = DES_Adj.vetElitismo.at(idPipeLine).at(idSaida).at(r2_rank);
+                    if(++safetyCounter > MAX_RETRIES) break;
                 } while(r2Point == tokenPop || r2Point == pbestPoint || r2Point == r1Point);
                 lock_DES_Elitismo[idPipeLine].unlock();
                 ////////////////////////////////////////////////////////////////////////////
@@ -999,13 +1014,18 @@ void DEStruct::DES_AlgDiffEvol()
                 ////////////////////////////////////////////////////////////////////////////
                 // Gera trial via mutação current-to-pbest/1 + crossover binomial
                 ////////////////////////////////////////////////////////////////////////////
-                Cromossomo trial = DES_GenerateTrial(target_cr, pbest_cr, r1_cr, r2_cr,
-                                                     DES_Adj.deParams.F, DES_Adj.deParams.CR);
+                Cromossomo trial;
+                bool trialOk = false;
+                if(target_cr.regress.size() > 0) {
+                    trial = DES_GenerateTrial(target_cr, pbest_cr, r1_cr, r2_cr,
+                                              DES_Adj.deParams.F, DES_Adj.deParams.CR);
+                    trialOk = true;
+                }
                 ////////////////////////////////////////////////////////////////////////////
                 // Seleção 1-a-1: trial vs target
                 // Substitui SOMENTE se trial melhor (<=) ou target é NaN
                 ////////////////////////////////////////////////////////////////////////////
-                if(trial.regress.size() > 0 &&
+                if(trialOk && trial.regress.size() > 0 &&
                    (trial.aptidao <= target_cr.aptidao || target_cr.aptidao != target_cr.aptidao))
                 {
                     lock_DES_BufferSR.lockForWrite();
@@ -1228,6 +1248,16 @@ const Cromossomo DEStruct::DES_GenerateTrial(const Cromossomo &target, const Cro
                                               double F, double CR) const
 {
     ////////////////////////////////////////////////////////////////////////////////
+    // Guard: se target não tem termos válidos, retorna cópia do target
+    if(target.regress.isEmpty()) {
+        return target;
+    }
+    // Guard: se decimacao não contém o idSaida, retorna target
+    if(target.idSaida < 0 || target.idSaida >= DES_Adj.decimacao.size()) {
+        qDebug() << "[DE] DES_GenerateTrial: idSaida out of range" << target.idSaida;
+        return target;
+    }
+    ////////////////////////////////////////////////////////////////////////////////
     MTRand RG(QTime::currentTime().msec());
     Cromossomo trial;
     trial.idSaida = target.idSaida;
@@ -1280,15 +1310,17 @@ const Cromossomo DEStruct::DES_GenerateTrial(const Cromossomo &target, const Cro
     termoAv[4] = termosAnalisados.at(0);
     termoAv[posTermosAnalisados.at(0)] = termosAnalisados.at(0);
 
-    compTermo *tr;
-    qint32 *pr;
+    qint32 trIdx = 1;
+    const qint32 maxIdx = termosAnalisados.size();
 
-    for(tr = termosAnalisados.begin()+1, pr = posTermosAnalisados.begin()+1;
-        tr <= termosAnalisados.end(); tr++, pr++)
+    // Loop through all terms, processing groups by tTermo0
+    for(; trIdx <= maxIdx; trIdx++)
+    // Loop through all terms, processing groups by tTermo0
+    for(; trIdx <= maxIdx; trIdx++)
     {
         ////////////////////////////////////////////////////////////////////////////////
         // Quando muda tTermo0 (ou fim da lista): processa grupo acumulado
-        if(tr < termosAnalisados.end() ? termoAv.at(4).vTermo.tTermo0 != tr->vTermo.tTermo0 : true)
+        if(trIdx < maxIdx ? termoAv.at(4).vTermo.tTermo0 != termosAnalisados.at(trIdx).vTermo.tTermo0 : true)
         {
             // Algum doador tem este termo?
             if(termoAv.at(0).vTermo.tTermo0 || termoAv.at(1).vTermo.tTermo0 ||
@@ -1323,13 +1355,14 @@ const Cromossomo DEStruct::DES_GenerateTrial(const Cromossomo &target, const Cro
         }
         ////////////////////////////////////////////////////////////////////////////////
         // Acumula próximo termo
-        if(tr < termosAnalisados.end())
+        if(trIdx < maxIdx)
         {
-            termoAv[4] = *tr;
-            if(termoAv.at(*pr).vTermo.tTermo0 == tr->vTermo.tTermo0)
-                termoAv[*pr].expoente += tr->expoente;
+            termoAv[4] = termosAnalisados.at(trIdx);
+            qint32 pos = posTermosAnalisados.at(trIdx);
+            if(termoAv.at(pos).vTermo.tTermo0 == termosAnalisados.at(trIdx).vTermo.tTermo0)
+                termoAv[pos].expoente += termosAnalisados.at(trIdx).expoente;
             else
-                termoAv[*pr] = *tr;
+                termoAv[pos] = termosAnalisados.at(trIdx);
         }
     }
 
@@ -1467,7 +1500,10 @@ const Cromossomo DEStruct::DES_GenerateTrial(const Cromossomo &target, const Cro
     // Phase 5: Limita regressores, poda via ERR, avalia aptidão
     ////////////////////////////////////////////////////////////////////////////////
 
-    const qint32 qtdeAtrasos = (DES_Adj.Dados.variaveis.valores.numColunas()/(2*DES_Adj.decimacao.at(trial.idSaida)))-27;
+    // Guard: se decimacao[trial.idSaida] é 0, evita divisão por zero
+    const qint32 decVal = DES_Adj.decimacao.at(trial.idSaida);
+    const qint32 qtdeAtrasos = (decVal > 0) ?
+        (DES_Adj.Dados.variaveis.valores.numColunas()/(2*decVal))-27 : 1;
     while(trial.regress.size() > qtdeAtrasos && trial.regress.size() > 1)
         trial.regress.removeLast();
 

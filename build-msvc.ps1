@@ -1,49 +1,57 @@
-# Build script for IDS_DEStruct using MSVC + Qt qmake.
-# Usage: .\build-msvc.ps1 [-Clean] [-Debug]
+# Script de build com MSVC 2019 para IDS_DEStruct
+# Uso: .\build-msvc.ps1 [-Clean] [-Debug]
 
 param(
     [switch]$Clean,
     [switch]$Debug
 )
 
-Write-Host "=== Build IDS_DEStruct (MSVC) ===" -ForegroundColor Cyan
+Write-Host "=== Build IDS_DEStruct com MSVC 2019 ===" -ForegroundColor Cyan
 
+# Verificar se está no diretório correto
 if (-not (Test-Path "IDS_DEStruct.pro")) {
-    Write-Host "ERROR: Run this script from the project root." -ForegroundColor Red
+    Write-Host "❌ Erro: Execute este script na raiz do projeto" -ForegroundColor Red
     exit 1
 }
 
+# Configuração
 $buildMode = if ($Debug) { "debug" } else { "release" }
 $buildDir = "build"
-Write-Host "Mode: $buildMode" -ForegroundColor Yellow
 
+Write-Host "Modo: $buildMode" -ForegroundColor Yellow
+
+# Limpar build se solicitado
 if ($Clean -and (Test-Path $buildDir)) {
-    Write-Host "Cleaning build directory..." -ForegroundColor Yellow
+    Write-Host "Limpando diretório de build..." -ForegroundColor Yellow
     Remove-Item -Path $buildDir -Recurse -Force
 }
 
+# Criar diretório de build
 if (-not (Test-Path $buildDir)) {
     New-Item -ItemType Directory -Path $buildDir | Out-Null
 }
 
-$vcvarsCandidates = @(
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat",
-    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-)
+# Caminho do vcvars64.bat (ajuste se necessário)
+$vcvarsPath = "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 
-$vcvarsPath = $vcvarsCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $vcvarsPath) {
-    Write-Host "ERROR: Could not find vcvars64.bat (Visual Studio Build Tools)." -ForegroundColor Red
+if (-not (Test-Path $vcvarsPath)) {
+    # Tentar caminho alternativo (Community/Professional/Enterprise)
+    $vcvarsPath = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+}
+
+if (-not (Test-Path $vcvarsPath)) {
+    $vcvarsPath = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvars64.bat"
+}
+
+if (-not (Test-Path $vcvarsPath)) {
+    Write-Host "❌ MSVC 2019 não encontrado" -ForegroundColor Red
+    Write-Host "Instale Visual Studio 2019 Build Tools ou ajuste o caminho no script" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "Configuring MSVC environment..." -ForegroundColor Yellow
+Write-Host "Configurando ambiente MSVC..." -ForegroundColor Yellow
+
+# Executar vcvars64.bat e capturar variáveis de ambiente
 $tempBat = [System.IO.Path]::GetTempFileName() + ".bat"
 $tempOut = [System.IO.Path]::GetTempFileName()
 
@@ -54,80 +62,59 @@ set > "$tempOut"
 "@ | Out-File -FilePath $tempBat -Encoding ASCII
 
 cmd.exe /c $tempBat | Out-Null
-$vcvarsExit = $LASTEXITCODE
-Remove-Item $tempBat -Force
+Remove-Item $tempBat
 
-if ($vcvarsExit -ne 0) {
-    Write-Host "ERROR: Failed to initialize MSVC environment." -ForegroundColor Red
-    if (Test-Path $tempOut) { Remove-Item $tempOut -Force }
-    exit 1
-}
-
+# Importar variáveis de ambiente
 Get-Content $tempOut | ForEach-Object {
     if ($_ -match "^([^=]+)=(.*)$") {
-        [System.Environment]::SetEnvironmentVariable(
-            $matches[1],
-            $matches[2],
-            [System.EnvironmentVariableTarget]::Process
-        )
+        [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2], [System.EnvironmentVariableTarget]::Process)
     }
 }
-Remove-Item $tempOut -Force
-Write-Host "MSVC environment ready." -ForegroundColor Green
+Remove-Item $tempOut
 
-$qmakeCommand = Get-Command qmake -ErrorAction SilentlyContinue
-$qmakeExe = if ($qmakeCommand) {
-    $qmakeCommand.Source
-} else {
-    $qmakeCandidates = @(
-        "C:\Qt\5.15.2\msvc2019_64\bin\qmake.exe",
-        "C:\Qt\5.15.2\msvc2022_64\bin\qmake.exe"
-    )
-    $qmakeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-}
+Write-Host "✔ Ambiente MSVC configurado" -ForegroundColor Green
 
-if (-not $qmakeExe) {
-    Write-Host "ERROR: qmake not found. Add Qt bin to PATH or adjust this script." -ForegroundColor Red
-    exit 1
-}
-
+# Executar qmake
+Write-Host "`nExecutando qmake..." -ForegroundColor Yellow
 Push-Location $buildDir
 try {
-    Write-Host "`nRunning qmake..." -ForegroundColor Yellow
-    & $qmakeExe "..\IDS_DEStruct.pro" "CONFIG+=$buildMode"
+    $qmakeArgs = @("..\IDS_DEStruct.pro", "CONFIG+=$buildMode")
+    & qmake $qmakeArgs
+    
     if ($LASTEXITCODE -ne 0) {
-        throw "qmake failed."
+        throw "qmake falhou"
     }
-    Write-Host "qmake finished." -ForegroundColor Green
-
-    Write-Host "`nBuilding with nmake..." -ForegroundColor Yellow
+    
+    Write-Host "✔ qmake concluído" -ForegroundColor Green
+    
+    # Executar nmake
+    Write-Host "`nCompilando com nmake..." -ForegroundColor Yellow
     & nmake
+    
     if ($LASTEXITCODE -ne 0) {
-        throw "nmake failed."
+        throw "nmake falhou"
     }
-
-    Write-Host "`nBuild finished successfully." -ForegroundColor Green
-
-    $exeCandidates = @(
+    
+    Write-Host "`n✔ Build concluído com sucesso!" -ForegroundColor Green
+    
+    # Localizar executável
+    $exePaths = @(
         "$buildMode\IDS_DEStruct.exe",
         "$buildMode\IDS_DEStructd.exe",
-        "release\IDS_DEStruct.exe",
-        "debug\IDS_DEStruct.exe",
         "IDS_DEStruct.exe"
     )
-
-    foreach ($exePath in $exeCandidates) {
+    
+    foreach ($exePath in $exePaths) {
         if (Test-Path $exePath) {
             $fullPath = (Resolve-Path $exePath).Path
-            Write-Host "`nExecutable: $fullPath" -ForegroundColor Cyan
+            Write-Host "`nExecutável: $fullPath" -ForegroundColor Cyan
             break
         }
     }
-}
-catch {
-    Write-Host ("`nERROR during build: {0}" -f $_) -ForegroundColor Red
+    
+} catch {
+    Write-Host "`n❌ Erro durante o build: $_" -ForegroundColor Red
     exit 1
-}
-finally {
+} finally {
     Pop-Location
 }

@@ -13,7 +13,7 @@
 #include <QtCore/QObject>
 
 #include "ui_icarregar.h"
-#include "agstruct.h"
+#include "xtipodados.h"
 
 #ifndef CARREGAR
 #define CARREGAR
@@ -91,36 +91,56 @@ class ICarregar : public DICarregar
         ////////////////////////////////////////////////////////////////////////////
         static void UL_normalizaVariaveis(const quint32 &i)
         {
-            for(quint16 j=0;j < UL_variaveis.valores.at(i).size();j++)
-            {
-                UL_variaveis.valores[i][j] =
-                        (UL_variaveis.valores.at(i).at(j)-UL_variaveis.Vmenor.at(j))/
-                        (UL_variaveis.Vmaior.at(j)-UL_variaveis.Vmenor.at(j));
+            if (i >= (quint32)UL_variaveis.valores.numColunas())
+                return;
+
+            const qint32 numRows = UL_variaveis.valores.numLinhas();
+            for (qint32 j = 0; j < numRows; j++) {
+                if (j >= UL_variaveis.Vmaior.size() || j >= UL_variaveis.Vmenor.size())
+                    continue;
+                const qreal den = UL_variaveis.Vmaior.at(j) - UL_variaveis.Vmenor.at(j);
+                if (qFuzzyIsNull(den))
+                    continue;
+                UL_variaveis.valores(j, i) =
+                        (UL_variaveis.valores.at(j, i) - UL_variaveis.Vmenor.at(j)) / den;
             }
         }
         ////////////////////////////////////////////////////////////////////////////
         static void UL_filtraVariaveis (QVector<QVector<qreal> > &valores,const quint32 &i)
         {
-            if(i <= UL_variaveis.valores.size())
-            {
-                valores.append(UL_variaveis.valores.at(i-1));
-                if(i == UL_variaveis.valores.size()) valores.append(UL_variaveis.valores.at(i));
+            const qint32 numCols = UL_variaveis.valores.numColunas();
+            const qint32 numRows = UL_variaveis.valores.numLinhas();
+            if (i == 0 || i > (quint32)numCols)
+                return;
+
+            QVector<qreal> ponto(numRows);
+            for (qint32 j = 0; j < numRows; j++)
+                ponto[j] = UL_variaveis.valores.at(j, i - 1);
+            valores.append(ponto);
+
+            if (i == (quint32)numCols && numCols > 0) {
+                QVector<qreal> ultimo(numRows);
+                for (qint32 j = 0; j < numRows; j++)
+                    ultimo[j] = UL_variaveis.valores.at(j, numCols - 1);
+                valores.append(ultimo);
             }
         }
         ////////////////////////////////////////////////////////////////////////////
         static bool UL_compVariaveis(const quint32 &i)
         {
-            if(i==0) return(false);
-            else
-            {
-                quint16 isIgual=0,
-                        j=0;
-                const QVector<qreal> ponto1 = UL_variaveis.valores.at(i-1);
-                const QVector<qreal> ponto2 = UL_variaveis.valores.at(i);
-                for(j=0;j < ponto1.size();j++)
-                    if((ponto1.at(j) + 0.05) > ponto2.at(j)) isIgual++;
-                return(isIgual < ponto1.size());
+            const qint32 numCols = UL_variaveis.valores.numColunas();
+            const qint32 numRows = UL_variaveis.valores.numLinhas();
+            if (i == 0 || i >= (quint32)numCols)
+                return false;
+
+            quint16 isIgual = 0;
+            for (qint32 j = 0; j < numRows; j++) {
+                const qreal ponto1 = UL_variaveis.valores.at(j, i - 1);
+                const qreal ponto2 = UL_variaveis.valores.at(j, i);
+                if ((ponto1 + 0.05) > ponto2)
+                    isIgual++;
             }
+            return (isIgual < numRows);
         }
         ////////////////////////////////////////////////////////////////////////////
     private slots:

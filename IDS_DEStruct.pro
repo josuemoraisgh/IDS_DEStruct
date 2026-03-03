@@ -1,5 +1,6 @@
 #################################################################
-# IDS_DEStruct - Differential Evolution Optimization
+# IDS_DEStruct (Refactored) - Differential Evolution Optimization
+# SOLID Architecture
 #################################################################
 QT += core gui widgets opengl svg printsupport
 
@@ -11,33 +12,59 @@ TEMPLATE = app
 #################################################################
 TARGET = IDS_DEStruct
 
-# Debug/Release suffixes
 CONFIG(debug, debug|release) {
     TARGET = $${TARGET}d
     DEFINES += _DEBUG
 }
 
-# Output directory (relative to build directory)
 DESTDIR = $$OUT_PWD/release
 
 #################################################################
-# Qwt Library Location (relative to project root)
+# Qwt Library
 #################################################################
-QWT_LOCATION = $$PWD/qwt
+PROJECT_ROOT = $$PWD
+QWT_LOCATION = $$PROJECT_ROOT/qwt
 
 INCLUDEPATH += $${QWT_LOCATION}/src
 DEPENDPATH  += $${QWT_LOCATION}/src
 
-# Qwt library linking
 win32:CONFIG(release, debug|release): LIBS += -L$${QWT_LOCATION}/lib -lqwt
 else:win32:CONFIG(debug, debug|release): LIBS += -L$${QWT_LOCATION}/lib -lqwtd
 else:unix: LIBS += -L$${QWT_LOCATION}/lib -lqwt
 
-# Define DLL usage
 DEFINES += QT_DLL QWT_DLL
 
 #################################################################
-# Build Directories (keeps project clean)
+# Include paths for shared headers
+#################################################################
+isEmpty(LEGACY_ROOT) {
+    LEGACY_ROOT = $$PROJECT_ROOT
+}
+
+!exists($$LEGACY_ROOT/xtipodados.h):exists($$PROJECT_ROOT/legacy/xtipodados.h) {
+    LEGACY_ROOT = $$PROJECT_ROOT/legacy
+}
+
+!exists($$LEGACY_ROOT/xtipodados.h):exists($$PROJECT_ROOT/src/legacy/xtipodados.h) {
+    LEGACY_ROOT = $$PROJECT_ROOT/src/legacy
+}
+
+!exists($$LEGACY_ROOT/xtipodados.h):exists($$PROJECT_ROOT/../xtipodados.h) {
+    LEGACY_ROOT = $$PROJECT_ROOT/..
+}
+
+CARREGAR_ROOT = $$PROJECT_ROOT/qrc
+
+INCLUDEPATH += $$LEGACY_ROOT
+INCLUDEPATH += $$PROJECT_ROOT/interfaces
+INCLUDEPATH += $$PROJECT_ROOT/core
+INCLUDEPATH += $$PROJECT_ROOT/io
+INCLUDEPATH += $$PROJECT_ROOT/threading
+INCLUDEPATH += $$PROJECT_ROOT/ui
+INCLUDEPATH += $$CARREGAR_ROOT
+
+#################################################################
+# Build Directories
 #################################################################
 CONFIG(debug, debug|release) {
     OBJECTS_DIR = $$OUT_PWD/obj/debug
@@ -56,58 +83,74 @@ CONFIG(debug, debug|release) {
 #################################################################
 SOURCES += \
     main.cpp \
-    imainwindow.cpp \
-    destruct.cpp \
-    icarregar.cpp \
-    xbelreader.cpp \
-    xmlreaderwriter.cpp \
-    xvetor.cpp \
-    xmatriz.cpp \
-    norwegianwoodstyle.cpp \
-    designerworkaround.cpp
+    threading/shared_state.cpp \
+    threading/thread_worker.cpp \
+    core/chromosome_service.cpp \
+    core/evolution_engine.cpp \
+    io/data_service.cpp \
+    io/xml_config_persistence.cpp \
+    ui/equation_formatter.cpp \
+    ui/main_window.cpp \
+    compat/destruct_statics_stub.cpp \
+    $$LEGACY_ROOT/icarregar.cpp \
+    $$LEGACY_ROOT/xbelreader.cpp \
+    $$LEGACY_ROOT/xmlreaderwriter.cpp \
+    $$LEGACY_ROOT/xvetor.cpp \
+    $$LEGACY_ROOT/xmatriz.cpp \
+    $$LEGACY_ROOT/norwegianwoodstyle.cpp \
+    $$LEGACY_ROOT/designerworkaround.cpp
 
 HEADERS += \
-    imainwindow.h \
-    destruct.h \
-    icarregar.h \
-    xbelreader.h \
-    xmlreaderwriter.h \
-    xvetor.h \
-    xmatriz.h \
-    xtipodados.h \
-    mtrand.h \
-    norwegianwoodstyle.h \
-    designerworkaround.h
+    interfaces/i_chromosome_service.h \
+    interfaces/i_data_service.h \
+    interfaces/i_evolution_engine.h \
+    interfaces/i_config_persistence.h \
+    interfaces/i_equation_formatter.h \
+    threading/shared_state.h \
+    threading/thread_worker.h \
+    core/linear_algebra.h \
+    core/chromosome_service.h \
+    core/evolution_engine.h \
+    io/data_service.h \
+    io/xml_config_persistence.h \
+    ui/equation_formatter.h \
+    ui/main_window.h \
+    $$LEGACY_ROOT/icarregar.h \
+    $$LEGACY_ROOT/xbelreader.h \
+    $$LEGACY_ROOT/xmlreaderwriter.h \
+    $$LEGACY_ROOT/xvetor.h \
+    $$LEGACY_ROOT/xmatriz.h \
+    $$LEGACY_ROOT/xtipodados.h \
+    $$LEGACY_ROOT/mtrand.h \
+    $$LEGACY_ROOT/norwegianwoodstyle.h \
+    $$LEGACY_ROOT/designerworkaround.h
 
 FORMS += \
-    imainwindow.ui \
-    icarregar.ui \
-    dialogMaxMin.ui \
-    dialogConfig.ui \
-    dialogDecimacao.ui
+    ui/forms/imainwindow.ui \
+    ui/forms/icarregar.ui \
+    ui/forms/dialogMaxMin.ui \
+    ui/forms/dialogConfig.ui \
+    ui/forms/dialogDecimacao.ui
 
 #################################################################
 # Resources
 #################################################################
-RESOURCES += qrc/images.qrc
+RESOURCES += $$PROJECT_ROOT/qrc/images.qrc
 
 #################################################################
 # Platform-specific settings
 #################################################################
 win32 {
-    RC_FILE = qrc/icon.rc
-    
-    # MSVC-specific flags (not for MinGW)
+    RC_FILE = $$PROJECT_ROOT/qrc/icon.rc
+
     win32-msvc {
         QMAKE_LFLAGS_RELEASE += /INCREMENTAL:NO
-        # Suppress deprecated warnings on MSVC
         QMAKE_CXXFLAGS += /wd4996
     }
 }
 
 #################################################################
 # Strict Build Profile (MSVC only)
-# Use with: qmake IDS_DEStruct.pro "CONFIG+=strict_build"
 #################################################################
 win32-msvc:contains(CONFIG, strict_build) {
     message(Strict build profile enabled: /W4 /WX /permissive-)

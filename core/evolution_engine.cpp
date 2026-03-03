@@ -6,14 +6,6 @@
 #include <QDebug>
 #include <algorithm>
 
-namespace {
-// Compat defaults for legacy Config (xtipodados.h) that has no deParams field.
-const qreal kDeF = 0.7;
-const qreal kDeCR = 0.85;
-const qreal kPBestRate = 0.2;
-const qreal kTolRel = 1e-4;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 EvolutionEngine::EvolutionEngine(SharedState *state, ChromosomeService *chromoSvc, ThreadWorker *worker)
     : m_state(state)
@@ -43,9 +35,9 @@ void EvolutionEngine::run()
     ////////////////////////////////////////////////////////////////////////////
     qDebug() << "[DE] EvolutionEngine::run START  tamPop=" << tamPop
              << " qtSaidas=" << qtSaidas
-             << " F=" << kDeF
-             << " CR=" << kDeCR
-             << " pbest_rate=" << kPBestRate;
+             << " F=" << m_state->Adj.deParams.F
+             << " CR=" << m_state->Adj.deParams.CR
+             << " pbest_rate=" << m_state->Adj.deParams.pbest_rate;
     ////////////////////////////////////////////////////////////////////////////
     for (idPipeLine = 0; idPipeLine < TAMPIPELINE; idPipeLine++)
         m_idParada_Th[idPipeLine] = !m_state->idParadaJust[count0];
@@ -138,7 +130,7 @@ void EvolutionEngine::run()
                 ////////////////////////////////////////////////////////////////////////////
                 // DE Canonico: Selecao de doadores (pbest, r1, r2)
                 ////////////////////////////////////////////////////////////////////////////
-                const qint32 topP = qMax((qint32)1, (qint32)(kPBestRate * tamPop));
+                const qint32 topP = qMax((qint32)1, (qint32)(m_state->Adj.deParams.pbest_rate * tamPop));
                 qint32 pbest_rank, r1_rank, r2_rank;
                 qint32 safetyCounter;
                 const qint32 MAX_RETRIES = tamPop * 3 + 100;
@@ -183,7 +175,8 @@ void EvolutionEngine::run()
                 bool trialOk = false;
                 if (target_cr.regress.size() > 0) {
                     trial = m_chromoSvc->generateTrial(target_cr, pbest_cr, r1_cr, r2_cr,
-                                                       kDeF, kDeCR);
+                                                       m_state->Adj.deParams.F,
+                                                       m_state->Adj.deParams.CR);
                     trialOk = true;
                 }
                 ////////////////////////////////////////////////////////////////////////////
@@ -240,7 +233,7 @@ void EvolutionEngine::run()
                     {
                         const qreal delta = m_state->Adj.melhorAptidaoAnt.at(idSaida) - crBest.at(idSaida).aptidao;
                         const qreal base_val = qMax(qAbs(m_state->Adj.melhorAptidaoAnt.at(idSaida)), 1e-12);
-                        const bool improved = (delta / base_val >= kTolRel)
+                        const bool improved = (delta / base_val >= m_state->Adj.deParams.tol_rel)
                                            || (delta >= m_state->Adj.jnrr);
                         if (improved) m_state->Adj.melhorAptidaoAnt[idSaida] = crBest.at(idSaida).aptidao;
                         else isOk = false;
@@ -259,7 +252,7 @@ void EvolutionEngine::run()
                 if (isOk) m_state->Adj.iteracoesAnt = m_state->Adj.iteracoes;
                 else {
                     const qint64 janela = qMin((qint64)m_state->Adj.numeroCiclos,
-                                               (qint64)m_state->Adj.numeroCiclos);
+                                               (qint64)m_state->Adj.deParams.stagnation_window);
                     if (m_state->Adj.iteracoes >= m_state->Adj.iteracoesAnt + janela)
                         m_state->setModoOperTH(2);
                 }

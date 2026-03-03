@@ -19,32 +19,44 @@ if ([string]::IsNullOrWhiteSpace($projectRoot)) {
     $projectRoot = (Get-Location).Path
 }
 
-function Test-LegacyRoot {
+
+
+function Resolve-QwtDll {
     param(
-        [string]$PathToTest
+        [string]$ProjectRoot,
+        [string]$BuildMode
     )
 
-    if ([string]::IsNullOrWhiteSpace($PathToTest) -or -not (Test-Path -LiteralPath $PathToTest)) {
-        return $false
+    $qwtLibDir = Join-Path $ProjectRoot "qwt\\lib"
+    if (-not (Test-Path -LiteralPath $qwtLibDir)) {
+        return $null
     }
 
-    $requiredFiles = @("xtipodados.h", "xvetor.h", "xmatriz.h", "xmlreaderwriter.h")
-    foreach ($file in $requiredFiles) {
-        if (-not (Test-Path -LiteralPath (Join-Path $PathToTest $file))) {
-            return $false
+    $preferredNames = if ($BuildMode -eq "debug") {
+        @("qwtd.dll", "qwt.dll")
+    } else {
+        @("qwt.dll", "qwtd.dll")
+    }
+
+    foreach ($dllName in $preferredNames) {
+        $candidate = Join-Path $qwtLibDir $dllName
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
         }
     }
 
-    return $true
+    $fallback = Get-ChildItem -Path $qwtLibDir -Filter "qwt*.dll" -ErrorAction SilentlyContinue |
+        Sort-Object Name |
+        Select-Object -First 1
+    if ($fallback) {
+        return $fallback.FullName
+    }
+
+    return $null
 }
 
-$projectCandidates = @(
-    (Join-Path $projectRoot "IDS_DEStruct.pro"),
-    (Join-Path $projectRoot "IDS_DEStruct_Refactored.pro")
-)
-
-$projectFile = $projectCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $projectFile) {
+$projectFile = Join-Path $projectRoot "IDS_DEStruct.pro"
+if (-not (Test-Path -LiteralPath $projectFile)) {
     Write-Host "ERROR: Run this script from the project root (.pro file not found)." -ForegroundColor Red
     exit 1
 }
@@ -53,39 +65,6 @@ $buildMode = if ($Debug) { "debug" } else { "release" }
 $buildDir = Join-Path $projectRoot "build"
 Write-Host "Mode: $buildMode" -ForegroundColor Yellow
 Write-Host "Project: $projectFile" -ForegroundColor Yellow
-
-$legacyRoot = $null
-if (-not [string]::IsNullOrWhiteSpace($env:LEGACY_ROOT) -and (Test-LegacyRoot -PathToTest $env:LEGACY_ROOT)) {
-    $legacyRoot = (Resolve-Path -LiteralPath $env:LEGACY_ROOT).Path
-}
-
-if (-not $legacyRoot) {
-    $legacyCandidates = New-Object System.Collections.Generic.List[string]
-    $legacyCandidates.Add($projectRoot)
-    $legacyCandidates.Add((Join-Path $projectRoot "legacy"))
-    $legacyCandidates.Add((Join-Path $projectRoot "src\\legacy"))
-    $legacyCandidates.Add((Join-Path $projectRoot ".."))
-
-    $parentDir = Split-Path -Parent $projectRoot
-    if (-not [string]::IsNullOrWhiteSpace($parentDir) -and (Test-Path -LiteralPath $parentDir)) {
-        Get-ChildItem -Path $parentDir -Directory -Filter "IDS_DEStruct*" -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -ne $projectRoot } |
-            ForEach-Object { $legacyCandidates.Add($_.FullName) }
-    }
-
-    foreach ($candidate in ($legacyCandidates | Select-Object -Unique)) {
-        if (Test-LegacyRoot -PathToTest $candidate) {
-            $legacyRoot = (Resolve-Path -LiteralPath $candidate).Path
-            break
-        }
-    }
-}
-
-if ($legacyRoot) {
-    Write-Host "Legacy root: $legacyRoot" -ForegroundColor Yellow
-} else {
-    Write-Host "WARNING: Legacy headers/sources not found automatically (xtipodados/xvetor/xmatriz/xmlreaderwriter)." -ForegroundColor Yellow
-}
 
 if ($Clean -and (Test-Path -LiteralPath $buildDir)) {
     Write-Host "Cleaning build directory..." -ForegroundColor Yellow
@@ -206,9 +185,6 @@ try {
     $qmakeArgs = New-Object System.Collections.Generic.List[string]
     $qmakeArgs.Add($projectFile)
     $qmakeArgs.Add("CONFIG+=$buildMode")
-    if ($legacyRoot) {
-        $qmakeArgs.Add("LEGACY_ROOT=$legacyRoot")
-    }
 
     & $qmakeExe @qmakeArgs
     if ($LASTEXITCODE -ne 0) {
@@ -227,22 +203,34 @@ try {
     $exeCandidates = @(
         (Join-Path $buildDir "$buildMode\IDS_DEStruct.exe"),
         (Join-Path $buildDir "$buildMode\IDS_DEStructd.exe"),
-        (Join-Path $buildDir "$buildMode\IDS_DEStruct_Refactored.exe"),
-        (Join-Path $buildDir "$buildMode\IDS_DEStruct_Refactoredd.exe"),
         (Join-Path $buildDir "release\IDS_DEStruct.exe"),
-        (Join-Path $buildDir "release\IDS_DEStruct_Refactored.exe"),
         (Join-Path $buildDir "debug\IDS_DEStructd.exe"),
-        (Join-Path $buildDir "debug\IDS_DEStruct_Refactoredd.exe"),
         (Join-Path $buildDir "IDS_DEStruct.exe")
     )
 
+    $resolvedExe = $null
     foreach ($exePath in $exeCandidates) {
         if (Test-Path -LiteralPath $exePath) {
             $fullPath = (Resolve-Path -LiteralPath $exePath).Path
+            $resolvedExe = $fullPath
             Write-Host "Executable: $fullPath" -ForegroundColor Cyan
             break
         }
     }
+
+    if (-not $resolvedExe) {
+        throw "Executable was not found after successful build."
+    }
+
+    $qwtDllPath = Resolve-QwtDll -ProjectRoot $projectRoot -BuildMode $buildMode
+    if (-not $qwtDllPath) {
+        throw "Qwt runtime DLL was not found in '$projectRoot\\qwt\\lib'."
+    }
+
+    $exeDir = Split-Path -Parent $resolvedExe
+    $qwtDest = Join-Path $exeDir (Split-Path -Leaf $qwtDllPath)
+    Copy-Item -LiteralPath $qwtDllPath -Destination $qwtDest -Force
+    Write-Host "Qwt runtime copied: $qwtDllPath -> $qwtDest" -ForegroundColor Cyan
 }
 catch {
     Write-Host ("`nERROR during build: {0}" -f $_.Exception.Message) -ForegroundColor Red

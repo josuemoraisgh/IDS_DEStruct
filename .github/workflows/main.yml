@@ -150,6 +150,12 @@ jobs:
           if (-not (Test-Path "IDS_DEStruct.pro")) {
             throw "IDS_DEStruct.pro não encontrado"
           }
+          if (-not (Test-Path "core/xtipodados.h")) {
+            throw "core/xtipodados.h nao encontrado"
+          }
+          if (-not (Test-Path "core/chromosome_service.h")) {
+            throw "core/chromosome_service.h nao encontrado"
+          }
           if (-not (Test-Path "qwt")) {
             throw "Pasta qwt/ não encontrada"
           }
@@ -455,6 +461,35 @@ jobs:
           $exeDir = Split-Path -Parent $exeFound
           "exe_path=$exeFound" >> $env:GITHUB_OUTPUT
           "exe_dir=$exeDir" >> $env:GITHUB_OUTPUT
+      
+      - name: Copiar DLL do Qwt para pasta do executavel
+        shell: pwsh
+        run: |
+          $exeDir = "${{ steps.find-exe.outputs.exe_dir }}"
+          if (-not (Test-Path $exeDir)) {
+            throw "Diretorio do executavel nao encontrado: $exeDir"
+          }
+
+          $qwtLibDir = "qwt/lib"
+          if (-not (Test-Path $qwtLibDir)) {
+            throw "Diretorio qwt/lib nao encontrado"
+          }
+
+          $qwtDlls = Get-ChildItem -Path $qwtLibDir -Filter "qwt*.dll" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "*d.dll" -and $_.Name -notlike "*_debug*" }
+
+          if (-not $qwtDlls) {
+            $qwtDlls = Get-ChildItem -Path $qwtLibDir -Filter "qwt*.dll" -ErrorAction SilentlyContinue
+          }
+
+          if (-not $qwtDlls) {
+            throw "Nenhuma DLL do Qwt encontrada em qwt/lib"
+          }
+
+          foreach ($dll in $qwtDlls) {
+            Copy-Item -Path $dll.FullName -Destination (Join-Path $exeDir $dll.Name) -Force
+            Write-Host "Copiada: $($dll.Name) -> $exeDir"
+          }
 
       - name: Empacotar dependências (Qt + Qwt + MinGW runtime)
         shell: pwsh

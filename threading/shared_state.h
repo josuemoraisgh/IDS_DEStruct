@@ -44,16 +44,16 @@ public:
     volatile qint32                     index[TAMPIPELINE];
     volatile qint64                     tamArquivo;
     QString                             fileName;
-    QList<qint32>                      &cVariaveis;
+    QList<qint32>                       cVariaveis;
     QList<QVector<Cromossomo> >         crMut;
     QList<QVector<qreal> >              somaSSE;
     QList<qreal>                        mediaY, mediaY2;
     QList<QList<QVector<qreal> > >      residuos, vcalc;
-    bool                               &isCarregar;
+    bool                                isCarregar;
     bool                                idParadaJust[TAMPIPELINE];
 
-    // ─── Configuração central (referência ao estático DEStruct::DES_Adj) ──
-    Config                             &Adj;
+    // ─── Configuração central ──────────────────────────────────────────
+    Config                              Adj;
 
     // ─── Thread management ─────────────────────────────────────────────
     volatile qint16                     TH_size;

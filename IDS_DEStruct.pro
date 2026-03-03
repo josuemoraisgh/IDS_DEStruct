@@ -17,7 +17,11 @@ CONFIG(debug, debug|release) {
     DEFINES += _DEBUG
 }
 
-DESTDIR = $$OUT_PWD/release
+CONFIG(debug, debug|release) {
+    DESTDIR = $$OUT_PWD/debug
+} else:CONFIG(release, debug|release) {
+    DESTDIR = $$OUT_PWD/release
+}
 
 #################################################################
 # Qwt Library
@@ -37,31 +41,12 @@ DEFINES += QT_DLL QWT_DLL
 #################################################################
 # Include paths for shared headers
 #################################################################
-isEmpty(LEGACY_ROOT) {
-    LEGACY_ROOT = $$PROJECT_ROOT
-}
-
-!exists($$LEGACY_ROOT/xtipodados.h):exists($$PROJECT_ROOT/legacy/xtipodados.h) {
-    LEGACY_ROOT = $$PROJECT_ROOT/legacy
-}
-
-!exists($$LEGACY_ROOT/xtipodados.h):exists($$PROJECT_ROOT/src/legacy/xtipodados.h) {
-    LEGACY_ROOT = $$PROJECT_ROOT/src/legacy
-}
-
-!exists($$LEGACY_ROOT/xtipodados.h):exists($$PROJECT_ROOT/../xtipodados.h) {
-    LEGACY_ROOT = $$PROJECT_ROOT/..
-}
-
-CARREGAR_ROOT = $$PROJECT_ROOT/qrc
-
-INCLUDEPATH += $$LEGACY_ROOT
 INCLUDEPATH += $$PROJECT_ROOT/interfaces
 INCLUDEPATH += $$PROJECT_ROOT/core
 INCLUDEPATH += $$PROJECT_ROOT/io
 INCLUDEPATH += $$PROJECT_ROOT/threading
 INCLUDEPATH += $$PROJECT_ROOT/ui
-INCLUDEPATH += $$CARREGAR_ROOT
+INCLUDEPATH += $$PROJECT_ROOT/qrc
 
 #################################################################
 # Build Directories
@@ -87,18 +72,17 @@ SOURCES += \
     threading/thread_worker.cpp \
     core/chromosome_service.cpp \
     core/evolution_engine.cpp \
+    core/xvetor.cpp \
+    core/xmatriz.cpp \
     io/data_service.cpp \
     io/xml_config_persistence.cpp \
+    io/xbelreader.cpp \
+    io/xmlreaderwriter.cpp \
     ui/equation_formatter.cpp \
     ui/main_window.cpp \
-    compat/destruct_statics_stub.cpp \
-    $$LEGACY_ROOT/icarregar.cpp \
-    $$LEGACY_ROOT/xbelreader.cpp \
-    $$LEGACY_ROOT/xmlreaderwriter.cpp \
-    $$LEGACY_ROOT/xvetor.cpp \
-    $$LEGACY_ROOT/xmatriz.cpp \
-    $$LEGACY_ROOT/norwegianwoodstyle.cpp \
-    $$LEGACY_ROOT/designerworkaround.cpp
+    ui/icarregar.cpp \
+    ui/norwegianwoodstyle.cpp \
+    ui/designerworkaround.cpp
 
 HEADERS += \
     interfaces/i_chromosome_service.h \
@@ -111,19 +95,19 @@ HEADERS += \
     core/linear_algebra.h \
     core/chromosome_service.h \
     core/evolution_engine.h \
+    core/xtipodados.h \
+    core/mtrand.h \
+    core/xvetor.h \
+    core/xmatriz.h \
     io/data_service.h \
     io/xml_config_persistence.h \
+    io/xbelreader.h \
+    io/xmlreaderwriter.h \
     ui/equation_formatter.h \
     ui/main_window.h \
-    $$LEGACY_ROOT/icarregar.h \
-    $$LEGACY_ROOT/xbelreader.h \
-    $$LEGACY_ROOT/xmlreaderwriter.h \
-    $$LEGACY_ROOT/xvetor.h \
-    $$LEGACY_ROOT/xmatriz.h \
-    $$LEGACY_ROOT/xtipodados.h \
-    $$LEGACY_ROOT/mtrand.h \
-    $$LEGACY_ROOT/norwegianwoodstyle.h \
-    $$LEGACY_ROOT/designerworkaround.h
+    ui/icarregar.h \
+    ui/norwegianwoodstyle.h \
+    ui/designerworkaround.h
 
 FORMS += \
     ui/forms/imainwindow.ui \
@@ -142,6 +126,16 @@ RESOURCES += $$PROJECT_ROOT/qrc/images.qrc
 #################################################################
 win32 {
     RC_FILE = $$PROJECT_ROOT/qrc/icon.rc
+
+    # Keep qwt*.dll next to the executable after linking.
+    CONFIG(debug, debug|release) {
+        QWT_DLL_TO_COPY = $$QWT_LOCATION/lib/qwtd.dll
+        !exists($$QWT_DLL_TO_COPY): QWT_DLL_TO_COPY = $$QWT_LOCATION/lib/qwt.dll
+    } else {
+        QWT_DLL_TO_COPY = $$QWT_LOCATION/lib/qwt.dll
+        !exists($$QWT_DLL_TO_COPY): QWT_DLL_TO_COPY = $$QWT_LOCATION/lib/qwtd.dll
+    }
+    QMAKE_POST_LINK += $$quote(if exist \"$$shell_path($$QWT_DLL_TO_COPY)\" copy /Y \"$$shell_path($$QWT_DLL_TO_COPY)\" \"$$shell_path($$DESTDIR)\" > nul 2>&1)
 
     win32-msvc {
         QMAKE_LFLAGS_RELEASE += /INCREMENTAL:NO

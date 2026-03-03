@@ -1,9 +1,12 @@
 #include "shared_state.h"
+#include "destruct.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 SharedState::SharedState()
-    : tamArquivo(0)
-    , isCarregar(false)
+    : cVariaveis(DEStruct::DES_cVariaveis)
+    , isCarregar(DEStruct::DES_isCarregar)
+    , Adj(DEStruct::DES_Adj)
+    , tamArquivo(0)
     , TH_size(0)
     , countSR(0)
 {

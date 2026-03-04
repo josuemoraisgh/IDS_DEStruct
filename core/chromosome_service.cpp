@@ -72,6 +72,44 @@ static bool CmpMaiorAptForSort(const qint32 &countCr1, const qint32 &countCr2, c
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+static qint32 configuredDecimation(const SharedState *state, qint32 idSaida)
+{
+    if ((idSaida >= 0) && (idSaida < state->Adj.decimacao.size()))
+        return qMax(1, state->Adj.decimacao.at(idSaida));
+    return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static bool hasDecimatedCacheForOutput(const SharedState *state, qint32 idSaida)
+{
+    if ((idSaida < 0)
+        || (idSaida >= state->dadosFiltradosPorSaida.size())
+        || (idSaida >= state->dadosFiltradosDecimacao.size()))
+        return false;
+
+    const qint32 dCfg = configuredDecimation(state, idSaida);
+    const JMathVar<qreal> &cache = state->dadosFiltradosPorSaida.at(idSaida);
+    return (dCfg > 1)
+        && (state->dadosFiltradosDecimacao.at(idSaida) == dCfg)
+        && (cache.numLinhas() == state->Adj.Dados.variaveis.valores.numLinhas())
+        && (cache.numColunas() > 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static const JMathVar<qreal> *selectDataForOutput(const SharedState *state, qint32 idSaida)
+{
+    if (hasDecimatedCacheForOutput(state, idSaida))
+        return &state->dadosFiltradosPorSaida.at(idSaida);
+    return &state->Adj.Dados.variaveis.valores;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static qint32 effectiveDecimationStep(const SharedState *state, qint32 idSaida)
+{
+    return hasDecimatedCacheForOutput(state, idSaida) ? 1 : configuredDecimation(state, idSaida);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 ChromosomeService::ChromosomeService(SharedState *state)
     : m_state(state)
 {
@@ -130,8 +168,10 @@ Cromossomo ChromosomeService::createRandom(qint32 idSaida) const
     MTRand RG(QTime::currentTime().msec());
     qint32 tamCrom, tamRegress, i;
     compTermo vlrTermo;
-    const quint32 numVariaveis = m_state->Adj.Dados.variaveis.valores.numLinhas(),
-                  numAtrasos = (m_state->Adj.Dados.variaveis.valores.numColunas()) / 2,
+    const JMathVar<qreal> *dadosRef = selectDataForOutput(m_state, idSaida);
+    const qint32 decEff = effectiveDecimationStep(m_state, idSaida);
+    const quint32 numVariaveis = dadosRef->numLinhas(),
+                  numAtrasos = qMax<qint32>(1, (dadosRef->numColunas()) / (2 * decEff)),
                   vlrMaxAtras = numAtrasos < 30 ? numAtrasos : 30;
     cr.idSaida = idSaida;
 
@@ -186,6 +226,9 @@ void ChromosomeService::montaVlrs(Cromossomo &cr, JMathVar<qreal> &vlrsRegress,
     qint32 i = 0, j = 0, countRegress = 0, variavel = 0, atraso = 0;
     qreal expo = 0.;
     JMathVar<qreal> matAux;
+    const JMathVar<qreal> *dadosRef = selectDataForOutput(m_state, cr.idSaida);
+    const qint32 decStep = effectiveDecimationStep(m_state, cr.idSaida);
+    const qint32 numColsRef = dadosRef->numColunas();
 
     for (cr.maiorAtraso = 0, i = 0; i < cr.regress.size(); i++) {
         if (cr.regress.at(i).size()) {
@@ -197,16 +240,15 @@ void ChromosomeService::montaVlrs(Cromossomo &cr, JMathVar<qreal> &vlrsRegress,
         }
     }
 
-    const qint32 qtdeAtrasos = (m_state->Adj.Dados.variaveis.valores.numColunas()) /
-                               ((isValidacao ? 1 : 2) * m_state->Adj.decimacao.at(cr.idSaida)),
-                 posIniAtrasos = cr.maiorAtraso * m_state->Adj.decimacao.at(cr.idSaida),
+    const qint32 qtdeAtrasos = numColsRef / ((isValidacao ? 1 : 2) * decStep),
+                 posIniAtrasos = cr.maiorAtraso * decStep,
                  tam = qtdeAtrasos - cr.maiorAtraso;
 
-    vlrsMedido.replace(m_state->Adj.Dados.variaveis.valores,
+    vlrsMedido.replace(*dadosRef,
                        jst.set("(:,0)=(0,%1:%2:%3)'")
                            .argInt(posIniAtrasos)
-                           .argInt(m_state->Adj.decimacao.at(cr.idSaida))
-                           .argInt(posIniAtrasos + tam * m_state->Adj.decimacao.at(cr.idSaida)));
+                           .argInt(decStep)
+                           .argInt(posIniAtrasos + tam * decStep));
 
     for (countRegress = 0; (countRegress < cr.regress.size()) && (countRegress < (tam - 2)); countRegress++) {
         for (i = 0; i < cr.regress.at(countRegress).size(); i++) {
@@ -223,12 +265,12 @@ void ChromosomeService::montaVlrs(Cromossomo &cr, JMathVar<qreal> &vlrsRegress,
                 atraso = cr.regress.at(countRegress).at(i).vTermo.tTermo1.atraso;
                 if (!cr.regress.at(countRegress).at(i).vTermo.tTermo1.reg
                         ? matAux.fill(1, tam, 1)
-                        : matAux.replace(m_state->Adj.Dados.variaveis.valores,
+                        : matAux.replace(*dadosRef,
                                          jst.set("(:,:)=(%1,%2:%3:%4)'^%f1")
                                              .argInt(variavel - 1)
-                                             .argInt(posIniAtrasos - atraso * m_state->Adj.decimacao.at(cr.idSaida))
-                                             .argInt(m_state->Adj.decimacao.at(cr.idSaida))
-                                             .argInt(posIniAtrasos + (tam - atraso) * m_state->Adj.decimacao.at(cr.idSaida))
+                                             .argInt(posIniAtrasos - atraso * decStep)
+                                             .argInt(decStep)
+                                             .argInt(posIniAtrasos + (tam - atraso) * decStep)
                                              .argReal(expo))
                     || isValidacao) {
                     if ((i <= 0) && (!cr.regress.at(countRegress).at(i).vTermo.tTermo1.nd) && isLinearCoef)
@@ -458,10 +500,23 @@ void ChromosomeService::evaluate(Cromossomo &cr, quint32 tamErro) const
     count1 = 0;
     do {
         if (count1 && isOk && (erroDepois < cr.erro)) {
+            const qint32 nBic = qMax<qint32>(1, qtdeAtrasos);
+            const qreal sqrtN = qSqrt((qreal)nBic);
+            // k_eff: cada regressor pesa (1 + maxDelay_i / sqrt(n))
+            qreal kEff = 0.0;
+            for (qint32 r = 0; r < cr.regress.size(); r++) {
+                qint32 maxDelayR = 0;
+                for (qint32 t = 0; t < cr.regress.at(r).size(); t++) {
+                    const qint32 d = cr.regress.at(r).at(t).vTermo.tTermo1.atraso;
+                    if (d > maxDelayR) maxDelayR = d;
+                }
+                kEff += 1.0 + (qreal)maxDelayR / sqrtN;
+            }
+            kEff += (count1 - 1); // termos de erro (delay 0, peso = 1.0)
             cr.vlrsCoefic = vlrsCoefic;
             cr.erro = erroDepois;
-            cr.aptidao = m_state->Adj.Dados.variaveis.valores.numColunas() * qLn(cr.erro)
-                + (2 * size + cr.regress.size()) * qLn(m_state->Adj.Dados.variaveis.valores.numColunas());
+            cr.aptidao = nBic * qLn(cr.erro)
+                + kEff * qLn(nBic);
         }
 
         for (i = 0; (i < count1) && (vlrsResiduo.numLinhas() > 1); i++) {
@@ -680,9 +735,10 @@ Cromossomo ChromosomeService::generateTrial(const Cromossomo &target,
     }
 
     // Phase 5: Limites, poda, aptidão
-    const qint32 decVal = m_state->Adj.decimacao.at(trial.idSaida);
+    const qint32 decVal = effectiveDecimationStep(m_state, trial.idSaida);
+    const qint32 numColsRef = selectDataForOutput(m_state, trial.idSaida)->numColunas();
     const qint32 qtdeAtrasos = (decVal > 0)
-        ? (m_state->Adj.Dados.variaveis.valores.numColunas() / (2 * decVal)) - 27
+        ? (numColsRef / (2 * decVal)) - trial.maiorAtraso
         : 1;
     while (trial.regress.size() > qtdeAtrasos && trial.regress.size() > 1)
         trial.regress.removeLast();
@@ -690,6 +746,16 @@ Cromossomo ChromosomeService::generateTrial(const Cromossomo &target,
     trial.err.fill(-1, trial.regress.size());
     calcERR(trial, m_state->Adj.serr);
     evaluate(trial);
+
+    // Poda probabilística por importância (apenas para estruturas maiores)
+    qint32 totalTerms = 0;
+    for (qint32 rr = 0; rr < trial.regress.size(); ++rr)
+        totalTerms += trial.regress.at(rr).size();
+    if (m_state->Adj.iteracoes >= ModelPruningConfig::kPruningStartCycle
+        && totalTerms > ModelPruningConfig::kMinTermsToEnablePruning)
+        probabilisticTermPruning(trial,
+                                 ModelPruningConfig::kDefaultImportanceThreshold,
+                                 ModelPruningConfig::kTrialRemovalRate);
 
     const qint32 size1 = trial.regress.size();
     if (size1) {
@@ -715,4 +781,133 @@ void ChromosomeService::buildOutput(Cromossomo &cr,
     calcVlrsEstRes(cr, vlrsRegress, cr.vlrsCoefic, vlrsMedido, vlrsResiduo, vlrsEstimado);
     vplotar.clear(); vplotar += (QVector<qreal>)vlrsEstimado;
     resid.clear(); resid += (QVector<qreal>)vlrsResiduo;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Análise de Importância de Termos e Poda Probabilística
+///////////////////////////////////////////////////////////////////////////////
+
+bool ChromosomeService::calculateTermImportance(const Cromossomo &cr,
+                                                 QVector<QVector<qreal>> &termImportance) const
+{
+    termImportance.clear();
+
+    // Validação
+    if (cr.regress.isEmpty()) {
+        return false;
+    }
+
+    // MSE com todos os termos (baseline)
+    const qreal mseBaseline = cr.erro;
+    if (mseBaseline <= 0.0) {
+        return false;
+    }
+
+    // Para cada regressor
+    for (qint32 regIdx = 0; regIdx < cr.regress.size(); ++regIdx) {
+        QVector<qreal> regTermImportance;
+        const QVector<compTermo> &regressor = cr.regress.at(regIdx);
+
+        // Para cada termo no regressor
+        for (qint32 termIdx = 0; termIdx < regressor.size(); ++termIdx) {
+            // Avaliar MSE sem este termo
+            qreal mseWithoutTerm = evaluateWithoutTerm(cr, regIdx, termIdx);
+
+            // Calcular importância (normalizada [0,1])
+            qreal importance = 0.0;
+            if (mseWithoutTerm > mseBaseline) {
+                // Termo contribui positivamente
+                importance = (mseWithoutTerm - mseBaseline) / mseBaseline;
+                importance = qMin(1.0, qMax(0.0, importance)); // Clamp [0,1]
+            } else {
+                // Termo não piora (ou melhora) — baixa importância
+                importance = 0.0;
+            }
+
+            regTermImportance.append(importance);
+        }
+
+        termImportance.append(regTermImportance);
+    }
+
+    return true;
+}
+
+qreal ChromosomeService::evaluateWithoutTerm(const Cromossomo &cr,
+                                              qint32 regIdx,
+                                              qint32 termIdx) const
+{
+    // Validação de índices
+    if (regIdx < 0 || regIdx >= cr.regress.size()) {
+        return -1.0;
+    }
+    if (termIdx < 0 || termIdx >= cr.regress.at(regIdx).size()) {
+        return -1.0;
+    }
+
+    // Copiar cromossomo e remover termo
+    Cromossomo crModified = cr;
+    crModified.regress[regIdx].remove(termIdx);
+
+    // Se regressor ficou vazio, retornar alto erro (penalidade)
+    if (crModified.regress.at(regIdx).isEmpty()) {
+        return ModelPruningConfig::kEmptyRegressorPenaltyMse;  // Penalidade alta
+    }
+
+    // Re-avaliar
+    evaluate(crModified, 1);
+
+    return crModified.erro;
+}
+
+qint32 ChromosomeService::probabilisticTermPruning(Cromossomo &cr,
+                                                    qreal importanceThreshold,
+                                                    qreal removalRate) const
+{
+    // Calcular importância de todos os termos
+    QVector<QVector<qreal>> termImportance;
+    if (!calculateTermImportance(cr, termImportance)) {
+        return 0;
+    }
+
+    qint32 totalTermsRemoved = 0;
+
+    // Para cada regressor
+    for (qint32 regIdx = 0; regIdx < termImportance.size(); ++regIdx) {
+        const QVector<qreal> &regTerms = termImportance.at(regIdx);
+        qint32 maxRemovalsInReg = qMax(1, (qint32)qFloor(regTerms.size() * removalRate));
+        qint32 removalsInReg = 0;
+
+        // Iterar de trás para frente (evitar problemas de índice ao remover)
+        for (qint32 termIdx = regTerms.size() - 1; termIdx >= 0; --termIdx) {
+            qreal importance = regTerms.at(termIdx);
+
+            // Probabilidade de remoção inversamente proporcional à importância
+            qreal removalProbability = 0.0;
+            if (importance < importanceThreshold) {
+                // Termo pouco importante: probabilidade de remoção alta
+                removalProbability = 1.0 - (importance / importanceThreshold);
+            }
+
+            // Roleta: sortear se remove
+            if (m_rng.rand() < removalProbability && removalsInReg < maxRemovalsInReg) {
+                if (cr.regress.at(regIdx).size() <= ModelPruningConfig::kMinTermsPerRegressor)
+                    break;
+                // Remover termo
+                cr.regress[regIdx].remove(termIdx);
+                removalsInReg++;
+                totalTermsRemoved++;
+
+                qDebug() << "Termo removido: Reg" << regIdx << "Term" << termIdx
+                         << "Importância:" << importance;
+            }
+        }
+    }
+
+    // Re-avaliar cromossomo após remoções
+    if (totalTermsRemoved > 0) {
+        evaluate(cr, 1);
+    }
+
+    return totalTermsRemoved;
 }

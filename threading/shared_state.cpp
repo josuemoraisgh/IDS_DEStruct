@@ -31,6 +31,9 @@ SharedState::SharedState()
     Adj.Dados.variaveis.valores.clear();
     Adj.Dados.variaveis.Vmaior.clear();
     Adj.Dados.variaveis.Vmenor.clear();
+
+    dadosFiltradosPorSaida.clear();
+    dadosFiltradosDecimacao.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

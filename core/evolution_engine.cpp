@@ -1,5 +1,6 @@
 #include "evolution_engine.h"
 #include "chromosome_service.h"
+#include "model_pruning_config.h"
 #include "../threading/shared_state.h"
 #include "../threading/thread_worker.h"
 #include <QTime>
@@ -130,7 +131,11 @@ void EvolutionEngine::run()
                 ////////////////////////////////////////////////////////////////////////////
                 // DE Canonico: Selecao de doadores (pbest, r1, r2)
                 ////////////////////////////////////////////////////////////////////////////
-                const qint32 topP = qMax((qint32)1, (qint32)(m_state->Adj.deParams.pbest_rate * tamPop));
+                const qreal effectivePbestRate =
+                    (m_state->Adj.iteracoes < DEDiversityConfig::kWarmupCycles)
+                    ? qMax(m_state->Adj.deParams.pbest_rate, (double)DEDiversityConfig::kWarmupPbestRate)
+                    : m_state->Adj.deParams.pbest_rate;
+                const qint32 topP = qMax((qint32)1, (qint32)(effectivePbestRate * tamPop));
                 qint32 pbest_rank, r1_rank, r2_rank;
                 qint32 safetyCounter;
                 const qint32 MAX_RETRIES = tamPop * 3 + 100;
@@ -174,9 +179,17 @@ void EvolutionEngine::run()
                 Cromossomo trial;
                 bool trialOk = false;
                 if (target_cr.regress.size() > 0) {
+                    qreal trialF = m_state->Adj.deParams.F;
+                    qreal trialCR = m_state->Adj.deParams.CR;
+                    if (DEDiversityConfig::kUseAdaptiveTrialFCR) {
+                        trialF = DEDiversityConfig::kFMin
+                               + (DEDiversityConfig::kFMax - DEDiversityConfig::kFMin) * m_rng.rand();
+                        trialCR = DEDiversityConfig::kCRMin
+                                + (DEDiversityConfig::kCRMax - DEDiversityConfig::kCRMin) * m_rng.rand();
+                    }
                     trial = m_chromoSvc->generateTrial(target_cr, pbest_cr, r1_cr, r2_cr,
-                                                       m_state->Adj.deParams.F,
-                                                       m_state->Adj.deParams.CR);
+                                                       trialF,
+                                                       trialCR);
                     trialOk = true;
                 }
                 ////////////////////////////////////////////////////////////////////////////
@@ -255,6 +268,23 @@ void EvolutionEngine::run()
                                                (qint64)m_state->Adj.deParams.stagnation_window);
                     if (m_state->Adj.iteracoes >= m_state->Adj.iteracoesAnt + janela)
                         m_state->setModoOperTH(2);
+                }
+
+                // Injeção periódica de imigrantes aleatórios (anti-convergência prematura)
+                if (DEDiversityConfig::kUseRandomImmigrants
+                    && m_state->Adj.iteracoes >= DEDiversityConfig::kImmigrantStartCycle
+                    && (m_state->Adj.iteracoes % DEDiversityConfig::kImmigrantPeriodCycles) == 0) {
+                    const qint32 qtdImm = qMax((qint32)1, (qint32)(tamPop * DEDiversityConfig::kImmigrantFraction));
+                    for (idSaida = 0; idSaida < qtSaidas; idSaida++) {
+                        m_state->lock_Elitismo[idPipeLine].lockForRead();
+                        for (qint32 k = 0; k < qtdImm; ++k) {
+                            const qint32 worstRank = tamPop - 1 - k;
+                            if (worstRank < 0) break;
+                            const qint32 worstIdx = m_state->Adj.vetElitismo.at(idPipeLine).at(idSaida).at(worstRank);
+                            m_state->Adj.Pop[idSaida][worstIdx] = m_chromoSvc->createRandom(idSaida);
+                        }
+                        m_state->lock_Elitismo[idPipeLine].unlock();
+                    }
                 }
                 isOk = (((m_state->Adj.tp.secsTo(QTime::currentTime()) >= 6) && isPrint)
                      || (m_state->Adj.tp.secsTo(QTime::currentTime()) >= 60));

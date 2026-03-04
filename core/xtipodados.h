@@ -147,7 +147,7 @@ struct DEParams {
     DEStrategy strategy;
     qint32 stagnation_window;
     double tol_rel;
-    DEParams() : F(0.7), CR(0.9), pbest_rate(0.1),
+    DEParams() : F(0.7), CR(0.9), pbest_rate(0.30),
                  strategy(DE_CURRENT_TO_PBEST_1),
                  stagnation_window(200), tol_rel(1e-6) {}
 };

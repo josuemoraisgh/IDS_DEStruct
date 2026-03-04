@@ -51,6 +51,9 @@ public:
     QList<QList<QVector<qreal> > >      residuos, vcalc;
     bool                                isCarregar;
     bool                                idParadaJust[TAMPIPELINE];
+    // Cache pre-processado por saida (filtro anti-alias + decimacao).
+    QVector<JMathVar<qreal> >           dadosFiltradosPorSaida;
+    QVector<qint32>                     dadosFiltradosDecimacao;
 
     // ─── Configuração central ──────────────────────────────────────────
     Config                              Adj;

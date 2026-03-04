@@ -12,6 +12,7 @@ A ferramenta segue um fluxo integrado:
 5. **Avaliação com BIC** corrigido, incluindo penalidades por delay (atraso)
 6. **Paralelismo em anel** (pipeline) para acelerar evolução
 7. **Critérios de parada** por melhoria/estagnação
+8. **Análise de importância e poda probabilística** de termos redundantes
 
 ---
 
@@ -609,6 +610,14 @@ Três condições podem parar evolução:
 | `ChromosomeService::evaluate` | `core/chromosome_service.cpp` | Calcula MSE + BIC |
 | `ChromosomeService::generateTrial` | `core/chromosome_service.cpp` | DE: mutação+crossover |
 
+### Análise de Importância de Termos
+
+| Função | Arquivo | Responsabilidade |
+|--------|---------|-----------------|
+| `ChromosomeService::calculateTermImportance` | `core/chromosome_service.cpp` | Calcula importância relativa |
+| `ChromosomeService::evaluateWithoutTerm` | `core/chromosome_service.cpp` | MSE removendo um termo |
+| `ChromosomeService::probabilisticTermPruning` | `core/chromosome_service.cpp` | Poda com roleta |
+
 ### Evolução e Pipeline
 
 | Função | Arquivo | Responsabilidade |
@@ -710,3 +719,122 @@ Melhor cromossomo encontrado:
 - **Poda ERR + poda por amostras**: evita overfitting estrutural
 
 Todas as correções foram validadas com compilação bem-sucedida (Exit Code 0).
+
+---
+
+## Seção 11: Análise de Importância de Termos e Poda Probabilística
+
+### 11.1 Problema: Regressores Inchados com Termos Redundantes
+
+Durante evolução, cromossomos frequentemente crescem com:
+- **Termos redundantes**: repetem informação de outros termos
+- **Termos que se anulam**: cancelamento entre coeficientes
+- **Termos negligenciáveis**: efeito < 0.1% mas consumem penalidade BIC
+
+**Sintoma típico**:
+```
+Evolução progride: MSE = 0.052 (estável por 10 gerações)
+Mas estrutura cresce: 5 → 7 → 9 → 12 termos
+Resultado: BIC piora mesmo com MSE constante
+Causa: penalidade de complexidade supera ganho de precisão
+```
+
+**Solução**: Sistema de **Análise de Sensibilidade** + **Roleta Probabilística**
+
+### 11.2 Três Funções Implementadas
+
+#### `calculateTermImportance()`
+
+Calcula importância relativa de cada termo usando sensibilidade:
+
+$$
+\text{Importância}_i = \frac{MSE_{\text{sem termo}} - MSE_{\text{com termo}}}
+{MSE_{\text{com termo}}}
+$$
+
+**Semântica**:
+- Importância ≈ 0% → termo inútil (removível)
+- Importância ≈ 50% → contribuição moderada
+- Importância ≈ 100% → termo crítico
+
+**Uso**:
+```cpp
+QVector<QVector<qreal>> importances;
+chromService->calculateTermImportance(bestChromo, importances);
+
+// importances[regIdx][termIdx] ∈ [0.0, 1.0]
+```
+
+#### `evaluateWithoutTerm()`
+
+Avalia **MSE removendo um termo específico**:
+
+1. Copiar cromossomo
+2. Remover termo [regIdx][termIdx]
+3. Re-avaliar (chamar `evaluate()`)
+4. Retornar novo MSE
+
+Usado internamente por `calculateTermImportance()`.
+
+#### `probabilisticTermPruning()`
+
+Remove termos com baixa importância via **roleta probabilística**:
+
+$$
+P_{\text{remoção}} = 1 - \frac{\text{importância}}{\text{threshold}}
+$$
+
+**Parâmetros**:
+- `importanceThreshold` (default 0.01): termos < 1% têm alta chance de remoção
+- `removalRate` (default 0.3): até 30% de termos podem ser removidos por regressor
+
+**Exemplo prático**:
+```cpp
+qint32 removed = chromService->probabilisticTermPruning(
+    bestChromo,
+    0.01,   // threshold 1%
+    0.30    // removalRate 30%
+);
+
+qDebug() << "Termos removidos:" << removed;
+qDebug() << "BIC novo:" << bestChromo.aptidao;
+```
+
+### 11.3 Resultado Esperado: Compressão sem Perda
+
+**Antes de poda**:
+```
+Regressor 0: 8 termos (importâncias: 0.95, 0.42, 0.28, 0.008, 0.55, 0.12, 0.002, 0.35)
+Regressor 1: 5 termos (importâncias: 0.75, 0.05, 0.12, 0.88, 0.001)
+Total: 13 termos, MSE = 0.0520, BIC = −125.3
+```
+
+**Após poda** (threshold=0.01, removeRate=0.3):
+```
+Regressor 0: 6 termos (removidos: índices 3,6)
+Regressor 1: 4 termos (removido: índice 4)
+Total: 10 termos (−23%), MSE = 0.0521 (−0.02%), BIC = −130.5 (+5.2)
+```
+
+**Análise**: MSE praticamente idêntico (+0.02%), mas **3 termos removidos** e **BIC melhora 5.2 pontos!**
+
+### 11.4 Estratégias de Integração
+
+**Opção 1: Cadência Baixa (Recomendado)**
+- Aplicar a cada 10-20 gerações
+- Poda em toda população
+- Eficiente: ~10 segundos por 100 indivíduos
+
+**Opção 2: Adaptativa**
+- Dispara apenas quando evolução estagna
+- Aumenta agressividade (threshold=0.02, removeRate=0.40)
+- Benefício: remove estrutura inútil automaticamente
+
+**Opção 3: Diagnóstico Pós-Evolução**
+- Chamar após encontrar melhor cromossomo
+- Analisar composição do modelo final
+- Informativo: qual 30% de termos não contribuem
+
+Ver arquivo [TERM_IMPORTANCE_PRUNING.md](TERM_IMPORTANCE_PRUNING.md) para detalhes completos.
+
+Ver arquivo [INTEGRATION_EXAMPLE.cpp](INTEGRATION_EXAMPLE.cpp) para exemplos de código.

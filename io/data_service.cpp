@@ -6,8 +6,275 @@
 #include <QRegularExpression>
 #include <QDebug>
 #include <math.h>
+#include <algorithm>
+#include <cmath>
 
 #define TAMMAXCARACTER 900000
+
+namespace {
+
+///////////////////////////////////////////////////////////////////////////////
+// Utilitarios de pre-processamento e decimacao adaptativa.
+///////////////////////////////////////////////////////////////////////////////
+static constexpr double kPi = 3.14159265358979323846;
+static constexpr double kEps = 1e-12;
+
+///////////////////////////////////////////////////////////////////////////////
+static qreal normalizeTo01(const qreal value, const qreal vmin, const qreal vmax)
+{
+    return (QString("%1").arg(
+        value >= vmin
+            ? value <= vmax
+                ? 0.99 * ((value - vmin) / (vmax - vmin)) + 0.01
+                : 1
+            : 0.01)).toDouble();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static bool isTimeVariableName(const QString &name)
+{
+    const QString upper = name.trimmed().toUpper();
+    return (upper == "TIME") || (upper == "TEMPO");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static double sinc(const double x)
+{
+    if (std::fabs(x) < 1e-14) return 1.0;
+    return std::sin(kPi * x) / (kPi * x);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static int mirrorIndex(int idx, const int size)
+{
+    if (size <= 1) return 0;
+    while ((idx < 0) || (idx >= size)) {
+        if (idx < 0) idx = -idx;
+        if (idx >= size) idx = (2 * size - 2) - idx;
+    }
+    return idx;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static QVector<double> centerSignal(const QVector<double> &x)
+{
+    if (x.isEmpty()) return x;
+    double mean = 0.0;
+    for (int i = 0; i < x.size(); ++i) mean += x.at(i);
+    mean /= static_cast<double>(x.size());
+
+    QVector<double> centered(x.size(), 0.0);
+    for (int i = 0; i < x.size(); ++i) centered[i] = x.at(i) - mean;
+    return centered;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static double autocorrNormalizedAtLag(const QVector<double> &yCentered, int lag)
+{
+    const int N = yCentered.size();
+    if (N <= 1) return 0.0;
+    lag = qBound(0, lag, N - 1);
+
+    double den = kEps;
+    for (int k = 0; k < N; ++k) den += yCentered.at(k) * yCentered.at(k);
+
+    if (lag == 0) return 1.0;
+    double num = 0.0;
+    for (int k = lag; k < N; ++k) num += yCentered.at(k) * yCentered.at(k - lag);
+    return num / den;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+int EstimateDFromAutocorr(const QVector<double>& y, double thr = 0.95, int maxLag = 50, int Dmax = 20)
+{
+    if (y.size() < 4) return 1;
+    const QVector<double> yCentered = centerSignal(y);
+    const int lagMax = qMin(maxLag, yCentered.size() - 1);
+    for (int lag = 1; lag <= lagMax; ++lag) {
+        const double rho = autocorrNormalizedAtLag(yCentered, lag);
+        if (rho < thr) return qBound(2, lag, Dmax);
+    }
+    return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+QVector<double> DesignFIRLowpassHamming(int N = 101, double fc_norm = 0.1)
+{
+    if (N < 3) N = 3;
+    if ((N % 2) == 0) N += 1;
+
+    const double fc = qBound(1e-6, fc_norm, 0.999); // Nyquist = 1.
+    const int M = (N - 1) / 2;
+    QVector<double> h(N, 0.0);
+    double sumH = 0.0;
+
+    for (int n = 0; n < N; ++n) {
+        const double m = static_cast<double>(n - M);
+        const double ideal = 2.0 * fc * sinc(2.0 * fc * m);
+        const double w = 0.54 - 0.46 * std::cos((2.0 * kPi * n) / (N - 1));
+        h[n] = ideal * w;
+        sumH += h[n];
+    }
+
+    if (std::fabs(sumH) < 1e-14) {
+        h.fill(0.0);
+        h[M] = 1.0;
+        return h;
+    }
+    for (int n = 0; n < N; ++n) h[n] /= sumH; // Normaliza ganho DC.
+    return h;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+QVector<double> FIRFilterMirror(const QVector<double>& x, const QVector<double>& h)
+{
+    QVector<double> y(x.size(), 0.0);
+    if (x.isEmpty() || h.isEmpty()) return y;
+
+    const int N = x.size();
+    const int L = h.size();
+    const int M = L / 2;
+
+    for (int n = 0; n < N; ++n) {
+        double acc = 0.0;
+        for (int k = 0; k < L; ++k) {
+            const int idx = mirrorIndex(n - (k - M), N);
+            acc += h.at(k) * x.at(idx);
+        }
+        y[n] = acc;
+    }
+    return y;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+QVector<double> FIRFiltFiltMirror(const QVector<double>& x, const QVector<double>& h)
+{
+    if (x.isEmpty() || h.isEmpty()) return x;
+    QVector<double> y1 = FIRFilterMirror(x, h);
+    std::reverse(y1.begin(), y1.end());
+    QVector<double> y2 = FIRFilterMirror(y1, h);
+    std::reverse(y2.begin(), y2.end());
+    return y2;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+QVector<double> Decimate(const QVector<double>& x, int D)
+{
+    if (x.isEmpty()) return QVector<double>();
+    D = qMax(1, D);
+    if (D <= 1) return x;
+
+    QVector<double> y;
+    y.reserve((x.size() + D - 1) / D);
+    for (int k = 0; k < x.size(); k += D) y.append(x.at(k));
+    return y;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static QVector<double> extractRowAsDouble(const JMathVar<qreal> &mat, qint32 row)
+{
+    QVector<double> out;
+    out.reserve(mat.numColunas());
+    for (qint32 col = 0; col < mat.numColunas(); ++col) out.append(mat.at(row, col));
+    return out;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static void buildAdaptiveDecimationCache(SharedState *state)
+{
+    state->dadosFiltradosPorSaida.clear();
+    state->dadosFiltradosDecimacao.clear();
+
+    const qint32 qtSaidas = state->Adj.Dados.variaveis.qtSaidas;
+    const qint32 nlinha = state->Adj.Dados.variaveis.valores.numLinhas();
+    const qint32 ncoluna = state->Adj.Dados.variaveis.valores.numColunas();
+    if ((qtSaidas <= 0) || (nlinha <= 0) || (ncoluna <= 0)) return;
+
+    state->dadosFiltradosPorSaida.resize(qtSaidas);
+    state->dadosFiltradosDecimacao.resize(qtSaidas);
+
+    for (qint32 idSaida = 0; idSaida < qtSaidas; ++idSaida) {
+        const qint32 D = (idSaida < state->Adj.decimacao.size())
+            ? qMax(1, state->Adj.decimacao.at(idSaida))
+            : 1;
+        state->dadosFiltradosDecimacao[idSaida] = D;
+
+        const QVector<double> yOrig = extractRowAsDouble(state->Adj.Dados.variaveis.valores, idSaida);
+        const QVector<double> yCentered = centerSignal(yOrig);
+        const double rho1 = autocorrNormalizedAtLag(yCentered, qMin(1, yCentered.size() > 1 ? yCentered.size() - 1 : 0));
+        const double rhoD = autocorrNormalizedAtLag(yCentered, qMin(D, yCentered.size() > 1 ? yCentered.size() - 1 : 0));
+
+        if (D <= 1) {
+            qDebug().noquote() << QString("Adaptive decimation: D=%1, rho(1)=%2, rho(D)=%3, N: %4 -> %5")
+                                  .arg(D)
+                                  .arg(rho1, 0, 'g', 8)
+                                  .arg(rhoD, 0, 'g', 8)
+                                  .arg(ncoluna)
+                                  .arg(ncoluna);
+            qDebug().noquote() << QString("FIR: len=101, fc=0.8/%1, filtfilt=ON (bypass D=1)").arg(D);
+            continue;
+        }
+
+        const double fc_norm = 0.8 / static_cast<double>(D);
+        const QVector<double> h = DesignFIRLowpassHamming(101, fc_norm);
+
+        QVector<QVector<double> > linhasDecimadas(nlinha);
+        qint32 nAfter = -1;
+        for (qint32 row = 0; row < nlinha; ++row) {
+            const QVector<double> x = extractRowAsDouble(state->Adj.Dados.variaveis.valores, row);
+            bool isTime = false;
+            if (row < state->Adj.Dados.variaveis.nome.size())
+                isTime = isTimeVariableName(state->Adj.Dados.variaveis.nome.at(row));
+
+            const QVector<double> xProc = isTime ? x : FIRFiltFiltMirror(x, h);
+            linhasDecimadas[row] = Decimate(xProc, D);
+            if (nAfter < 0) nAfter = linhasDecimadas[row].size();
+            else nAfter = qMin<qint32>(nAfter, linhasDecimadas[row].size());
+        }
+
+        if (nAfter <= 0) continue;
+
+        JMathVar<qreal> dadosDecimados(nlinha, nAfter, 0.0);
+        for (qint32 row = 0; row < nlinha; ++row)
+            for (qint32 col = 0; col < nAfter; ++col)
+                dadosDecimados(row, col) = static_cast<qreal>(linhasDecimadas[row].at(col));
+
+        state->dadosFiltradosPorSaida[idSaida] = dadosDecimados;
+
+        qDebug().noquote() << QString("Adaptive decimation: D=%1, rho(1)=%2, rho(D)=%3, N: %4 -> %5")
+                              .arg(D)
+                              .arg(rho1, 0, 'g', 8)
+                              .arg(rhoD, 0, 'g', 8)
+                              .arg(ncoluna)
+                              .arg(nAfter);
+        qDebug().noquote() << QString("FIR: len=101, fc=0.8/%1, filtfilt=ON").arg(D);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static void normalizeDecimationCache(SharedState *state)
+{
+    for (qint32 idSaida = 0; idSaida < state->dadosFiltradosPorSaida.size(); ++idSaida) {
+        if ((idSaida >= state->dadosFiltradosDecimacao.size())
+            || (state->dadosFiltradosDecimacao.at(idSaida) <= 1))
+            continue;
+
+        JMathVar<qreal> &cache = state->dadosFiltradosPorSaida[idSaida];
+        if ((cache.numLinhas() != state->Adj.Dados.variaveis.valores.numLinhas())
+            || (cache.numColunas() <= 0))
+            continue;
+
+        for (qint32 col = 0; col < cache.numColunas(); ++col) {
+            for (qint32 row = 0; row < cache.numLinhas(); ++row) {
+                const qreal vmin = state->Adj.Dados.variaveis.Vmenor.at(row);
+                const qreal vmax = state->Adj.Dados.variaveis.Vmaior.at(row);
+                cache(row, col) = normalizeTo01(cache.at(row, col), vmin, vmax);
+            }
+        }
+    }
+}
+
+} // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
 DataService::DataService(SharedState *state, ThreadWorker *worker)
@@ -33,10 +300,6 @@ void DataService::loadData()
         Vmenor,
         mediaY  = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList(),
         mediaY2 = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList();
-    qreal talr  = 0,
-          talr2 = 0,
-          talMin = 0,
-         *valor = NULL;
     QVector<qreal> Max1, Min1;
     ////////////////////////////////////////////////////////////////////////////
     QStringList strList, lineList;
@@ -58,7 +321,11 @@ void DataService::loadData()
         if (m_state->isCarregar) {
             m_state->Adj.Dados.variaveis.nome.clear();
             m_state->Adj.Dados.variaveis.valores.clear();
+            m_state->Adj.decimacao.clear();
+            m_state->Adj.talDecim.clear();
         }
+        m_state->dadosFiltradosPorSaida.clear();
+        m_state->dadosFiltradosDecimacao.clear();
         m_state->Adj.Dados.variaveis.Vmaior.clear();
         m_state->Adj.Dados.variaveis.Vmenor.clear();
         m_state->mediaY  = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList();
@@ -261,30 +528,14 @@ void DataService::loadData()
         m_state->index[0] = 0;
         //////////////////////////////////////////////////////////////
         if (!isNormalizado) {
-            // Calcula a Decimacao
-            j = m_state->Adj.Dados.variaveis.valores.numLinhas();
+            // Calcula a Decimacao (auto D) e define como padrao inicial.
+            m_state->Adj.decimacao.clear();
+            m_state->Adj.talDecim.clear();
             for (idSaida = 0; idSaida < qtSaidas; idSaida++) {
-                m_state->Adj.decimacao.append(1);
-                m_state->mediaY[idSaida] /= m_state->Adj.Dados.variaveis.valores.numColunas();
-                m_state->mediaY2[idSaida] /= m_state->Adj.Dados.variaveis.valores.numColunas();
-                talMin = 0; // Reinicializa talMin para cada saída
-                for (i = 1; i < m_state->Adj.Dados.variaveis.valores.numColunas(); i++) {
-                    talr = 0;  // Zera acumuladores a cada lag
-                    talr2 = 0;
-                    for (valor = m_state->Adj.Dados.variaveis.valores.begin() + (i * j) + idSaida;
-                         valor < m_state->Adj.Dados.variaveis.valores.end(); valor += j) {
-                        talr += ((*valor) - m_state->mediaY.at(idSaida)) * (*(valor - (i * j)) - m_state->mediaY.at(idSaida));
-                        talr2 += (((*valor) * (*valor)) - m_state->mediaY2.at(idSaida)) * (((*(valor - (i * j))) * (*(valor - (i * j)))) - m_state->mediaY2.at(idSaida));
-                    }
-                    talr /= m_state->Adj.Dados.variaveis.valores.numColunas();
-                    talr2 /= m_state->Adj.Dados.variaveis.valores.numColunas();
-                    if ((i == 1) || (talr < talMin) || (talr2 < talMin)) {
-                        if (talr < talr2) talMin = talr; else talMin = talr2;
-                    } else {
-                        m_state->Adj.talDecim.append(i);
-                        break;
-                    }
-                }
+                const QVector<double> ySerie = extractRowAsDouble(m_state->Adj.Dados.variaveis.valores, idSaida);
+                const qint32 dAuto = EstimateDFromAutocorr(ySerie, 0.95, 50, 20);
+                m_state->Adj.talDecim.append(dAuto);
+                m_state->Adj.decimacao.append(dAuto);
             }
             emit m_worker->signal_Status(3);
         } else
@@ -312,6 +563,18 @@ void DataService::normalizeData()
     const qint32 nlinha = m_state->Adj.Dados.variaveis.valores.numLinhas();
     qint32 index = 0, j = 0, ncoluna = m_state->Adj.Dados.variaveis.valores.numColunas();
     ////////////////////////////////////////////////////////////////////////////
+    // Apenas uma thread prepara o cache (filtro+decimacao) por saida antes da normalizacao.
+    m_state->mutex.lock();
+    if (m_state->justThread[0].tryAcquire()) m_state->justSync.wait(&m_state->mutex);
+    else {
+        m_state->justThread[0].release(m_state->TH_size - 1);
+        m_state->index[0] = 0;
+        buildAdaptiveDecimationCache(m_state);
+        normalizeDecimationCache(m_state);
+        m_state->justSync.wakeAll();
+    }
+    m_state->mutex.unlock();
+    ////////////////////////////////////////////////////////////////////////////
     // Normalizando os dados (0 a 1).
     forever {
         m_state->lock_index[0].lockForWrite();
@@ -319,12 +582,10 @@ void DataService::normalizeData()
         m_state->lock_index[0].unlock();
         if (index < ncoluna) {
             for (j = 0; j < nlinha; j++) {
-                m_state->Adj.Dados.variaveis.valores(j, index) = (QString("%1").arg(
-                    m_state->Adj.Dados.variaveis.valores(j, index) >= m_state->Adj.Dados.variaveis.Vmenor.at(j)
-                        ? m_state->Adj.Dados.variaveis.valores(j, index) <= m_state->Adj.Dados.variaveis.Vmaior.at(j)
-                            ? 0.99 * ((m_state->Adj.Dados.variaveis.valores.at(j, index) - m_state->Adj.Dados.variaveis.Vmenor.at(j)) / (m_state->Adj.Dados.variaveis.Vmaior.at(j) - m_state->Adj.Dados.variaveis.Vmenor.at(j))) + 0.01
-                            : 1
-                        : 0.01)).toDouble();
+                const qreal vmin = m_state->Adj.Dados.variaveis.Vmenor.at(j);
+                const qreal vmax = m_state->Adj.Dados.variaveis.Vmaior.at(j);
+                m_state->Adj.Dados.variaveis.valores(j, index) =
+                    normalizeTo01(m_state->Adj.Dados.variaveis.valores.at(j, index), vmin, vmax);
             }
         } else break;
     }
@@ -343,3 +604,4 @@ void DataService::normalizeData()
     m_state->Adj.modeOper_TH = 1; // Finaliza a tarefa
     ////////////////////////////////////////////////////////////////////////////
 }
+

@@ -3,6 +3,7 @@
 
 #include "../interfaces/i_chromosome_service.h"
 #include "mtrand.h"
+#include "model_pruning_config.h"
 #include "xmatriz.h"
 #include "xvetor.h"
 
@@ -113,10 +114,35 @@ public:
                         JMathVar<qreal> &vlrsResiduo,
                         JMathVar<qreal> &vlrsEstimado) const;
 
-    void removeTermo(Cromossomo &cr, qint32 indexTermo) const;
-    void removeRegress(Cromossomo &cr, qint32 indRegress) const;
 
     void qSortPop(qint32 *start, qint32 *end, qint32 idSaida) const;
+
+    // ─── Análise de importância de termos e poda probabilística ────────
+    /// @brief Calcula importância relativa de cada termo em cada regressor
+    ///        baseada em sensibilidade (quanto piora sem o termo)
+    /// @param cr cromossomo a analisar
+    /// @param termImportance vetor de vetores: termImportance[regIdx][termIdx] = importância [0,1]
+    /// @return true se análise bem-sucedida
+    bool calculateTermImportance(const Cromossomo &cr,
+                                  QVector<QVector<qreal>> &termImportance) const;
+
+    /// @brief Avalia MSE removendo temporariamente um termo específico
+    /// @param cr cromossomo (com todos os termos)
+    /// @param regIdx índice do regressor
+    /// @param termIdx índice do termo dentro do regressor
+    /// @return MSE com o termo removido (ou -1 se erro)
+    qreal evaluateWithoutTerm(const Cromossomo &cr,
+                               qint32 regIdx,
+                               qint32 termIdx) const;
+
+    /// @brief Poda probabilística: remove termos com baixa importância usando roleta
+    /// @param cr cromossomo (será modificado)
+    /// @param importanceThreshold [0,1] - termos com importância < limiar tem chance de remoção
+    /// @param removalRate [0,1] - fração máxima de termos a remover por regressor
+    /// @return número de termos removidos
+    qint32 probabilisticTermPruning(Cromossomo &cr,
+                                     qreal importanceThreshold = ModelPruningConfig::kDefaultImportanceThreshold,
+                                     qreal removalRate = ModelPruningConfig::kDefaultRemovalRate) const;
 
 private:
     SharedState *m_state;

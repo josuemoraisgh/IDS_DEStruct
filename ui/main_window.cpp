@@ -504,9 +504,23 @@ void MainWindow::slot_MW_Desenha()
     numColuna = resObtido.at(MW_SaidaUsada).size();
     time.clear();
     if (!MW_changeStyle) {
+        const quint32 cacheSaidaCount = static_cast<quint32>(m_state->dadosFiltradosPorSaida.size());
+        const quint32 cacheDecCount = static_cast<quint32>(m_state->dadosFiltradosDecimacao.size());
+        const quint32 decCount = static_cast<quint32>(m_state->Adj.decimacao.size());
+        const bool usarCacheDecimado =
+            (MW_SaidaUsada < cacheSaidaCount)
+            && (MW_SaidaUsada < cacheDecCount)
+            && (MW_SaidaUsada < decCount)
+            && (m_state->Adj.decimacao.at(MW_SaidaUsada) > 1)
+            && (m_state->dadosFiltradosDecimacao.at(MW_SaidaUsada) == m_state->Adj.decimacao.at(MW_SaidaUsada))
+            && (m_state->dadosFiltradosPorSaida.at(MW_SaidaUsada).numColunas() > 0);
+
         for (i = crBest.at(MW_SaidaUsada).maiorAtraso; i < numColuna; i++) {
             time.append(i);
-            medida.append(m_state->Adj.Dados.variaveis.valores.at(MW_SaidaUsada, i * m_state->Adj.decimacao.at(MW_SaidaUsada)));
+            if (usarCacheDecimado)
+                medida.append(m_state->dadosFiltradosPorSaida.at(MW_SaidaUsada).at(MW_SaidaUsada, i));
+            else
+                medida.append(m_state->Adj.Dados.variaveis.valores.at(MW_SaidaUsada, i * m_state->Adj.decimacao.at(MW_SaidaUsada)));
         }
         MW_crv_C->setSamples(time, resObtido.at(MW_SaidaUsada));
         MW_crv_R->setSamples(time, medida);
@@ -656,7 +670,7 @@ void MainWindow::ini_MW_interface()
     LEEM->setSizePolicy(sizePolicy3);
     LEEM->setMaximumSize(QSize(40, 16777215));
     LEEM->setContextMenuPolicy(Qt::NoContextMenu);
-    LEEM->setValidator(new QDoubleValidator(0.9, 0.999, 3, this));
+    LEEM->setValidator(new QDoubleValidator(0.000001, 0.999, 6, this));
     mainToolbar->addWidget(LEEM);
 
     LENC = new QLabel(" NCy:= ", this);

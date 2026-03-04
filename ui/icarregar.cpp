@@ -7,6 +7,24 @@
 #include "icarregar.h"
 #include "../threading/shared_state.h"
 #include "../core/xtipodados.h"
+
+namespace {
+
+qint32 suggestedDecimation(const SharedState *state, const qint32 indexVar)
+{
+    if ((indexVar >= 0) && (indexVar < state->Adj.talDecim.size()))
+        return qMax<qint32>(1, state->Adj.talDecim.at(indexVar));
+    return 1;
+}
+
+void updateDecimationHint(const SharedState *state, const qint32 indexVar,
+                          QLabel *leftLabel, QLabel *rightLabel)
+{
+    leftLabel->setText("talDecim =");
+    rightLabel->setText(QString::number(suggestedDecimation(state, indexVar)));
+}
+
+} // namespace
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////Classe /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
@@ -48,7 +66,7 @@ ICarregar::~ICarregar()
 void ICarregar::slot_UL_ChangeCombo(int indexVar)
 {
     if((indexVar< m_state->Adj.Dados.variaveis.qtSaidas)&&(m_state->Adj.decimacao.size()>indexVar))
-        m_state->Adj.decimacao[indexVar] = dmmLineEditDECI->text().toDouble();
+        m_state->Adj.decimacao[indexVar] = qMax<qint32>(1, dmmLineEditDECI->text().toInt());
     m_state->Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
     m_state->Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=indexVar;
@@ -57,9 +75,10 @@ void ICarregar::slot_UL_ChangeCombo(int indexVar)
     if((UL_IndexVar< m_state->Adj.Dados.variaveis.qtSaidas)&&(m_state->Adj.decimacao.size()>UL_IndexVar))
     {
         dmmgb->setEnabled(true);
+        if (m_state->Adj.decimacao.at(UL_IndexVar) <= 0)
+            m_state->Adj.decimacao[UL_IndexVar] = suggestedDecimation(m_state, UL_IndexVar);
         dmmLineEditDECI->setText(QString::number(m_state->Adj.decimacao.at(UL_IndexVar)));
-        dmmTal10->setText(" < "+QString::number(((qreal) m_state->Adj.talDecim.at(UL_IndexVar))/10.));
-        dmmTal20->setText(QString::number(((qreal) m_state->Adj.talDecim.at(UL_IndexVar))/20.)+" < ");
+        updateDecimationHint(m_state, UL_IndexVar, dmmTal20, dmmTal10);
     }
     else dmmgb->setDisabled(true);
 }
@@ -80,7 +99,7 @@ void ICarregar::slot_UL_Parado()
 void ICarregar::slot_UL_ChangeFim(int)
 {
     if((UL_IndexVar<m_state->Adj.Dados.variaveis.qtSaidas)&&(m_state->Adj.decimacao.size()>UL_IndexVar))
-        m_state->Adj.decimacao[UL_IndexVar] = dmmLineEditDECI->text().toDouble();
+        m_state->Adj.decimacao[UL_IndexVar] = qMax<qint32>(1, dmmLineEditDECI->text().toInt());
     m_state->Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
     m_state->Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=0;
@@ -189,10 +208,12 @@ void ICarregar::slot_UL_Status(const quint16 &std)
             //Fazendo a decima��o
             if(m_state->Adj.decimacao.size())
             {
-                m_state->Adj.decimacao[0] = (m_state->Adj.talDecim.at(0)/20) + ((m_state->Adj.talDecim.at(0)%20)?1:0);
+                for (qint32 i = 0;
+                     (i < m_state->Adj.Dados.variaveis.qtSaidas) && (i < m_state->Adj.decimacao.size());
+                     ++i)
+                    m_state->Adj.decimacao[i] = suggestedDecimation(m_state, i);
                 dmmLineEditDECI->setText(QString::number(m_state->Adj.decimacao.at(0)));
-                dmmTal10->setText(" < "+QString::number(((qreal) m_state->Adj.talDecim.at(0))/10.));
-                dmmTal20->setText(QString::number(((qreal) m_state->Adj.talDecim.at(0))/20.)+" < ");
+                updateDecimationHint(m_state, 0, dmmTal20, dmmTal10);
                 //dialogDecimacao->show();
                 LVStBar->setText(QObject::tr("Decimacao..."));
             }

@@ -55,11 +55,11 @@ bool XmlReaderWriter::writeFile(QIODevice *device)
         for(i=0;i<XWR_Ajts->Dados.variaveis.nome.size();i++) str +=  XWR_Ajts->Dados.variaveis.nome.at(i)+" ";
         xmlWriter.writeAttribute("nome",str);
         str.clear();
-        for(i=0;i<XWR_Ajts->Dados.variaveis.Vmaior.size();i++) str +=  QString::number(XWR_Ajts->Dados.variaveis.Vmaior.at(i))+" ";
-        xmlWriter.writeAttribute("Vmaior",str);
+        for(i=0;i<XWR_Ajts->Dados.variaveis.Vmean.size();i++) str +=  QString::number(XWR_Ajts->Dados.variaveis.Vmean.at(i))+" ";
+        xmlWriter.writeAttribute("Vmean",str);
         str.clear();
-        for(i=0;i<XWR_Ajts->Dados.variaveis.Vmenor.size();i++) str +=  QString::number(XWR_Ajts->Dados.variaveis.Vmenor.at(i))+" ";
-        xmlWriter.writeAttribute("Vmenor",str);
+        for(i=0;i<XWR_Ajts->Dados.variaveis.Vstd.size();i++) str +=  QString::number(XWR_Ajts->Dados.variaveis.Vstd.at(i))+" ";
+        xmlWriter.writeAttribute("Vstd",str);
         xmlWriter.writeEndElement();
         xmlWriter.writeStartElement("valores");
         str.clear();
@@ -188,24 +188,24 @@ bool XmlReaderWriter::readFile(QIODevice *device)
                 }
             }
 
-            aux1 = xmlRead.attributes().value("Vmaior").toString();
+            aux1 = xmlRead.attributes().value("Vmean").toString();
             for(int i=0; i<aux1.length(); i++) {
                 if(aux1.at(i) != ' '){
                     aux2.append(aux1.at(i));
                 }
                 else{
-                    XWR_Ajts->Dados.variaveis.Vmaior.push_back(aux2.toDouble());
+                    XWR_Ajts->Dados.variaveis.Vmean.push_back(aux2.toDouble());
                     aux2.clear();
                 }
             }
 
-            aux1 = xmlRead.attributes().value("Vmenor").toString();
+            aux1 = xmlRead.attributes().value("Vstd").toString();
             for(int i=0; i<aux1.length(); i++) {
                 if(aux1.at(i) != ' '){
                     aux2.append(aux1.at(i));
                 }
                 else{
-                    XWR_Ajts->Dados.variaveis.Vmenor.push_back(aux2.toDouble());
+                    XWR_Ajts->Dados.variaveis.Vstd.push_back(aux2.toDouble());
                     aux2.clear();
                 }
             }

@@ -27,14 +27,14 @@ QString EquationFormatter::format(const QVector<Cromossomo> &crBest,
     for (i = 0; i < m_state->Adj.Dados.variaveis.nome.size(); i++) {
         if (i < m_state->Adj.Dados.variaveis.qtSaidas)
             str.append(m_state->Adj.Dados.variaveis.nome.at(i)
-                + QString(": Max = ") + QString::number(m_state->Adj.Dados.variaveis.Vmaior.at(i))
-                + QString(", Min = ") + QString::number(m_state->Adj.Dados.variaveis.Vmenor.at(i))
+                + QString(": Mean = ") + QString::number(m_state->Adj.Dados.variaveis.Vmean.at(i))
+                + QString(", Std = ") + QString::number(m_state->Adj.Dados.variaveis.Vstd.at(i))
                 + QString(", Decimacao = ") + QString::number(m_state->Adj.decimacao.at(i))
                 + QString("; "));
         else
             str.append(m_state->Adj.Dados.variaveis.nome.at(i)
-                + QString(": Max = ") + QString::number(m_state->Adj.Dados.variaveis.Vmaior.at(i))
-                + QString(", Min = ") + QString::number(m_state->Adj.Dados.variaveis.Vmenor.at(i))
+                + QString(": Mean = ") + QString::number(m_state->Adj.Dados.variaveis.Vmean.at(i))
+                + QString(", Std = ") + QString::number(m_state->Adj.Dados.variaveis.Vstd.at(i))
                 + QString("; "));
     }
 

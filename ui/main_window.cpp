@@ -308,13 +308,13 @@ void MainWindow::Iniciar()
     for (i = 0; i < m_state->Adj.Dados.variaveis.nome.size(); i++) {
         if (i < m_state->Adj.Dados.variaveis.qtSaidas)
             str.append(m_state->Adj.Dados.variaveis.nome.at(i)
-                + QString(": Max = ") + QString::number(m_state->Adj.Dados.variaveis.Vmaior.at(i))
-                + QString(", Min = ") + QString::number(m_state->Adj.Dados.variaveis.Vmenor.at(i))
+                + QString(": Mean = ") + QString::number(m_state->Adj.Dados.variaveis.Vmean.at(i))
+                + QString(", Std = ") + QString::number(m_state->Adj.Dados.variaveis.Vstd.at(i))
                 + QString(", Decimacao = ") + QString::number(m_state->Adj.decimacao.at(i)) + QString("; "));
         else
             str.append(m_state->Adj.Dados.variaveis.nome.at(i)
-                + QString(": Max = ") + QString::number(m_state->Adj.Dados.variaveis.Vmaior.at(i))
-                + QString(", Min = ") + QString::number(m_state->Adj.Dados.variaveis.Vmenor.at(i)) + QString("; "));
+                + QString(": Mean = ") + QString::number(m_state->Adj.Dados.variaveis.Vmean.at(i))
+                + QString(", Std = ") + QString::number(m_state->Adj.Dados.variaveis.Vstd.at(i)) + QString("; "));
     }
     textEdit->append(str);
 
@@ -426,9 +426,9 @@ void MainWindow::slot_MW_SalvarArquivo()
         stream << "TIME     ";
         for (i = 0; i < m_state->Adj.Dados.variaveis.nome.size(); i++) {
             if (i < m_state->Adj.Dados.variaveis.qtSaidas)
-                stream << m_state->Adj.Dados.variaveis.nome.at(i) << "(" << m_state->Adj.Dados.variaveis.Vmaior.at(i) << "," << m_state->Adj.Dados.variaveis.Vmenor.at(i) << "," << m_state->Adj.decimacao.at(i) << ") ";
+                stream << m_state->Adj.Dados.variaveis.nome.at(i) << "(" << m_state->Adj.Dados.variaveis.Vmean.at(i) << "," << m_state->Adj.Dados.variaveis.Vstd.at(i) << "," << m_state->Adj.decimacao.at(i) << ") ";
             else
-                stream << m_state->Adj.Dados.variaveis.nome.at(i) << "(" << m_state->Adj.Dados.variaveis.Vmaior.at(i) << "," << m_state->Adj.Dados.variaveis.Vmenor.at(i) << ") ";
+                stream << m_state->Adj.Dados.variaveis.nome.at(i) << "(" << m_state->Adj.Dados.variaveis.Vmean.at(i) << "," << m_state->Adj.Dados.variaveis.Vstd.at(i) << ") ";
         }
         stream << "\r\n" << time << "  ";
         const qint32 count = m_state->Adj.Dados.variaveis.valores.numLinhas();

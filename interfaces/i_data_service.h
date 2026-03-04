@@ -4,8 +4,8 @@
 #include <QtCore/QObject>
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Interface para serviço de dados (SRP: só carregar/normalizar)
-/// DIP: UI e Engine dependem desta abstração, não da implementação concreta.
+/// Interface para servi\u00e7o de dados (SRP: s\u00f3 carregar/padronizar)
+/// DIP: UI e Engine dependem desta abstra\u00e7\u00e3o, n\u00e3o da implementa\u00e7\u00e3o concreta.
 ///////////////////////////////////////////////////////////////////////////////
 class IDataService
 {
@@ -15,7 +15,7 @@ public:
     /// Carrega os dados do arquivo para o shared state (multi-thread)
     virtual void loadData() = 0;
 
-    /// Normaliza os dados carregados (multi-thread)
+    /// Padroniza os dados carregados usando z-score (multi-thread)
     virtual void normalizeData() = 0;
 };
 

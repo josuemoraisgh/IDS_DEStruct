@@ -147,6 +147,19 @@ public:
 private:
     SharedState *m_state;
     mutable MTRand m_rng;
-};
+
+    // ─── Helpers para controle progressivo de termos de saída ─────────────
+    /// @brief Verifica se um termo é autorregressivo (usa saída como regressor)
+    /// @param var variável do termo (1-indexed)
+    /// @param idSaida id da saída que o cromossomo está modelando
+    /// @return true se var corresponde a uma saída (inclusive a mesma)
+    bool isOutputTerm(quint32 var, qint32 idSaida) const;
+
+    /// @brief Verifica se um termo de saída está permitido na geração atual
+    /// @param var variável (1-indexed)
+    /// @param atraso atraso/lag do termo
+    /// @param idSaida id da saída que o cromossomo está modelando
+    /// @return true se o termo pode ser usado
+    bool isOutputTermAllowed(quint32 var, quint32 atraso, qint32 idSaida) const;
 
 #endif // CHROMOSOME_SERVICE_H

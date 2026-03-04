@@ -54,6 +54,8 @@ public:
     // Cache pre-processado por saida (filtro anti-alias + decimacao).
     QVector<JMathVar<qreal> >           dadosFiltradosPorSaida;
     QVector<qint32>                     dadosFiltradosDecimacao;
+    // Contador tempor\u00e1rio para c\u00e1lculo de m\u00e9dia/desvio padr\u00e3o (z-score)
+    QVector<qreal>                      Vcount;
 
     // ─── Configuração central ──────────────────────────────────────────
     Config                              Adj;

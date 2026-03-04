@@ -1,6 +1,7 @@
 #include "evolution_engine.h"
 #include "chromosome_service.h"
 #include "model_pruning_config.h"
+#include "adaptive_tuning_engine.h"
 #include "../threading/shared_state.h"
 #include "../threading/thread_worker.h"
 #include <QTime>
@@ -268,6 +269,38 @@ void EvolutionEngine::run()
                                                (qint64)m_state->Adj.deParams.stagnation_window);
                     if (m_state->Adj.iteracoes >= m_state->Adj.iteracoesAnt + janela)
                         m_state->setModoOperTH(2);
+                }
+
+                // ===== AUTO-TUNING ADAPTATIVO (a cada 5 gerações) =====
+                if (m_state->Adj.adaptiveState.shouldUpdate(m_state->Adj.iteracoes)) {
+                    // Coletar fitness global de todas as saídas
+                    QVector<qreal> all_fitness;
+                    for (qint32 i = 0; i < qtSaidas; ++i) {
+                        for (qint32 j = 0; j < tamPop; ++j) {
+                            all_fitness.append(m_state->Adj.Pop[i][j].aptidao);
+                        }
+                    }
+
+                    // Atualizar parâmetros adaptativos
+                    IndicatorSnapshot snapshot;
+                    AdaptiveParameters new_params = AdaptiveTuningEngine::updateAndGetParameters(
+                        all_fitness,
+                        qtSaidas,
+                        m_state->Adj.iteracoes,
+                        m_state->Adj.adaptiveState.previous_best_fitness,
+                        snapshot
+                    );
+
+                    // Armazenar em estado compartilhado
+                    m_state->Adj.adaptiveState.update(new_params, snapshot, m_state->Adj.iteracoes);
+                    m_state->Adj.adaptiveState.previous_best_fitness = crBest.at(0).aptidao;
+
+                    // Log breve
+                    qDebug() << "[AUTO-TUNE] Gen" << m_state->Adj.iteracoes
+                             << "| Div:" << snapshot.diversity
+                             << "| DeltaJn:" << snapshot.delta_jn
+                             << "| Stag:" << snapshot.is_stagnant
+                             << "| ConvPrem:" << snapshot.is_premature_convergence;
                 }
 
                 // Injeção periódica de imigrantes aleatórios (anti-convergência prematura)

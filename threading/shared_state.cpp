@@ -29,8 +29,8 @@ SharedState::SharedState()
 
     Adj.Dados.variaveis.nome.clear();
     Adj.Dados.variaveis.valores.clear();
-    Adj.Dados.variaveis.Vmaior.clear();
-    Adj.Dados.variaveis.Vmenor.clear();
+    Adj.Dados.variaveis.Vmean.clear();
+    Adj.Dados.variaveis.Vstd.clear();
 
     dadosFiltradosPorSaida.clear();
     dadosFiltradosDecimacao.clear();

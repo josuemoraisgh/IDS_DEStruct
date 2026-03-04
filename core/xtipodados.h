@@ -8,6 +8,7 @@
 #include <algorithm>
 #include "xmatriz.h"
 #include "xvetor.h"
+#include "adaptive_state.h"
 
 ////////////////////////////////////////////////////////////////////////////
 #define NUMDENOM    1
@@ -106,8 +107,8 @@ public:
 struct PSim{
     qint32 qtSaidas;        //Quantidade de saidas
     QList<QString> nome;    //Vetor com os nomes dos pontos de opera��o
-    QList<qreal>   Vmaior;  //Vetor com os maiores pontos de opera��o
-    QList<qreal>   Vmenor;  //Vetor com os menores pontos de opera��o
+    QList<qreal>   Vmean;   //Vetor com a média de cada variável (z-score)
+    QList<qreal>   Vstd;    //Vetor com o desvio padrão de cada variável (z-score)
     JMathVar<qreal> valores; //Matriz onde Linha � as variaveis e coluna os atrasos.
                             //(sendo as primeiras linhas as variaveis de saida)
                             //(sendo as ultimas linhas as entradas)
@@ -187,6 +188,7 @@ struct Config
     QList<QList<QList<bool> > > isSR;
     QList<QList<QVector<qint32 > > > vetElitismo;
     DEParams deParams; // Parâmetros do DE canônico (F, CR, pbest_rate, strategy)
+    AdaptiveState adaptiveState; // Estado adaptativo (auto-tuning)
 };
 #endif //CONFIG
 

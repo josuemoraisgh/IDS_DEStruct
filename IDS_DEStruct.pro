@@ -72,6 +72,7 @@ SOURCES += \
     threading/thread_worker.cpp \
     core/chromosome_service.cpp \
     core/evolution_engine.cpp \
+    core/adaptive_tuning_engine.cpp \
     core/xvetor.cpp \
     core/xmatriz.cpp \
     io/data_service.cpp \
@@ -95,6 +96,9 @@ HEADERS += \
     core/linear_algebra.h \
     core/chromosome_service.h \
     core/evolution_engine.h \
+    core/adaptive_tuning_engine.h \
+    core/adaptive_state.h \
+    core/model_pruning_config.h \
     core/xtipodados.h \
     core/mtrand.h \
     core/xvetor.h \

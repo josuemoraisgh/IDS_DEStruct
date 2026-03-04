@@ -1,6 +1,7 @@
 #include "chromosome_service.h"
 #include "../threading/shared_state.h"
 #include "linear_algebra.h"
+#include "adaptive_state.h"
 #include <QTime>
 #include <QDebug>
 #include <algorithm>
@@ -117,6 +118,39 @@ ChromosomeService::ChromosomeService(SharedState *state)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// isOutputTerm — Verifica se um termo é autorregressivo (usa saída como regressor)
+///////////////////////////////////////////////////////////////////////////////
+bool ChromosomeService::isOutputTerm(quint32 var, qint32 idSaida) const
+{
+    // var é 1-indexed
+    // qtSaidas primeiras linhas são variáveis de saída (índices 0 a qtSaidas-1 na matriz)
+    // Então var 1 a qtSaidas correspondem a saídas
+    const qint32 qtSaidas = m_state->Adj.Dados.variaveis.qtSaidas;
+    return (var >= 1 && var <= static_cast<quint32>(qtSaidas));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// isOutputTermAllowed — Verifica se um termo de saída está permitido
+///////////////////////////////////////////////////////////////////////////////
+bool ChromosomeService::isOutputTermAllowed(quint32 var, quint32 atraso, qint32 idSaida) const
+{
+    // Se não é termo de saída, sempre é permitido
+    if (!isOutputTerm(var, idSaida))
+        return true;
+
+    // Se é termo de saída, precisa verificar se o atraso está permitido
+    const AdaptiveParameters params = m_state->Adj.adaptiveState.getParameters();
+    const qint32 maxLagAllowed = params.max_output_lag_allowed;
+
+    // Se maxLagAllowed = -1, nenhum lag de saída é permitido
+    if (maxLagAllowed < 0)
+        return false;
+
+    // Se maxLagAllowed >= 0, atrasos de 0 até maxLagAllowed são permitidos
+    return (static_cast<qint32>(atraso) <= maxLagAllowed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// qSortPop — EXATAMENTE igual ao original
 ///////////////////////////////////////////////////////////////////////////////
 void ChromosomeService::qSortPop(qint32 *start, qint32 *end, qint32 idSaida) const
@@ -194,6 +228,16 @@ Cromossomo ChromosomeService::createRandom(qint32 idSaida) const
         while (tamRegress >= 0) {
             vlrTermo.vTermo.tTermo1.var = RG.randInt(1, numVariaveis);
             vlrTermo.vTermo.tTermo1.atraso = RG.randInt(1, vlrMaxAtras);
+            
+            // ===== CONTROLE PROGRESSIVO DE TERMOS DE SAÍDA =====
+            // Se o termo não é permitido, rejeitá-lo sem adicioná-lo
+            if (!isOutputTermAllowed(vlrTermo.vTermo.tTermo1.var,
+                                     vlrTermo.vTermo.tTermo1.atraso,
+                                     idSaida)) {
+                tamRegress--;
+                continue;
+            }
+            
             if ((qint32)vlrTermo.vTermo.tTermo1.atraso > cr.maiorAtraso)
                 cr.maiorAtraso = vlrTermo.vTermo.tTermo1.atraso;
             vlrTermo.expoente = (qreal)RG.randInt(1, 10);
@@ -723,9 +767,15 @@ Cromossomo ChromosomeService::generateTrial(const Cromossomo &target,
             currentGroup.clear();
             currentIdReg = thisIdReg;
         }
-        currentGroup.append(trialTermos.at(i));
-        if ((qint32)trialTermos.at(i).vTermo.tTermo1.atraso > trial.maiorAtraso)
-            trial.maiorAtraso = trialTermos.at(i).vTermo.tTermo1.atraso;
+        
+        // ===== CONTROLE PROGRESSIVO: Rejeita termos de saída não permitidos =====
+        if (isOutputTermAllowed(trialTermos.at(i).vTermo.tTermo1.var,
+                               trialTermos.at(i).vTermo.tTermo1.atraso,
+                               trial.idSaida)) {
+            currentGroup.append(trialTermos.at(i));
+            if ((qint32)trialTermos.at(i).vTermo.tTermo1.atraso > trial.maiorAtraso)
+                trial.maiorAtraso = trialTermos.at(i).vTermo.tTermo1.atraso;
+        }
     }
     if (!currentGroup.isEmpty()) {
         for (j = 1; j < currentGroup.size(); j++)
@@ -751,11 +801,19 @@ Cromossomo ChromosomeService::generateTrial(const Cromossomo &target,
     qint32 totalTerms = 0;
     for (qint32 rr = 0; rr < trial.regress.size(); ++rr)
         totalTerms += trial.regress.at(rr).size();
+    
     if (m_state->Adj.iteracoes >= ModelPruningConfig::kPruningStartCycle
-        && totalTerms > ModelPruningConfig::kMinTermsToEnablePruning)
-        probabilisticTermPruning(trial,
-                                 ModelPruningConfig::kDefaultImportanceThreshold,
-                                 ModelPruningConfig::kTrialRemovalRate);
+        && totalTerms > ModelPruningConfig::kMinTermsToEnablePruning) {
+        
+        // Obter parâmetros adaptativos (com fallback para constantes)
+        AdaptiveParameters params = m_state->Adj.adaptiveState.getParameters();
+        qreal threshold = params.pruning_threshold > 0 ? params.pruning_threshold 
+                                                      : ModelPruningConfig::kDefaultImportanceThreshold;
+        qreal removal_rate = params.trial_removal_rate > 0 ? params.trial_removal_rate 
+                                                           : ModelPruningConfig::kTrialRemovalRate;
+        
+        probabilisticTermPruning(trial, threshold, removal_rate);
+    }
 
     const qint32 size1 = trial.regress.size();
     if (size1) {

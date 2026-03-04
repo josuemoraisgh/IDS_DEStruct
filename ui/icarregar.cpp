@@ -67,11 +67,11 @@ void ICarregar::slot_UL_ChangeCombo(int indexVar)
 {
     if((indexVar< m_state->Adj.Dados.variaveis.qtSaidas)&&(m_state->Adj.decimacao.size()>indexVar))
         m_state->Adj.decimacao[indexVar] = qMax<qint32>(1, dmmLineEditDECI->text().toInt());
-    m_state->Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
-    m_state->Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
+    m_state->Adj.Dados.variaveis.Vmean.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
+    m_state->Adj.Dados.variaveis.Vstd.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=indexVar;
-    dmmLineEditMax->setText(QString::number(m_state->Adj.Dados.variaveis.Vmaior.at(UL_IndexVar)));
-    dmmLineEditMin->setText(QString::number(m_state->Adj.Dados.variaveis.Vmenor.at(UL_IndexVar)));
+    dmmLineEditMax->setText(QString::number(m_state->Adj.Dados.variaveis.Vmean.at(UL_IndexVar)));
+    dmmLineEditMin->setText(QString::number(m_state->Adj.Dados.variaveis.Vstd.at(UL_IndexVar)));
     if((UL_IndexVar< m_state->Adj.Dados.variaveis.qtSaidas)&&(m_state->Adj.decimacao.size()>UL_IndexVar))
     {
         dmmgb->setEnabled(true);
@@ -100,8 +100,8 @@ void ICarregar::slot_UL_ChangeFim(int)
 {
     if((UL_IndexVar<m_state->Adj.Dados.variaveis.qtSaidas)&&(m_state->Adj.decimacao.size()>UL_IndexVar))
         m_state->Adj.decimacao[UL_IndexVar] = qMax<qint32>(1, dmmLineEditDECI->text().toInt());
-    m_state->Adj.Dados.variaveis.Vmaior.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
-    m_state->Adj.Dados.variaveis.Vmenor.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
+    m_state->Adj.Dados.variaveis.Vmean.replace(UL_IndexVar,dmmLineEditMax->text().toDouble());
+    m_state->Adj.Dados.variaveis.Vstd.replace(UL_IndexVar,dmmLineEditMin->text().toDouble());
     UL_IndexVar=0;
     //Manda normalizar os dados
     emit signal_UL_Estado(5);//Manda o comando multi-thread para normalizar
@@ -223,8 +223,8 @@ void ICarregar::slot_UL_Status(const quint16 &std)
                 dmmComboBox->addItem(m_state->Adj.Dados.variaveis.nome.at(i));
                 //dmmComboBox1->addItem(m_state->Adj.Dados.variaveis.nome.at(i));
             }
-            dmmLineEditMax->setText(QString::number(m_state->Adj.Dados.variaveis.Vmaior.at(0)));
-            dmmLineEditMin->setText(QString::number(m_state->Adj.Dados.variaveis.Vmenor.at(0)));
+            dmmLineEditMax->setText(QString::number(m_state->Adj.Dados.variaveis.Vmean.at(0)));
+            dmmLineEditMin->setText(QString::number(m_state->Adj.Dados.variaveis.Vstd.at(0)));
             dialogMaxMin->show();
             LVStBar->setText(QObject::tr("Normalizando e truncando os Dados..."));
             DIC_pb->setValue(4);

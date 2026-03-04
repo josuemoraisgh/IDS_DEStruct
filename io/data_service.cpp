@@ -20,14 +20,11 @@ static constexpr double kPi = 3.14159265358979323846;
 static constexpr double kEps = 1e-12;
 
 ///////////////////////////////////////////////////////////////////////////////
-static qreal normalizeTo01(const qreal value, const qreal vmin, const qreal vmax)
+// Padronização z-score: z = (x - μ) / σ
+static qreal standardizeZScore(const qreal value, const qreal vmean, const qreal vstd)
 {
-    return (QString("%1").arg(
-        value >= vmin
-            ? value <= vmax
-                ? 0.99 * ((value - vmin) / (vmax - vmin)) + 0.01
-                : 1
-            : 0.01)).toDouble();
+    if (vstd < 1e-12) return 0.0; // Evitar divisão por zero
+    return (value - vmean) / vstd;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -266,9 +263,9 @@ static void normalizeDecimationCache(SharedState *state)
 
         for (qint32 col = 0; col < cache.numColunas(); ++col) {
             for (qint32 row = 0; row < cache.numLinhas(); ++row) {
-                const qreal vmin = state->Adj.Dados.variaveis.Vmenor.at(row);
-                const qreal vmax = state->Adj.Dados.variaveis.Vmaior.at(row);
-                cache(row, col) = normalizeTo01(cache.at(row, col), vmin, vmax);
+                const qreal vmean = state->Adj.Dados.variaveis.Vmean.at(row);
+                const qreal vstd = state->Adj.Dados.variaveis.Vstd.at(row);
+                cache(row, col) = standardizeZScore(cache.at(row, col), vmean, vstd);
             }
         }
     }
@@ -296,11 +293,12 @@ void DataService::loadData()
     QList<QString> nome;
     QString str;
     QList<qreal> posPonto,
-        Vmaior,
-        Vmenor,
+        Vsum,        // Soma para calcular média
+        Vsum2,       // Soma dos quadrados para calcular desvio padrão
+        Vcount,      // Contador de amostras
         mediaY  = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList(),
         mediaY2 = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList();
-    QVector<qreal> Max1, Min1;
+    QVector<qreal> Mean1, Std1;
     ////////////////////////////////////////////////////////////////////////////
     QStringList strList, lineList;
     QByteArray line, lineMeio, lineDepois;
@@ -308,8 +306,8 @@ void DataService::loadData()
     qint64 posicaoIni, posicaoFinal;
     ////////////////////////////////////////////////////////////////////////////
     if (!m_state->isCarregar) {
-        Max1 = m_state->Adj.Dados.variaveis.Vmaior.toVector();
-        Min1 = m_state->Adj.Dados.variaveis.Vmenor.toVector();
+        Mean1 = m_state->Adj.Dados.variaveis.Vmean.toVector();
+        Std1 = m_state->Adj.Dados.variaveis.Vstd.toVector();
     }
     ////////////////////////////////////////////////////////////////////////////
     // Apenas uma thread inicializa tamanho do vetor dos dados e do arquivo.
@@ -326,8 +324,8 @@ void DataService::loadData()
         }
         m_state->dadosFiltradosPorSaida.clear();
         m_state->dadosFiltradosDecimacao.clear();
-        m_state->Adj.Dados.variaveis.Vmaior.clear();
-        m_state->Adj.Dados.variaveis.Vmenor.clear();
+        m_state->Adj.Dados.variaveis.Vmean.clear();
+        m_state->Adj.Dados.variaveis.Vstd.clear();
         m_state->mediaY  = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList();
         m_state->mediaY2 = QVector<qreal>(m_state->Adj.Dados.variaveis.qtSaidas, 0.0f).toList();
         if (file.open(QFile::ReadOnly)) {
@@ -419,14 +417,16 @@ void DataService::loadData()
                                     mediaY[j] += posPonto.last();
                                     mediaY2[j] += posPonto.last() * posPonto.last();
                                 }
-                                if (!m_state->Adj.Dados.variaveis.Vmaior.size()) {
+                                if (!m_state->Adj.Dados.variaveis.Vmean.size()) {
                                     if (!isOkIni) {
-                                        Vmaior.append(posPonto.last());
-                                        Vmenor.append(posPonto.last());
-                                        isOkIni = (Vmaior.size() >= nlinha);
+                                        Vsum.append(posPonto.last());
+                                        Vsum2.append(posPonto.last() * posPonto.last());
+                                        Vcount.append(1.0);
+                                        isOkIni = (Vsum.size() >= nlinha);
                                     } else {
-                                        if (Vmaior.at(j) < posPonto.last()) Vmaior.replace(j, posPonto.last());
-                                        if (Vmenor.at(j) > posPonto.last()) Vmenor.replace(j, posPonto.last());
+                                        Vsum[j] += posPonto.last();
+                                        Vsum2[j] += posPonto.last() * posPonto.last();
+                                        Vcount[j] += 1.0;
                                     }
                                 } else if (!isNormalizado)
                                     isNormalizado = true;
@@ -437,16 +437,16 @@ void DataService::loadData()
                                 QRegularExpression rx("\\(([-+]?\\d*\\.?\\d*[eE]?[-+]?\\d*)\\,([-+]?\\d*\\.?\\d*[eE]?[-+]?\\d*),([-+]?\\d*)\\)");
                                 QRegularExpressionMatch match = rx.match(str);
                                 if (match.hasMatch()) {
-                                    m_state->Adj.Dados.variaveis.Vmaior.append(match.captured(1).toDouble());
-                                    m_state->Adj.Dados.variaveis.Vmenor.append(match.captured(2).toDouble());
+                                    m_state->Adj.Dados.variaveis.Vmean.append(match.captured(1).toDouble());
+                                    m_state->Adj.Dados.variaveis.Vstd.append(match.captured(2).toDouble());
                                     m_state->Adj.decimacao.append(match.captured(3).toInt());
                                     str.replace(rx, "");
                                 } else {
                                     QRegularExpression rx2("\\(([-+]?\\d*\\.?\\d*[eE]?[-+]?\\d*)\\,([-+]?\\d*\\.?\\d*[eE]?[-+]?\\d*)\\)");
                                     match = rx2.match(str);
                                     if (match.hasMatch()) {
-                                        m_state->Adj.Dados.variaveis.Vmaior.append(match.captured(1).toDouble());
-                                        m_state->Adj.Dados.variaveis.Vmenor.append(match.captured(2).toDouble());
+                                        m_state->Adj.Dados.variaveis.Vmean.append(match.captured(1).toDouble());
+                                        m_state->Adj.Dados.variaveis.Vstd.append(match.captured(2).toDouble());
                                         str.replace(rx2, "");
                                     }
                                 }
@@ -494,17 +494,22 @@ void DataService::loadData()
             }
             posPonto.clear();
             m_state->index[0]++;
-            if (!Vmaior.empty() && !isNormalizado) {
-                if (m_state->Adj.Dados.variaveis.Vmaior.isEmpty()) {
-                    m_state->Adj.Dados.variaveis.Vmaior.append(Vmaior);
-                    m_state->Adj.Dados.variaveis.Vmenor.append(Vmenor);
-                } else
-                    for (j = 0; j < nlinha; j++) {
-                        if (m_state->Adj.Dados.variaveis.Vmaior.at(j) < Vmaior.at(j))
-                            m_state->Adj.Dados.variaveis.Vmaior.replace(j, Vmaior.at(j));
-                        if (m_state->Adj.Dados.variaveis.Vmenor.at(j) > Vmenor.at(j))
-                            m_state->Adj.Dados.variaveis.Vmenor.replace(j, Vmenor.at(j));
+            if (!Vsum.empty() && !isNormalizado) {
+                if (m_state->Adj.Dados.variaveis.Vmean.isEmpty()) {
+                    // Inicializa listas com valores calculados acumulados
+                    for (j = 0; j < Vsum.size(); ++j) {
+                        m_state->Adj.Dados.variaveis.Vmean.append(Vsum.at(j));
+                        m_state->Adj.Dados.variaveis.Vstd.append(Vsum2.at(j));
                     }
+                    m_state->Vcount = Vcount.toVector();
+                } else {
+                    // Atualiza somas acumuladas
+                    for (j = 0; j < Vsum.size(); ++j) {
+                        m_state->Adj.Dados.variaveis.Vmean[j] += Vsum.at(j);
+                        m_state->Adj.Dados.variaveis.Vstd[j] += Vsum2.at(j);
+                        m_state->Vcount[j] += Vcount.at(j);
+                    }
+                }
             }
             if (!nome.empty() && (m_state->isCarregar || m_state->Adj.Dados.variaveis.nome.isEmpty()))
                 m_state->Adj.Dados.variaveis.nome.append(nome);
@@ -528,6 +533,24 @@ void DataService::loadData()
         m_state->index[0] = 0;
         //////////////////////////////////////////////////////////////
         if (!isNormalizado) {
+            // Finaliza cálculo de média e desvio padrão a partir das somas acumuladas
+            if (!m_state->Vcount.isEmpty()) {
+                for (j = 0; j < m_state->Adj.Dados.variaveis.Vmean.size(); ++j) {
+                    const qreal count = m_state->Vcount.at(j);
+                    if (count > 0) {
+                        const qreal sum = m_state->Adj.Dados.variaveis.Vmean.at(j);
+                        const qreal sum2 = m_state->Adj.Dados.variaveis.Vstd.at(j);
+                        const qreal mean = sum / count;
+                        const qreal variance = (sum2 / count) - (mean * mean);
+                        const qreal std = std::sqrt(std::max(0.0, variance));
+                        
+                        m_state->Adj.Dados.variaveis.Vmean[j] = mean;
+                        m_state->Adj.Dados.variaveis.Vstd[j] = std;
+                    }
+                }
+                m_state->Vcount.clear(); // Limpa contador tempor\u00e1rio
+            }
+            
             // Calcula a Decimacao (auto D) e define como padrao inicial.
             m_state->Adj.decimacao.clear();
             m_state->Adj.talDecim.clear();
@@ -575,17 +598,17 @@ void DataService::normalizeData()
     }
     m_state->mutex.unlock();
     ////////////////////////////////////////////////////////////////////////////
-    // Normalizando os dados (0 a 1).
+    // Padronizando os dados (z-score).
     forever {
         m_state->lock_index[0].lockForWrite();
         index = m_state->index[0]++;
         m_state->lock_index[0].unlock();
         if (index < ncoluna) {
             for (j = 0; j < nlinha; j++) {
-                const qreal vmin = m_state->Adj.Dados.variaveis.Vmenor.at(j);
-                const qreal vmax = m_state->Adj.Dados.variaveis.Vmaior.at(j);
+                const qreal vmean = m_state->Adj.Dados.variaveis.Vmean.at(j);
+                const qreal vstd = m_state->Adj.Dados.variaveis.Vstd.at(j);
                 m_state->Adj.Dados.variaveis.valores(j, index) =
-                    normalizeTo01(m_state->Adj.Dados.variaveis.valores.at(j, index), vmin, vmax);
+                    standardizeZScore(m_state->Adj.Dados.variaveis.valores.at(j, index), vmean, vstd);
             }
         } else break;
     }
